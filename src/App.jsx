@@ -3,57 +3,156 @@ import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
 
-function App() {
-  const [count, setCount] = useState(0)
-  const [backendStatus, setBackendStatus] = useState('Checking backend...')
-  const [serverTime, setServerTime] = useState(null)
+// Placeholder Menu Data
+const MENU_ITEMS = [
+  {
+    id: 'dashboard',
+    label: 'Dashboard',
+    icon: '📊',
+    submenu: []
+  },
+  {
+    id: 'employees',
+    label: 'Employees',
+    icon: '👥',
+    submenu: [
+      { id: 'all-emp', label: 'All Employees' },
+      { id: 'add-emp', label: 'Add New' },
+      { id: 'teams', label: 'Teams' }
+    ]
+  },
+  {
+    id: 'analytics',
+    label: 'Analytics',
+    icon: '📈',
+    submenu: [
+      { id: 'reports', label: 'Reports' },
+      { id: 'kpi', label: 'KPIs' },
+      { id: 'export', label: 'Export Data' }
+    ]
+  },
+  {
+    id: 'settings',
+    label: 'Settings',
+    icon: '⚙️',
+    submenu: [
+      { id: 'profile', label: 'Profile' },
+      { id: 'security', label: 'Security' }
+    ]
+  }
+]
 
+function App() {
+  const [theme, setTheme] = useState('light')
+  const [activeMenu, setActiveMenu] = useState(null)
+  const [backendStatus, setBackendStatus] = useState('Checking backend...')
+
+  // Initialize Theme
   useEffect(() => {
-    // Note: This fetch will fail in pure npm run dev unless proxied or running dist on Apache
-    // For dev, we might mock this or set a proxy
+    const savedTheme = localStorage.getItem('theme') || 'light'
+    setTheme(savedTheme)
+    document.documentElement.className = savedTheme
+  }, [])
+
+  // Toggle Theme
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light'
+    setTheme(newTheme)
+    localStorage.setItem('theme', newTheme)
+    document.documentElement.className = newTheme
+  }
+
+  // Backend Check
+  useEffect(() => {
     fetch('./api/auth.php')
-      .then(res => {
-        if (!res.ok) throw new Error('API fetch failed')
-        return res.json()
-      })
-      .then(data => {
-        setBackendStatus(data.message || 'Connected')
-        setServerTime(data.server_time)
-      })
-      .catch(err => {
-        console.error(err)
-        setBackendStatus('Backend API not reachable (Are you running on Apache/PHP?)')
-      })
+      .then(res => res.json())
+      .then(data => setBackendStatus(data.message || 'Connected'))
+      .catch(() => setBackendStatus('Backend Offline'))
   }, [])
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React + PHP</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-        <div style={{ marginTop: '20px', padding: '10px', border: '1px solid #ddd' }}>
-          <h3>Backend Status:</h3>
-          <p>{backendStatus}</p>
-          {serverTime && <p>Server Time: {serverTime}</p>}
+    <div className={`app-container ${theme}`}>
+
+      {/* SIDEBAR */}
+      <aside className="sidebar">
+
+        {/* LOGO SECTION */}
+        <div className="logo-section" onClick={() => window.location.reload()}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+            <img src={viteLogo} alt="Logo" width="40" />
+            <span style={{ fontWeight: 'bold', fontSize: '1.2em' }}>Workforce</span>
+          </div>
         </div>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+
+        {/* MENU LIST */}
+        <div className="menu-list" style={{ marginTop: '20px' }}>
+          {MENU_ITEMS.map((item) => (
+            <div
+              key={item.id}
+              className="menu-item"
+              onMouseEnter={() => setActiveMenu(item.id)}
+              onMouseLeave={() => setActiveMenu(null)}
+            >
+              <div className="menu-item-header">
+                <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {item.icon} {item.label}
+                </span>
+                {item.submenu.length > 0 && <span style={{ fontSize: '0.8em', opacity: 0.6 }}>▼</span>}
+              </div>
+
+              {/* SUBMENU (Rendered if items exist) */}
+              {item.submenu.length > 0 && (
+                <div
+                  className="submenu"
+                  style={{ display: activeMenu === item.id ? 'block' : 'none' }}
+                >
+                  {item.submenu.map(sub => (
+                    <div key={sub.id} className="submenu-item">
+                      {sub.label}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* CONFIG / THEME TOGGLE */}
+        <div className="config-section">
+          <div className="theme-toggle" onClick={toggleTheme}>
+            <span>Mode: {theme === 'light' ? 'Light ☀️' : 'Dark 🌙'}</span>
+          </div>
+          <div style={{ marginTop: '10px', fontSize: '0.8em', color: '#888', textAlign: 'center' }}>
+            API: {backendStatus}
+          </div>
+        </div>
+
+      </aside>
+
+      {/* MAIN CONTENT */}
+      <main className="main-content">
+        <header style={{ marginBottom: '2rem' }}>
+          <h1>Welcome to Workforce Platform</h1>
+          <p>Select an item from the sidebar to get started.</p>
+        </header>
+
+        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+          <div className="card" style={{ padding: '20px', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+            <h3>Recent Activity</h3>
+            <p>No recent updates.</p>
+          </div>
+          <div className="card" style={{ padding: '20px', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+            <h3>Quick Stats</h3>
+            <p>Users: 0</p>
+          </div>
+          <div className="card" style={{ padding: '20px', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+            <h3>System Status</h3>
+            <p>All systems operational.</p>
+          </div>
+        </section>
+
+      </main>
+    </div>
   )
 }
 
