@@ -1,0 +1,12 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # Don't hardcode RewriteBase. Let it detect the current folder.
+  
+  # Allow access to existing files (API, assets, images)
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Route everything else to index.html
+  RewriteRule ^ index.html [L]
+</IfModule>
