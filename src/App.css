@@ -51,8 +51,8 @@ body {
 
 /* Sidebar Styles */
 .sidebar {
-  width: 250px;
-  /* Specific width */
+  width: 70px;
+  /* Collapsed width */
   height: 100vh;
   position: fixed;
   top: 0;
@@ -61,11 +61,15 @@ body {
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  /* Stack children vertically */
   z-index: 1000;
-  overflow-y: auto;
-  /* Allow scrolling if menu is too long, but usually fixed */
-  transition: background-color 0.3s;
+  overflow: hidden;
+  /* Hide content when collapsed */
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar:hover {
+  width: 250px;
+  /* Expanded width */
 }
 
 .logo-section {
@@ -93,14 +97,18 @@ body {
 }
 
 .menu-item-header {
-  padding: 15px 20px;
+  padding: 15px 23px;
+  /* Adjusted for icon centering */
   cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 15px;
+  /* Gap between icon and label */
   font-weight: 500;
   color: var(--sidebar-text);
   transition: background-color 0.2s, color 0.2s;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .menu-item-header:hover {
@@ -131,6 +139,7 @@ body {
   cursor: pointer;
   color: var(--sidebar-text);
   opacity: 0.9;
+  white-space: nowrap;
 }
 
 .submenu-item:hover {
@@ -139,10 +148,35 @@ body {
 }
 
 .config-section {
-  padding: 20px;
+  padding: 20px 15px;
   border-top: 1px solid var(--border-color);
   margin-top: auto;
-  /* Pushes to bottom */
+}
+
+/* Sidebar labels visibility logic */
+.sidebar .sidebar-label,
+.sidebar .submenu {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.sidebar:hover .sidebar-label,
+.sidebar:hover .submenu {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.menu-icon {
+  font-size: 1.4em;
+  min-width: 24px;
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.submenu-arrow {
+  margin-left: auto;
 }
 
 .theme-toggle {
@@ -162,18 +196,108 @@ body {
 
 /* Main Content Area */
 .main-content {
-  margin-left: 250px;
-  /* Match sidebar width */
-  padding: 2rem;
-  width: calc(100% - 250px);
+  margin-left: 70px;
+  /* Match collapsed sidebar width */
+  padding: 0;
+  /* Dashboard handles its own padding */
+  width: calc(100% - 70px);
   background-color: var(--bg-color);
   color: var(--text-color);
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   box-sizing: border-box;
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
 }
+
+.sidebar:hover+.main-content {
+  margin-left: 250px;
+  width: calc(100% - 250px);
+}
+
+/* Note: Using + selector assumes sidebar is right before main in HTML */
 
 /* Card Styling */
 .card {
   background-color: var(--card-bg);
   transition: background-color 0.3s;
+}
+
+/* SYNC TOAST NOTIFICATION STYLES */
+.sync-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  max-width: 380px;
+  animation: toastSlideIn 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+@keyframes toastSlideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.toast-content {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  border-left: 6px solid #4a5568;
+  position: relative;
+}
+
+[data-theme='dark'] .toast-content {
+  background: #2d3748;
+  color: white;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+}
+
+.sync-toast.success .toast-content {
+  border-left-color: #48bb78;
+}
+
+.sync-toast.error .toast-content {
+  border-left-color: #f56565;
+}
+
+.toast-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-right: 20px;
+}
+
+.toast-icon {
+  font-size: 1.25rem;
+}
+
+.toast-header strong {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.toast-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  cursor: pointer;
+  line-height: 1;
+  opacity: 0.4;
+  color: inherit;
+  transition: opacity 0.2s;
+}
+
+.toast-close:hover {
+  opacity: 1;
+}
+
+.toast-details {
+  margin: 6px 0 0 36px;
+  font-size: 0.85rem;
+  opacity: 0.8;
+  line-height: 1.5;
 }

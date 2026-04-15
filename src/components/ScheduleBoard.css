@@ -1,0 +1,310 @@
+.schedule-board-container {
+    padding: 24px;
+    background: var(--bg-color);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.board-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    gap: 20px;
+}
+
+.title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.board-header h1 {
+    margin: 0;
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--text-color);
+    letter-spacing: -0.5px;
+}
+
+.badge {
+    background: var(--accent-color);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.week-range-label {
+    margin-top: 6px;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.header-controls {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.search-box {
+    position: relative;
+    width: 280px;
+}
+
+.search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.5;
+}
+
+.search-box input {
+    width: 100%;
+    padding: 10px 12px 10px 38px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+}
+
+.search-box input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px rgba(100, 108, 255, 0.1);
+}
+
+.navigation-controls {
+    display: flex;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+}
+
+.nav-btn {
+    padding: 10px 16px;
+    background: none;
+    border: none;
+    color: var(--text-color);
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.nav-btn:hover {
+    background: var(--surface-alt);
+    color: var(--accent-color);
+}
+
+.nav-btn.today {
+    border-left: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+}
+
+/* Table Styles */
+.board-main-area {
+    flex: 1;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    background: var(--card-bg);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+    display: flex;
+}
+
+.table-outer-wrapper {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+}
+
+.schedule-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.schedule-table th {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--surface-alt);
+    padding: 16px;
+    text-align: center;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.sticky-col {
+    position: sticky;
+    left: 0;
+    z-index: 30 !important;
+    background: var(--card-bg) !important;
+    border-right: 2px solid var(--border-color);
+    text-align: left !important;
+    width: 250px;
+    min-width: 250px;
+}
+
+.emp-header-cell {
+    top: 0;
+    z-index: 40 !important;
+    background: var(--surface-alt) !important;
+}
+
+.day-header-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.day-name {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+.day-date {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--text-color);
+}
+
+.today-col-header {
+    background: rgba(100, 108, 255, 0.05) !important;
+}
+
+.today-col-header .day-date {
+    color: var(--accent-color);
+}
+
+.schedule-cell {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+    text-align: center;
+    height: 70px;
+    transition: background 0.2s;
+}
+
+.emp-cell {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.emp-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.emp-name-text {
+    font-weight: 700;
+    color: var(--text-color);
+    font-size: 0.95rem;
+}
+
+.emp-team-text {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.schedule-table tbody tr:hover {
+    background: rgba(0,0,0,0.01);
+}
+
+.schedule-table tbody tr:hover .sticky-col {
+    background: var(--surface-alt) !important;
+}
+
+.is-today-cell {
+    background: rgba(100, 108, 255, 0.02);
+}
+
+/* Shift Component */
+.shift-off {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--text-muted);
+    opacity: 0.3;
+}
+
+.shift-card {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 6px 12px;
+    min-width: 100px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    transition: all 0.2s;
+}
+
+.dark .shift-card {
+    background: #2d3748;
+    border-color: #4a5568;
+}
+
+.shift-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(100, 108, 255, 0.15);
+    border-color: var(--accent-color);
+}
+
+.shift-time {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-color);
+    white-space: nowrap;
+}
+
+.shift-separator {
+    font-size: 0.7rem;
+    opacity: 0.3;
+    line-height: 1;
+    margin: 2px 0;
+}
+
+/* State Handlers */
+.loading-state, .error-state, .empty-state {
+    padding: 80px 0 !important;
+    text-align: center;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid rgba(100, 108, 255, 0.1);
+    border-top-color: var(--accent-color);
+    border-radius: 50%;
+    margin: 0 auto 16px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}

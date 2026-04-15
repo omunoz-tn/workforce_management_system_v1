@@ -8,11 +8,12 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "dev:php": "\"C:/xampp/php/php.exe\" -S localhost:8000 -t public"
+    "dev:php": "php -S localhost:8000 -t public"
   },
   "dependencies": {
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "recharts": "^3.7.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

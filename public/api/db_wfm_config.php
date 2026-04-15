@@ -1,8 +1,5 @@
 <?php
-// Secure database configuration
-// In production, this should ideally be outside the web root or set via ENV variables.
-// For this portable setup, we use a PHP file that returns the connection but is protected by .htaccess
-
+// Database configuration for wfm_platform
 // Load .env file
 $envFile = dirname(__DIR__, 2) . '/.env';
 $env = [];
@@ -17,7 +14,7 @@ if (file_exists($envFile)) {
 }
 
 $host = $env['DB_HOST'] ?? 'localhost';
-$dbname = 'workforce_db'; // This one is usually the local one for auth
+$dbname = $env['DB_NAME'] ?? 'wfm_platform';
 $username = $env['DB_USER'] ?? 'root';
 $password = $env['DB_PASS'] ?? '';
 

@@ -1,4 +1,4 @@
-# Logs
+# Logs and Debug
 logs
 *.log
 npm-debug.log*
@@ -6,11 +6,25 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+public/api/debug_log.txt
+public/api/cron_log.txt
+api_response.json
+sync_output.json
+employees_columns.json
 
+# Dependencies and Build
 node_modules
 dist
 dist-ssr
 *.local
+tmp/
+
+# Secrets (DO NOT UPLOAD TO GITHUB)
+.env
+
+# Deployment Artifacts
+*.tar
+*.b64
 
 # Editor directories and files
 .vscode/*

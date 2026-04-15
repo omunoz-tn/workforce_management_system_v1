@@ -1,0 +1,187 @@
+.roster-container {
+  padding: 24px;
+  background: var(--card-bg, #ffffff);
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  min-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+}
+
+.roster-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.header-title h1 {
+  margin: 0;
+  font-size: 1.8rem;
+  color: var(--text-color, #1a202c);
+}
+
+.subtitle {
+  margin: 4px 0 0 0;
+  color: var(--text-muted, #718096);
+  font-size: 0.95rem;
+}
+
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted, #a0aec0);
+}
+
+.search-input {
+  padding: 10px 12px 10px 38px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  width: 280px;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--primary-color, #646cff);
+  box-shadow: 0 0 0 3px rgba(100, 108, 255, 0.1);
+}
+
+.error-banner {
+  background: #fff5f5;
+  color: #c53030;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  border: 1px solid #feb2b2;
+}
+
+.table-responsive {
+  flex-grow: 1;
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.roster-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.roster-table th {
+  padding: 14px 16px;
+  background: var(--surface-alt, #f7fafc);
+  font-weight: 600;
+  color: var(--text-color, #2d3748);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid var(--border-color, #e2e8f0);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+}
+
+.roster-table th:hover {
+  background: #edf2f7;
+}
+
+.roster-table th.active {
+  color: var(--primary-color, #646cff);
+}
+
+.roster-table td {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  font-size: 0.95rem;
+  color: var(--text-color, #4a5568);
+}
+
+.emp-name {
+  font-weight: 600;
+  color: var(--text-color, #1a202c);
+}
+
+.team-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.team-badge.desktime {
+  background: #ebf8ff;
+  color: #2b6cb0;
+}
+
+.team-badge.hierarchy {
+  background: #f0fff4;
+  color: #2f855a;
+}
+
+.team-badge.unassigned {
+  background: #edf2f7;
+  color: #718096;
+  font-style: italic;
+  font-weight: normal;
+}
+
+.no-data {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-muted, #718096);
+  font-style: italic;
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+}
+
+.pagination-info {
+  font-size: 0.9rem;
+  color: var(--text-muted, #718096);
+}
+
+.pagination-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pagination-actions button {
+  padding: 8px 16px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.pagination-actions button:hover:not(:disabled) {
+  background: #f7fafc;
+  border-color: #cbd5e0;
+}
+
+.pagination-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.current-page {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-color, #2d3748);
+}

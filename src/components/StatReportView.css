@@ -1,0 +1,446 @@
+.stat-report-container {
+    padding: 12px 16px;
+    background: var(--bg-color);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+}
+
+.report-summary-grid {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+    .report-summary-grid {
+        flex-direction: column;
+    }
+    .metric-card {
+        width: 100% !important;
+    }
+}
+
+.report-summary-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    min-height: 120px;
+}
+
+.metric-card {
+    width: 350px;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    justify-content: center;
+}
+
+.metric-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    border-color: var(--accent-color);
+}
+
+.hero-content h2 {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.hero-value {
+    font-size: 2.5rem;
+    font-weight: 800;
+    line-height: 1.2;
+    margin: 4px 0;
+}
+
+.hero-progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--surface-alt);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 8px 0;
+}
+
+.hero-progress-bar .fill {
+    height: 100%;
+    transition: width 0.6s ease-out;
+}
+
+.hero-subtitle {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.report-section {
+    margin-top: 8px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.report-section h3 {
+    margin-bottom: 20px;
+    font-size: 1.5rem;
+    color: #2d3748;
+}
+
+.online-stat {
+    color: #38a169;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.table-metric {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.table-metric span {
+    font-weight: 600;
+    min-width: 50px;
+}
+
+.mini-progress {
+    flex: 1;
+    height: 6px;
+    background: #edf2f7;
+    border-radius: 3px;
+    overflow: hidden;
+    max-width: 150px;
+}
+
+.mini-progress .fill {
+    height: 100%;
+    background: #4299e1;
+}
+
+/* Dark mode adjustments */
+.dark .report-hero-card {
+    background: #2d3748;
+}
+
+.dark .hero-subtitle {
+    color: #a0aec0;
+}
+
+.dark .report-section h3 {
+    color: #e2e8f0;
+}
+
+/* Team Filter Styles */
+.report-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 24px;
+}
+
+.report-header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: var(--text-color);
+    line-height: 1;
+}
+
+.section-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.section-header-row h3 {
+    margin: 0;
+}
+
+.back-btn {
+    padding: 8px 16px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--text-color);
+    transition: all 0.2s;
+}
+
+.back-btn:hover {
+    background: var(--surface-alt);
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+.report-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.team-filter-dropdown {
+    position: relative;
+}
+
+.filter-trigger {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-color);
+    transition: all 0.2s;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+.filter-trigger:hover {
+    border-color: var(--accent-color);
+    background: var(--surface-alt);
+}
+
+.filter-trigger.has-active {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+    background: rgba(100, 108, 255, 0.05);
+}
+
+.filter-icon {
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+.arrow {
+    font-size: 0.7rem;
+    opacity: 0.5;
+    margin-left: 4px;
+}
+
+.dropdown-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 99;
+}
+
+.dropdown-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 250px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+    z-index: 100;
+    overflow: hidden;
+    animation: fadeInScale 0.2s ease-out;
+}
+
+@keyframes fadeInScale {
+    from { opacity: 0; transform: scale(0.95) translateY(-10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.dropdown-header {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--surface-alt);
+}
+
+.dropdown-header button {
+    flex: 1;
+    padding: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.dropdown-header button:hover {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+.team-options {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 8px 0;
+}
+
+.team-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.team-option:hover {
+    background: var(--surface-alt);
+}
+
+.team-option input {
+    cursor: pointer;
+}
+
+.team-option span {
+    font-size: 0.85rem;
+    color: var(--text-color);
+}
+
+/* Custom Checkbox Style */
+.team-option input[type="checkbox"] {
+    accent-color: var(--accent-color);
+    width: 16px;
+    height: 16px;
+}
+
+.report-table-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--card-bg);
+    margin-top: 10px;
+}
+
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.report-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--surface-alt);
+    border-bottom: 2px solid var(--border-color);
+    text-align: left;
+    padding: 12px 16px;
+    font-size: 0.85rem;
+    color: #4a5568;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.report-table tbody td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.95rem;
+}
+
+.dark .report-table thead th {
+    background: #1a202c;
+}
+
+.dark .report-table tbody td {
+    color: #e2e8f0;
+}
+
+/* Dark mode adjustments */
+.dark .dropdown-menu {
+    background: #2d3748;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+}
+
+.dark .dropdown-header {
+    background: #1a202c;
+}
+
+
+.clickable-row {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.clickable-row:hover {
+    background-color: rgba(66, 153, 225, 0.05);
+}
+
+.dark .clickable-row:hover {
+    background-color: rgba(99, 179, 237, 0.1);
+}
+
+.team-link-btn {
+    background: none;
+    border: none;
+    color: var(--accent-color);
+    font-weight: 600;
+    padding: 0;
+    font-size: inherit;
+    text-align: left;
+    transition: all 0.2s;
+}
+
+.team-link-btn:hover {
+    text-decoration: underline;
+    opacity: 0.8;
+}
+
+.dark .team-link-btn {
+    color: #63b3ed;
+}
+
+/* Absenteeism specialized styles */
+.trend-card {
+    padding: 16px;
+}
+
+.trend-card {
+    padding-right: 0 !important;
+    overflow: hidden;
+    margin-bottom: 16px;
+}
+
+.trend-card.full-width {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.trend-card h3 {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin: 0 0 12px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    padding-right: 16px; /* Re-add padding for title only */
+}
+
+.trend-chart-container {
+    height: 160px; /* Increased from 120px for better vertical resolution */
+    width: 100%;
+}
+

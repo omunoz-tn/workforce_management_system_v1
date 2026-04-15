@@ -1,0 +1,61 @@
+Get employee data with projects
+
+This endpoint allows you to retrieve information about a single employee to return user tracking data, including tracked projects for a specific date.
+
+When you send a GET request to this endpoint with the employee ID and/or date parameter in the request URL, the server will respond with a JSON object containing the employee information, including info about the user, work settings, and any relevant tracking data, along with tracked projects.
+
+If no employee ID is included in the request URL, the server will return information for the user currently logged in.
+
+If no date parameter is included, it will return information for today's date.
+GET
+https://desktime.com/api/v2/json/employee/projects?apiKey={apiKey}&id={employeeId}&date={date}
+
+    apiKey: user api key (required)
+    id: employee ID (optional)
+    date: date [format: "Y-m-d"] (optional)
+
+Response example:
+
+{
+  "id": 1,
+  "name": "Jim Miller",
+  "email": "jimmiller@example.com",
+  "groupId": 0,
+  "group": "-",
+  "profileUrl": "https://desktime.com/app/employee/1/2025-10-01",
+  "isOnline": false,
+  "arrived": "2025-10-01 05:13:00",
+  "left": "2025-10-01 07:44:01",
+  "late": false,
+  "onlineTime": 8933,
+  "offlineTime": 0,
+  "desktimeTime": 8933,
+  "atWorkTime": 9061,
+  "afterWorkTime": 0,
+  "beforeWorkTime": 8933,
+  "productiveTime": 5714,
+  "productivity": 63.98,
+  "efficiency": 22.67,
+  "work_starts": "08:00:00",
+  "work_ends": "18:00:00",
+  "notes": {
+    "Slack": "JimMiller"
+  },
+  "timezone": "Asia/Kolkata",
+  "activeProject": {
+    "project_id": 1,
+    "project_title": "Calling Ron",
+    "task_id": 3802072,
+    "task_title": "We need to talk!",
+    "duration": 13186
+  },
+  "projects": [
+    {
+      "project_id": 1,
+      "project_title": "Calling Howard",
+      "task_id": 3802072,
+      "task_title": "We need to talk!",
+      "duration": 13186
+    }
+  ]
+}

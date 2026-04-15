@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:80"
+    environment:
+      - DB_HOST=db
+      - DB_NAME=wfm_platform
+      - DB_USER=root
+      - DB_PASS=rootpassword
+      - DESKTIME_API_KEY_TN=${DESKTIME_API_KEY_TN}
+      - DESKTIME_API_KEY_BAY=${DESKTIME_API_KEY_BAY}
+    depends_on:
+      - db
+    volumes:
+      - .env:/var/www/html/.env
+
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: wfm_platform
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+
+volumes:
+  db_data:
