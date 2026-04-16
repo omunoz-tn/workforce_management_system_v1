@@ -6,9 +6,9 @@ session_start();
 
 $action = $_GET['action'] ?? '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'login') {
     $input = json_decode(file_get_contents('php://input'), true);
-    if ($input['action'] === 'login') {
+    if ($input) {
         $username = trim($input['username'] ?? '');
 
         $password = $input['password'] ?? '';
