@@ -10,6 +10,8 @@ services:
       - "3002:80"
     env_file:
       - .env.production
+    volumes:
+      - ./.env.production:/var/www/html/.env:ro
     networks:
       - workforce_net
     healthcheck:
