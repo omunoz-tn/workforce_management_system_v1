@@ -1,0 +1,41 @@
+# syntax=docker/dockerfile:1.6
+
+# ---------- Stage 1: Build Vite frontend ----------
+FROM node:20-alpine AS build-stage
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --no-audit --no-fund
+
+COPY . .
+RUN npm run build
+
+# ---------- Stage 2: PHP + Apache runtime ----------
+FROM php:8.2-apache AS runtime
+WORKDIR /var/www/html
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libcurl4-openssl-dev \
+        libssl-dev \
+        ca-certificates \
+        curl \
+    && docker-php-ext-install pdo pdo_mysql curl \
+    && a2enmod rewrite headers \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /var/www/html/*
+
+RUN echo "ServerName workforce.local" > /etc/apache2/conf-available/servername.conf \
+    && a2enconf servername
+
+COPY --from=build-stage /app/dist /var/www/html/
+
+RUN chown -R www-data:www-data /var/www/html \
+    && find /var/www/html -type d -exec chmod 755 {} \; \
+    && find /var/www/html -type f -exec chmod 644 {} \;
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl -fsS http://127.0.0.1/ >/dev/null || exit 1
+
+CMD ["apache2-foreground"]
