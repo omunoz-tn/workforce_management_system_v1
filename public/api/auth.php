@@ -11,9 +11,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($input['action'] === 'login') {
         $username = trim($input['username'] ?? '');
 
+        $password = $input['password'] ?? '';
+
         // Look up user in DB
         $stmt = $pdo->prepare(
-            "SELECT u.id, u.username, u.full_name, u.role_id, r.name as role_name
+            "SELECT u.id, u.username, u.full_name, u.password_hash, u.role_id, r.name as role_name
              FROM platform_users u
              LEFT JOIN platform_roles r ON u.role_id = r.id
              WHERE u.username = ? AND u.status = 'active'"
@@ -21,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$username]);
         $user = $stmt->fetch();
 
-        if ($user) {
+        if ($user && password_verify($password, $user['password_hash'])) {
             // Update last_login
             $pdo->prepare("UPDATE platform_users SET last_login = NOW() WHERE id = ?")->execute([$user['id']]);
 
@@ -49,9 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]
             ]);
         } else {
-            // Fallback for backwards compatibility
-            $_SESSION['user_id'] = 1;
-            echo json_encode(['success' => true, 'message' => 'Logged in successfully']);
+            echo json_encode(['success' => false, 'message' => 'Invalid username or password']);
         }
     } else {
         echo json_encode(['success' => false, 'message' => 'Invalid action']);
