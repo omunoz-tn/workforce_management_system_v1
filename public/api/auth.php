@@ -1,6 +1,6 @@
 <?php
 header('Content-Type: application/json');
-require_once 'db_config.php';
+require_once 'db_wfm_config.php';
 
 // Simulate simple auth or return session status
 // This file is used to verify backend connectivity
