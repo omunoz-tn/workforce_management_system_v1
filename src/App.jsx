@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
+import Login from './components/Login'
 import AllEmployees from './components/AllEmployees'
 import Dashboard from './components/Dashboard'
 import EmployeeRoster from './components/EmployeeRoster'
@@ -84,12 +85,14 @@ const MENU_ITEMS = [
 function App() {
   const [theme, setTheme] = useState('light')
   const [activeMenu, setActiveMenu] = useState(null)
-  const [backendStatus, setBackendStatus] = useState('Checking backend...')
   const [currentView, setCurrentView] = useState('dashboard')
   const [reportParams, setReportParams] = useState(null)
   const [isReportView, setIsReportView] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [syncToast, setSyncToast] = useState({ show: false, message: '', type: 'info', details: null });
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [currentUser, setCurrentUser] = useState(null)
+  const [authChecked, setAuthChecked] = useState(false)
 
   const handleNavClick = (viewId) => {
     if (hasUnsavedChanges) {
@@ -124,13 +127,33 @@ function App() {
     document.documentElement.className = newTheme
   }
 
-  // Backend Check
+  // Auth Check on load
   useEffect(() => {
-    fetch('./api/auth.php')
+    fetch('./api/auth.php?action=check', { credentials: 'include' })
       .then(res => res.json())
-      .then(data => setBackendStatus(data.message || 'Connected'))
-      .catch(() => setBackendStatus('Backend Offline'))
+      .then(data => {
+        if (data.authenticated) {
+          setIsAuthenticated(true)
+          setCurrentUser(data.user)
+        }
+      })
+      .catch(() => {})
+      .finally(() => setAuthChecked(true))
   }, [])
+
+  const handleLoginSuccess = (user) => {
+    setIsAuthenticated(true)
+    setCurrentUser(user)
+  }
+
+  const handleLogout = async () => {
+    try {
+      await fetch('./api/auth.php?action=logout', { credentials: 'include' })
+    } catch (e) { /* ignore */ }
+    setIsAuthenticated(false)
+    setCurrentUser(null)
+    setCurrentView('dashboard')
+  }
 
   // Automated Background Sync
   useEffect(() => {
@@ -186,6 +209,14 @@ function App() {
         onBack={() => window.close()} 
       />;
     }
+  }
+
+  if (!authChecked) {
+    return null
+  }
+
+  if (!isAuthenticated) {
+    return <Login onLoginSuccess={handleLoginSuccess} />
   }
 
   return (
@@ -249,6 +280,25 @@ function App() {
           ))}
         </div>
 
+        {/* USER & LOGOUT */}
+        <div style={{ marginTop: 'auto', padding: '15px', borderTop: '1px solid var(--border-color, #e0e0e0)' }}>
+          {currentUser && (
+            <div style={{ marginBottom: '8px', fontSize: '0.85em', opacity: 0.7 }} className="sidebar-label">
+              {currentUser.full_name || currentUser.username}
+            </div>
+          )}
+          <button
+            onClick={handleLogout}
+            style={{
+              width: '100%', padding: '8px', border: 'none', borderRadius: '6px',
+              background: 'var(--danger-color, #e74c3c)', color: '#fff', cursor: 'pointer',
+              fontSize: '0.9em'
+            }}
+          >
+            <span style={{ marginRight: '6px' }}>🚪</span>
+            <span className="sidebar-label">Logout</span>
+          </button>
+        </div>
 
       </aside>
 
