@@ -11,7 +11,7 @@ services:
     env_file:
       - .env.production
     volumes:
-      - ./.env.production:/var/www/html/.env:ro
+      - ./.env.production:/var/www/.env:ro
     networks:
       - workforce_net
     healthcheck:
