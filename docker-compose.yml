@@ -13,7 +13,8 @@ services:
       - DESKTIME_API_KEY_TN=${DESKTIME_API_KEY_TN}
       - DESKTIME_API_KEY_BAY=${DESKTIME_API_KEY_BAY}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     volumes:
       - .env:/var/www/html/.env
 
@@ -28,6 +29,11 @@ services:
     volumes:
       - db_data:/var/lib/mysql
       - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   db_data:

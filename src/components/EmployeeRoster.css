@@ -1,112 +1,180 @@
 .roster-container {
-  padding: 24px;
-  background: var(--card-bg, #ffffff);
-  border-radius: 12px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  min-height: calc(100vh - 48px);
+  padding: 1.5rem 2rem;
+  max-width: 100%;
+  height: calc(100vh - 80px);
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
 }
 
 .roster-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 24px;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  gap: 2rem;
+  flex-wrap: wrap;
 }
 
 .header-title h1 {
   margin: 0;
-  font-size: 1.8rem;
-  color: var(--text-color, #1a202c);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-color);
 }
 
 .subtitle {
   margin: 4px 0 0 0;
-  color: var(--text-muted, #718096);
-  font-size: 0.95rem;
+  color: var(--text-muted);
+  font-size: 0.88rem;
 }
 
 .search-box {
   position: relative;
   display: flex;
   align-items: center;
+  max-width: 320px;
+  width: 100%;
 }
 
 .search-icon {
   position: absolute;
   left: 12px;
-  color: var(--text-muted, #a0aec0);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  pointer-events: none;
 }
 
 .search-input {
-  padding: 10px 12px 10px 38px;
-  border: 1px solid var(--border-color, #e2e8f0);
+  width: 100%;
+  padding: 0.6rem 2.5rem;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  width: 280px;
   font-size: 0.9rem;
-  transition: all 0.2s;
+  background: var(--card-bg);
+  color: var(--text-color);
+  transition: all 0.2s ease;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: var(--primary-color, #646cff);
-  box-shadow: 0 0 0 3px rgba(100, 108, 255, 0.1);
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(253, 100, 28, 0.1);
 }
 
 .error-banner {
-  background: #fff5f5;
-  color: #c53030;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
   padding: 12px;
-  border-radius: 6px;
+  border-radius: 8px;
   margin-bottom: 16px;
-  border: 1px solid #feb2b2;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  font-size: 0.9rem;
 }
 
 .table-responsive {
   flex-grow: 1;
-  overflow-x: auto;
-  margin-bottom: 16px;
+  overflow: auto;
+  margin-bottom: 1.25rem;
+  border-radius: 12px;
+  border: 1px solid rgba(27, 45, 70, 0.08);
+  background: var(--card-bg);
+  box-shadow: 0 2px 12px rgba(27, 45, 70, 0.02);
+}
+
+/* Custom Scrollbars */
+.table-responsive::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
 
 .roster-table {
   width: 100%;
   border-collapse: collapse;
-  text-align: left;
+  background: var(--card-bg);
+}
+
+.roster-table thead {
+  background: #f7f9fa;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .roster-table th {
-  padding: 14px 16px;
-  background: var(--surface-alt, #f7fafc);
+  padding: 0.9rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: var(--text-color, #2d3748);
-  font-size: 0.85rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 2px solid var(--border-color, #e2e8f0);
-  cursor: pointer;
-  user-select: none;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  border-bottom: 1px solid rgba(27, 45, 70, 0.1);
   transition: background 0.2s;
 }
 
-.roster-table th:hover {
-  background: #edf2f7;
+.roster-table th.sortable-header {
+  cursor: pointer;
+  user-select: none;
 }
 
-.roster-table th.active {
-  color: var(--primary-color, #646cff);
+.roster-table th.sortable-header:hover {
+  background: rgba(27, 45, 70, 0.04);
+}
+
+.roster-table th.sortable-header.active {
+  color: var(--text-color);
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sort-indicator {
+  font-size: 0.75rem;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.sortable-header:hover .sort-indicator,
+.sortable-header.active .sort-indicator {
+  opacity: 1;
 }
 
 .roster-table td {
-  padding: 16px;
-  border-bottom: 1px solid var(--border-color, #e2e8f0);
-  font-size: 0.95rem;
-  color: var(--text-color, #4a5568);
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(27, 45, 70, 0.05);
+  color: var(--text-color);
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.roster-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.roster-table tbody tr:hover {
+  background: rgba(253, 100, 28, 0.02);
 }
 
 .emp-name {
   font-weight: 600;
-  color: var(--text-color, #1a202c);
+  color: var(--text-color);
 }
 
 .team-badge {
@@ -118,17 +186,17 @@
 }
 
 .team-badge.desktime {
-  background: #ebf8ff;
+  background-color: rgba(59, 130, 246, 0.1);
   color: #2b6cb0;
 }
 
 .team-badge.hierarchy {
-  background: #f0fff4;
+  background-color: rgba(16, 185, 129, 0.1);
   color: #2f855a;
 }
 
 .team-badge.unassigned {
-  background: #edf2f7;
+  background-color: rgba(156, 163, 175, 0.1);
   color: #718096;
   font-style: italic;
   font-weight: normal;
@@ -137,21 +205,24 @@
 .no-data {
   padding: 40px;
   text-align: center;
-  color: var(--text-muted, #718096);
+  color: var(--text-muted);
   font-style: italic;
 }
 
+/* Pagination */
 .pagination {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-color, #e2e8f0);
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-top: 0.5rem;
+  border-top: none;
 }
 
 .pagination-info {
-  font-size: 0.9rem;
-  color: var(--text-muted, #718096);
+  font-size: 0.88rem;
+  color: var(--text-muted);
 }
 
 .pagination-actions {
@@ -161,27 +232,53 @@
 }
 
 .pagination-actions button {
-  padding: 8px 16px;
-  border: 1px solid var(--border-color, #e2e8f0);
-  background: white;
-  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.2s;
+  font-size: 0.88rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
 }
 
 .pagination-actions button:hover:not(:disabled) {
-  background: #f7fafc;
-  border-color: #cbd5e0;
+  background: var(--surface-alt);
+  border-color: rgba(27, 45, 70, 0.15);
 }
 
 .pagination-actions button:disabled {
-  opacity: 0.5;
+  background: var(--surface-alt);
+  color: #a0aec0;
   cursor: not-allowed;
+  opacity: 0.6;
+  border-color: var(--border-color);
 }
 
 .current-page {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text-color, #2d3748);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-color);
+  background: var(--surface-alt);
+  padding: 4px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+/* Dark mode overrides */
+.dark .roster-table thead {
+  background: #1e293b;
+}
+
+.dark .roster-table th {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark .roster-table td {
+  border-bottom-color: rgba(255, 255, 255, 0.04);
+}
+
+.dark .roster-table tbody tr:hover {
+  background: rgba(253, 100, 28, 0.04);
 }

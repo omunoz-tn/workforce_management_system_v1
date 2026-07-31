@@ -26,9 +26,11 @@ try {
     foreach ($accounts as $accName => $apiKey) {
         if (!$apiKey) continue;
 
-        // 1. Fetch current date range
+        // 1. Reset current date to start of range for each account
         $currentDate = $fromDate;
+        
         while (strtotime($currentDate) <= strtotime($toDate)) {
+            $dailyTasks = 0; // Counter for THIS specific day
             
             // 2. Fetch employees for THIS specific day
             $empUrl = "https://desktime.com/api/v2/json/employees?apiKey=" . urlencode($apiKey) . "&date=" . urlencode($currentDate);
@@ -54,23 +56,64 @@ try {
                 $employeesToProcess = $employeesToProcess[$firstKey];
             }
 
+            // Prepare project request URLs for all employees to fetch in parallel
+            $urls = [];
+            $employeeDataMap = [];
             foreach ($employeesToProcess as $empKey => $emp) {
                 $eData = is_array($emp) ? $emp : [];
                 $realEmpId = $eData['id'] ?? $empKey;
-                
                 if (!is_numeric($realEmpId)) continue;
 
                 $projUrl = "https://desktime.com/api/v2/json/employee/projects?apiKey=" . urlencode($apiKey) . "&id=" . urlencode($realEmpId) . "&date=" . urlencode($currentDate);
-                
-                $chP = curl_init($projUrl);
-                curl_setopt($chP, CURLOPT_RETURNTRANSFER, true);
-                curl_setopt($chP, CURLOPT_SSL_VERIFYPEER, false);
-                $projResArr = curl_exec($chP);
-                curl_close($chP);
-                
-                if (!$projResArr) continue; 
+                $urls[$realEmpId] = $projUrl;
+                $employeeDataMap[$realEmpId] = $eData;
+            }
+
+            // Fetch in parallel chunks of 20 to avoid rate limits or overwhelming the client
+            $fetchedContents = [];
+            if (!empty($urls)) {
+                $chunks = array_chunk($urls, 20, true);
+                foreach ($chunks as $chunk) {
+                    $mh = curl_multi_init();
+                    $handles = [];
+                    foreach ($chunk as $empId => $url) {
+                        $ch = curl_init($url);
+                        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                        curl_setopt($ch, CURLOPT_TIMEOUT, 15); // 15s timeout
+                        curl_multi_add_handle($mh, $ch);
+                        $handles[$empId] = $ch;
+                    }
+
+                    $active = null;
+                    do {
+                        $mrc = curl_multi_exec($mh, $active);
+                    } while ($mrc == CURLM_CALL_MULTI_PERFORM);
+
+                    while ($active && $mrc == CURLM_OK) {
+                        if (curl_multi_select($mh) != -1) {
+                            do {
+                                $mrc = curl_multi_exec($mh, $active);
+                            } while ($mrc == CURLM_CALL_MULTI_PERFORM);
+                        } else {
+                            usleep(100);
+                        }
+                    }
+
+                    foreach ($handles as $empId => $ch) {
+                        $fetchedContents[$empId] = curl_multi_getcontent($ch);
+                        curl_multi_remove_handle($mh, $ch);
+                    }
+                    curl_multi_close($mh);
+                }
+            }
+
+            // Process all fetched results and insert them to database
+            foreach ($fetchedContents as $realEmpId => $projResArr) {
+                if (!$projResArr) continue;
                 
                 $projData = json_decode($projResArr, true);
+                $eData = $employeeDataMap[$realEmpId] ?? [];
 
                 if (isset($projData['projects']) && is_array($projData['projects'])) {
                     foreach ($projData['projects'] as $proj) {
@@ -98,19 +141,22 @@ try {
                             $currentDate,
                             $accName
                         ]);
+                        $dailyTasks++;
                         $totalProcessed++;
                     }
                 }
             }
-            // Log success for this specific date in the range
-            $logSql = "INSERT INTO desktime_sync_log (sync_date, status, hours_synced, projects_synced, sync_type) VALUES (?, 'success', 0, ?, 'manual')";
+            
+            // 3. Log success for this specific date and account in the range
+            $logSql = "INSERT INTO desktime_sync_log (sync_date, status, hours_updated, projects_updated, sync_type, error_message) VALUES (?, 'success', 0, ?, 'manual', ?)";
             $stmt = $pdo->prepare($logSql);
-            $stmt->execute([$currentDate, $totalProcessed]);
+            $stmt->execute([$currentDate, $dailyTasks, "Account: $accName"]);
 
-            $syncLog[] = "Synced date: $currentDate - $totalProcessed tasks";
+            $syncLog[] = "[$accName] $currentDate: $dailyTasks tasks";
             $currentDate = date('Y-m-d', strtotime($currentDate . ' +1 day'));
         }
     }
+
 
     echo json_encode([
         'success' => true,
@@ -124,7 +170,7 @@ try {
     // Log failure in background sync history table even for manual triggers
     if (isset($fromDate)) {
         try {
-            $logSql = "INSERT INTO desktime_sync_log (sync_date, status, hours_synced, projects_synced, error_message, sync_type) VALUES (?, 'failure', 0, 0, ?, 'manual')";
+            $logSql = "INSERT INTO desktime_sync_log (sync_date, status, hours_updated, projects_updated, error_message, sync_type) VALUES (?, 'failure', 0, 0, ?, 'manual')";
             $stmt = $pdo->prepare($logSql);
             $stmt->execute([$fromDate, $e->getMessage()]);
         } catch (Exception $logErr) {

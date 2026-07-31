@@ -1,0 +1,610 @@
+.holidays-container {
+    height: 100vh;
+}
+
+/* Toolbar */
+.holiday-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.holiday-search-box {
+    width: 240px;
+}
+
+.holiday-filter-select {
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+}
+
+.holiday-view-toggle {
+    margin-left: auto;
+}
+
+.holiday-add-btn {
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 0.7rem 1.25rem;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.holiday-add-btn:hover {
+    background: #e05315;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(253, 100, 28, 0.2);
+}
+
+/* Split add button + dropdown */
+.holiday-add-split {
+    position: relative;
+    display: flex;
+}
+
+.holiday-add-btn-main {
+    border-radius: 12px 0 0 12px;
+}
+
+.holiday-add-btn-caret {
+    border-radius: 0 12px 12px 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 0.7rem 0.75rem;
+    font-size: 0.7rem;
+}
+
+.dropdown-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 99;
+}
+
+.dropdown-menu.holiday-add-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 200px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    overflow: hidden;
+}
+
+.holiday-add-menu .view-toggle-option {
+    display: flex;
+    width: 100%;
+    padding: 10px 14px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-color);
+    text-align: left;
+    transition: background 0.2s;
+}
+
+.holiday-add-menu .view-toggle-option:hover {
+    background: var(--surface-alt);
+    color: var(--accent-color);
+}
+
+/* Period navigation (Month / Week views) */
+.holiday-period-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 16px;
+    width: fit-content;
+}
+
+.holiday-period-label {
+    padding: 0 16px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text-color);
+    white-space: nowrap;
+}
+
+/* Each view (Month/Week/List) is the single flex child here and owns its own
+   height/overflow — Month and Week fit exactly (no scroll), List scrolls
+   internally since its row count is unbounded. */
+.holiday-main-area {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 16px;
+    box-sizing: border-box;
+}
+
+/* Month view. Row count varies by month (4-6 weeks) — --week-count is set
+   inline per render so every row gets an equal share of the available height
+   instead of a fixed min-height, which is what forced the vertical scroll. */
+.holiday-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-template-rows: auto repeat(var(--week-count, 6), 1fr);
+    flex: 1;
+    min-height: 0;
+    gap: 1px;
+    background: var(--border-color);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.holiday-calendar-weekday-header {
+    background: var(--surface-alt);
+    padding: 10px;
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.holiday-calendar-cell {
+    background: var(--card-bg);
+    min-height: 0;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+    overflow: hidden;
+}
+
+.holiday-calendar-cell:hover {
+    background: var(--surface-alt);
+}
+
+.holiday-calendar-cell.is-empty-cell {
+    background: var(--bg-color);
+    cursor: default;
+}
+
+.holiday-calendar-cell.is-today {
+    box-shadow: inset 0 0 0 2px var(--accent-color);
+}
+
+.holiday-calendar-day-number {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+.holiday-calendar-day-chips {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* Week view */
+.holiday-week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-template-rows: 1fr;
+    gap: 10px;
+    flex: 1;
+    min-height: 0;
+}
+
+.holiday-week-cell {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 12px;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    overflow: hidden;
+}
+
+.holiday-week-cell:hover {
+    border-color: var(--accent-color);
+}
+
+.holiday-week-cell.is-today {
+    box-shadow: inset 0 0 0 2px var(--accent-color);
+}
+
+.holiday-week-cell-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.holiday-week-day-name {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.holiday-week-day-number {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--text-color);
+}
+
+.holiday-week-cell-chips {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.holiday-week-empty {
+    text-align: center;
+    color: var(--text-muted);
+    opacity: 0.4;
+    font-size: 0.85rem;
+}
+
+/* Holiday chip (used in Month + Week views). Background/text come from the
+   COUNTRY (configurable in Configuration > Scheduling > Holiday); Holiday Type
+   is conveyed separately by the small colored indicator on the right. */
+.holiday-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    background: var(--chip-bg);
+    color: var(--chip-text);
+    border: none;
+    border-radius: 6px;
+    padding: 5px 7px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: left;
+    transition: filter 0.15s;
+}
+
+.holiday-chip:hover {
+    filter: brightness(0.92);
+}
+
+.holiday-chip-flag {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* Crisp vector replacement for flag emoji glyphs that render blurry at small
+   sizes (currently just US) — sized in em so it always matches the emoji
+   footprint it replaces, wherever it's used (chip, list country tag, etc). */
+.flag-icon-svg {
+    width: 1em;
+    height: 0.75em;
+    flex-shrink: 0;
+    border-radius: 1.5px;
+}
+
+.holiday-chip-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+}
+
+.holiday-chip-indicator {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    background: var(--indicator-color);
+}
+
+/* List view — the one view whose row count is unbounded, so it's the one
+   that keeps its own scrollbar instead of relying on the page to grow. */
+.holiday-list-wrapper {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.holiday-list-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.holiday-list-table th {
+    text-align: left;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--text-muted);
+    padding: 10px 12px;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.holiday-list-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.88rem;
+    color: var(--text-color);
+}
+
+.holiday-list-name {
+    font-weight: 700;
+}
+
+.holiday-list-description {
+    color: var(--text-muted);
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Country is informational only now (flag + name) — color-coding is reserved
+   for Holiday Type so the two don't compete as separate color systems. */
+.holiday-country-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.holiday-type-badge2 {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--badge-bg);
+    color: var(--badge-text);
+    border-radius: 6px;
+    padding: 4px 9px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* Modal (self-contained; not shared with other components' modals) */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(27, 45, 70, 0.15);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content.holiday-modal {
+    background: var(--card-bg);
+    width: 90%;
+    max-width: 480px;
+    max-height: 85vh;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 40px -10px rgba(27, 45, 70, 0.15), 0 10px 20px -5px rgba(27, 45, 70, 0.05);
+    border: 1px solid rgba(27, 45, 70, 0.08);
+    position: relative;
+    overflow: hidden;
+}
+
+.holiday-modal::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--accent-color);
+}
+
+.holiday-modal .modal-header {
+    padding: 1.5rem 1.5rem 1rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.holiday-modal .modal-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+.holiday-modal .close-btn {
+    background: var(--surface-alt);
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+    line-height: 1;
+}
+
+.holiday-modal .close-btn:hover {
+    background: rgba(253, 100, 28, 0.08);
+    color: var(--text-color);
+    transform: rotate(90deg);
+}
+
+.holiday-modal .modal-body {
+    padding: 0 1.5rem 1.5rem 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.holiday-modal .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 0;
+}
+
+.holiday-modal .full-width-group {
+    margin-bottom: 1.25rem;
+}
+
+.holiday-modal .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    text-align: left;
+}
+
+.holiday-modal .form-group label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-color);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.holiday-modal .form-group input,
+.holiday-modal .form-group select,
+.holiday-modal .form-group textarea {
+    padding: 0.6rem 0.9rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    color: var(--text-color);
+    background: var(--card-bg);
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.holiday-modal .form-group input:focus,
+.holiday-modal .form-group select:focus,
+.holiday-modal .form-group textarea:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(253, 100, 28, 0.1);
+}
+
+.holiday-type-hint {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.holiday-modal .modal-footer {
+    padding: 1.25rem 1.5rem;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.holiday-modal-footer-right {
+    display: flex;
+    gap: 12px;
+    margin-left: auto;
+}
+
+.holiday-modal .btn-cancel {
+    padding: 0.6rem 1.25rem;
+    border-radius: 8px;
+    font-weight: 600;
+    color: var(--text-color);
+    background: transparent;
+    border: 1px solid var(--accent-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.holiday-modal .btn-cancel:hover {
+    background: rgba(253, 100, 28, 0.08);
+}
+
+.holiday-modal .btn-confirm {
+    padding: 0.6rem 1.25rem;
+    border-radius: 8px;
+    font-weight: 600;
+    color: white;
+    background: var(--accent-color);
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.holiday-modal .btn-confirm:hover {
+    background: #e05315;
+}
+
+.holiday-modal .btn-confirm:disabled,
+.holiday-delete-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.holiday-delete-btn {
+    padding: 0.6rem 1.25rem;
+    border-radius: 8px;
+    font-weight: 600;
+    color: #dc2626;
+    background: transparent;
+    border: 1px solid #dc2626;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.holiday-delete-btn:hover {
+    background: #dc2626;
+    color: white;
+}
+
+/* Dark mode */
+.dark .modal-overlay {
+    background: rgba(0, 0, 0, 0.4);
+}

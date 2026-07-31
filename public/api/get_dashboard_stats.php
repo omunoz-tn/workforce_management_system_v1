@@ -7,6 +7,12 @@ header('Content-Type: application/json');
 require_once 'db_wfm_config.php';
 require_once 'sync_desktime_core.php';
 
+session_start();
+// Check if user has team-level restrictions
+$isRestricted = isset($_SESSION['allowed_teams']) && !empty($_SESSION['allowed_teams']) && $_SESSION['role_name'] !== 'Admin';
+$allowedTeams = $isRestricted ? $_SESSION['allowed_teams'] : [];
+$teamFilter = $isRestricted ? " AND ota.team_id IN (" . implode(',', array_map('intval', $allowedTeams)) . ") " : "";
+
 try {
     // 0. Extract Date Range (Default to today for dashboard)
     $fromDate = isset($_GET['from']) ? $_GET['from'] : date('Y-m-d');
@@ -82,6 +88,7 @@ try {
     WHERE d.log_date BETWEEN :from AND :to
     AND (ot.is_visible IS NULL OR ot.is_visible = 1)
     AND (og.is_visible IS NULL OR og.is_visible = 1)
+    $teamFilter
     GROUP BY COALESCE(ot.name, d.group_name)
     ORDER BY group_name ASC";
 
@@ -118,6 +125,7 @@ try {
     WHERE d.log_date BETWEEN :from AND :to
     AND (ot.is_visible IS NULL OR ot.is_visible = 1)
     AND (og.is_visible IS NULL OR og.is_visible = 1)
+    $teamFilter
     GROUP BY COALESCE(ot.name, d.group_name)
     HAVING SUM(CASE WHEN d.is_online = 1 THEN 1 ELSE 0 END) > 0
     ORDER BY avg_productivity DESC
@@ -127,11 +135,12 @@ try {
     $stmt->execute(['from' => $fromDate, 'to' => $toDate]);
     $topTeam = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    $mtdQuery = "SELECT 
+    $mtdQuery = "SELECT
         d.employee_id,
         d.name,
         COALESCE(ot.name, d.group_name) as team_name,
-        SUM(d.desktime_time) / 3600 as mtd_actual,
+        MAX(rre.employee_id IS NOT NULL) as is_excluded,
+        SUM(CASE WHEN ot.run_rate_time_source = 'at_work_time' THEN COALESCE(d.at_work_time, 0) ELSE COALESCE(d.desktime_time, 0) END) / 3600 as mtd_actual,
         SUM(
             CASE
                 -- Primary: employee has a valid schedule for this day
@@ -162,6 +171,7 @@ try {
     LEFT JOIN org_team_assignments ota ON d.employee_id = ota.employee_id
     LEFT JOIN org_teams ot ON ota.team_id = ot.id
     LEFT JOIN org_groups og ON ot.group_id = og.id
+    LEFT JOIN org_run_rate_excluded_employees rre ON d.employee_id = rre.employee_id
     -- Fallback schedule: employee's most frequently used valid shift (only joins when today has no schedule)
     LEFT JOIN (
         SELECT employee_id, work_starts, work_ends

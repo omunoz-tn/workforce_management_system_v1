@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './HoursReportView.css';
 import LoadingScreen from './LoadingScreen';
 
 const ReportPeriodEditor = ({ initialFrom, initialTo, onApply }) => {
     const [localFrom, setLocalFrom] = useState(initialFrom || '');
     const [localTo, setLocalTo] = useState(initialTo || '');
+    const [selectedPreset, setSelectedPreset] = useState('');
 
     useEffect(() => {
         setLocalFrom(initialFrom || '');
@@ -63,13 +64,14 @@ const ReportPeriodEditor = ({ initialFrom, initialTo, onApply }) => {
                 return;
         }
 
-        const newFrom = formatDate(from);
-        const newTo = formatDate(to);
-        setLocalFrom(newFrom);
-        setLocalTo(newTo);
-        
-        // Reset the select after selection
-        e.target.value = "";
+        setLocalFrom(formatDate(from));
+        setLocalTo(formatDate(to));
+        setSelectedPreset(preset); // Keep the selected label visible in the dropdown
+    };
+
+    const handleApply = () => {
+        onApply(localFrom, localTo);
+        setSelectedPreset(''); // Reset to "Quick Select..." placeholder after applying
     };
 
     return (
@@ -92,7 +94,7 @@ const ReportPeriodEditor = ({ initialFrom, initialTo, onApply }) => {
                 <select 
                     className="quick-select-dropdown" 
                     onChange={handleQuickSelect}
-                    defaultValue=""
+                    value={selectedPreset}
                 >
                     <option value="" disabled>Quick Select...</option>
                     <option value="today">Today</option>
@@ -104,7 +106,7 @@ const ReportPeriodEditor = ({ initialFrom, initialTo, onApply }) => {
                     <option value="last_7_days">Last 7 Days</option>
                     <option value="last_30_days">Last 30 Days</option>
                 </select>
-                <button onClick={() => onApply(localFrom, localTo)} className="apply-btn">Update Report</button>
+                <button onClick={handleApply} className="apply-btn">Update Report</button>
             </div>
         </div>
     );
@@ -225,6 +227,22 @@ const HoursReportView = ({ fromDate: propFrom, toDate: propTo, onBack }) => {
             return yearMatch && weekMatch;
         });
     }, [dateColumns, selectedYear, selectedWeek]);
+
+    // Pre-calculate column info to avoid running Date parsing and holiday logic for every single cell
+    const dateColumnsInfo = React.useMemo(() => {
+        return visibleDateColumns.map(date => {
+            const d = new Date(date + 'T12:00:00');
+            const weekday = d.toLocaleDateString('en-US', { weekday: 'long' });
+            const holiday = getUSHoliday(date);
+            const weekend = isWeekend(date);
+            return {
+                id: date,
+                label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                tooltip: holiday ? `${weekday} - ${holiday}` : weekday,
+                className: `date-col ${holiday ? 'is-holiday' : ''} ${weekend && !holiday ? 'is-weekend' : ''}`
+            };
+        });
+    }, [visibleDateColumns]);
 
     useEffect(() => {
         if (selectedWeek !== 'All' && !availableWeeks.includes(Number(selectedWeek)) && !availableWeeks.includes(selectedWeek)) {
@@ -446,8 +464,62 @@ const HoursReportView = ({ fromDate: propFrom, toDate: propTo, onBack }) => {
         return totals;
     }, [processedEmployees, visibleDateColumns]);
 
+    // Find longest name for dynamic column width
+    const longestName = React.useMemo(() => {
+        let max = "Employee Name";
+        processedEmployees.forEach(emp => {
+            if (emp.name && emp.name.length > max.length) {
+                max = emp.name;
+            }
+        });
+        return max;
+    }, [processedEmployees]);
+
+    const [nameColWidth, setNameColWidth] = useState(200);
+    const nameMeasureRef = useRef(null);
+    const tableWrapperRef = useRef(null);
+    const [hasScrollbar, setHasScrollbar] = useState(false);
+
+    useEffect(() => {
+        if (nameMeasureRef.current) {
+            const width = nameMeasureRef.current.getBoundingClientRect().width;
+            // 32px padding (16px * 2) + 16px buffer
+            setNameColWidth(Math.ceil(width) + 48);
+        }
+    }, [longestName]);
+
+    useEffect(() => {
+        const checkScroll = () => {
+            if (tableWrapperRef.current) {
+                const el = tableWrapperRef.current;
+                // +2 buffer to prevent flickering due to sub-pixel rounding
+                setHasScrollbar(el.scrollWidth > el.clientWidth + 2);
+            }
+        };
+
+        checkScroll();
+        const timeoutId = setTimeout(checkScroll, 100);
+
+        let resizeObserver;
+        if (tableWrapperRef.current) {
+            resizeObserver = new ResizeObserver(() => checkScroll());
+            resizeObserver.observe(tableWrapperRef.current);
+        }
+
+        return () => {
+            clearTimeout(timeoutId);
+            if (resizeObserver) resizeObserver.disconnect();
+        };
+    }, [visibleDateColumns, nameColWidth, processedEmployees.length]);
+
     return (
-        <div className="report-view-container">
+        <div className="report-view-container" style={{ '--name-col-width': `${nameColWidth}px` }}>
+            <span 
+                ref={nameMeasureRef} 
+                style={{ position: 'absolute', visibility: 'hidden', whiteSpace: 'nowrap', fontSize: '0.9rem', fontWeight: 'bold' }}
+            >
+                {longestName}
+            </span>
             <LoadingScreen loading={loading} message="Generating Report..." />
 
             {error && <div className="report-error">Error: {error}</div>}
@@ -567,57 +639,52 @@ const HoursReportView = ({ fromDate: propFrom, toDate: propTo, onBack }) => {
                         </div>
                     </div>
 
-                    <div className="report-table-wrapper">
+                    <div className="report-table-wrapper" ref={tableWrapperRef}>
                         <table className="report-table">
+                            <colgroup>
+                                <col style={{ width: 'var(--name-col-width, 200px)', minWidth: 'var(--name-col-width, 200px)' }} />
+                                <col style={{ width: '195px', minWidth: '195px' }} />
+                                {dateColumnsInfo.map(col => (
+                                    <col key={col.id} style={{ width: '100px', minWidth: '100px' }} />
+                                ))}
+                                <col style={{ width: '125px', minWidth: '125px' }} />
+                                {!hasScrollbar && <col style={{ width: 'auto' }} />} {/* Spacer */}
+                            </colgroup>
                             <thead>
                                 <tr>
-                                    <th className="sticky-col">Employee Name</th>
-                                    <th className="sticky-col-team">Team</th>
-                                    {visibleDateColumns.map(date => {
-                                        const d = new Date(date + 'T12:00:00');
-                                        const weekday = d.toLocaleDateString('en-US', { weekday: 'long' });
-                                        const holiday = getUSHoliday(date);
-                                        const weekend = isWeekend(date);
-                                        const tooltip = holiday ? `${weekday} - ${holiday}` : weekday;
-                                        return (
-                                            <th
-                                                key={date}
-                                                className={`date-col ${holiday ? 'is-holiday' : ''} ${weekend && !holiday ? 'is-weekend' : ''}`}
-                                                title={tooltip}
-                                            >
-                                                {d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                                            </th>
-                                        );
-                                    })}
-                                    <th className="text-right total-col">Total Hours</th>
+                                    <th className="sticky-col" style={{ width: 'var(--name-col-width, 200px)' }}>Employee Name</th>
+                                    <th className="sticky-col-team" style={{ width: '195px' }}>Team</th>
+                                    {dateColumnsInfo.map(col => (
+                                        <th key={col.id} className={col.className} title={col.tooltip}>
+                                            {col.label}
+                                        </th>
+                                    ))}
+                                    <th className="text-center total-col">Total Hours</th>
+                                    {!hasScrollbar && <th style={{ width: '100%' }}></th>} {/* Spacer */}
                                 </tr>
                             </thead>
                             <tbody>
                                 {processedEmployees.length > 0 ? (
                                     processedEmployees.map((emp, index) => (
-                                        <tr key={index} className={emp.isAdjusted && isAdjustedView ? 'adjusted-row' : ''}>
+                                        <tr key={index}>
                                             <td className="sticky-col">{emp.name}</td>
                                             <td className="sticky-col-team">{emp.team}</td>
-                                            {visibleDateColumns.map(date => {
-                                                const d = new Date(date + 'T12:00:00');
-                                                const weekday = d.toLocaleDateString('en-US', { weekday: 'long' });
-                                                const holiday = getUSHoliday(date);
-                                                const weekend = isWeekend(date);
-                                                const tooltip = holiday ? `${weekday} - ${holiday}` : weekday;
-                                                const rawVal = emp.dailyHours[date];
+                                            {dateColumnsInfo.map(col => {
+                                                const rawVal = emp.dailyHours[col.id];
                                                 return (
                                                     <td
-                                                        key={date}
-                                                        className={`text-center font-mono date-col ${holiday ? 'is-holiday' : ''} ${weekend && !holiday ? 'is-weekend' : ''} ${emp.isAdjusted && isAdjustedView && rawVal > 0 ? 'adjusted-cell' : ''}`}
-                                                        title={tooltip}
+                                                        key={col.id}
+                                                        className={`text-center font-mono ${col.className} ${emp.isAdjusted && isAdjustedView && rawVal > 0 ? 'adjusted-cell' : ''}`}
+                                                        title={col.tooltip}
                                                     >
                                                         {rawVal ? formatNum(rawVal) : '-'}
                                                     </td>
                                                 );
                                             })}
-                                            <td className={`text-right font-mono font-bold total-col ${emp.isAdjusted && isAdjustedView ? 'adjusted-total' : ''}`}>
+                                            <td className={`text-center font-mono font-bold total-col ${emp.isAdjusted && isAdjustedView ? 'adjusted-total' : ''}`}>
                                                 {formatNum(emp.total)}
                                             </td>
+                                            {!hasScrollbar && <td></td>} {/* Spacer */}
                                         </tr>
                                     ))
                                 ) : (
@@ -629,26 +696,21 @@ const HoursReportView = ({ fromDate: propFrom, toDate: propTo, onBack }) => {
                             {processedEmployees.length > 0 && (
                                 <tfoot>
                                     <tr className="totals-row">
-                                        <td className="sticky-col" colSpan="2">TOTALS</td>
-                                        {visibleDateColumns.map(date => {
-                                            const d = new Date(date + 'T12:00:00');
-                                            const weekday = d.toLocaleDateString('en-US', { weekday: 'long' });
-                                            const holiday = getUSHoliday(date);
-                                            const weekend = isWeekend(date);
-                                            const tooltip = holiday ? `${weekday} - ${holiday}` : weekday;
-                                            return (
-                                                <td
-                                                    key={date}
-                                                    className={`text-center font-mono font-bold date-col ${holiday ? 'is-holiday' : ''} ${weekend && !holiday ? 'is-weekend' : ''}`}
-                                                    title={tooltip}
-                                                >
-                                                    {columnTotals[date] > 0 ? formatNum(columnTotals[date]) : '-'}
-                                                </td>
-                                            );
-                                        })}
-                                        <td className="text-right font-mono font-bold total-col">
+                                        <td className="sticky-col">TOTALS</td>
+                                        <td className="sticky-col-team"></td>
+                                        {dateColumnsInfo.map(col => (
+                                            <td
+                                                key={col.id}
+                                                className={`text-center font-mono font-bold ${col.className}`}
+                                                title={col.tooltip}
+                                            >
+                                                {columnTotals[col.id] > 0 ? formatNum(columnTotals[col.id]) : '-'}
+                                            </td>
+                                        ))}
+                                        <td className="text-center font-mono font-bold total-col">
                                             {formatNum(totalReportHours)}
                                         </td>
+                                        {!hasScrollbar && <td></td>} {/* Spacer */}
                                     </tr>
                                 </tfoot>
                             )}

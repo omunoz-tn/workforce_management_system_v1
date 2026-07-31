@@ -5,12 +5,11 @@
   font-weight: 400;
 
   /* Default Light Mode */
+  /* Sidebar colors live in index.css (--sidebar-bg/--sidebar-text/--sidebar-hover)
+     and are the same in both themes — not redeclared here. */
   --bg-color: #ffffff;
   --text-color: #213547;
-  --sidebar-bg: #f8f9fa;
-  --sidebar-text: #333;
-  --sidebar-hover: #e9ecef;
-  --accent-color: #646cff;
+  --accent-color: #fd641c;
   --border-color: #dee2e6;
   --card-bg: #ffffff;
 
@@ -21,13 +20,12 @@
 }
 
 /* Dark Mode Override */
+/* Sidebar variables intentionally omitted — the sidebar stays the same across
+   themes (see index.css), only content outside it switches. */
 .dark {
   --bg-color: #242424;
   --text-color: rgba(255, 255, 255, 0.87);
-  --sidebar-bg: #1a1a1a;
-  --sidebar-text: #e0e0e0;
-  --sidebar-hover: #333;
-  --accent-color: #747bff;
+  --accent-color: #fd641c;
   --border-color: #444;
   --card-bg: #2a2a2a;
 }
@@ -58,29 +56,49 @@ body {
   top: 0;
   left: 0;
   background-color: var(--sidebar-bg);
-  border-right: 1px solid var(--border-color);
+  border-right: none;
   display: flex;
   flex-direction: column;
   z-index: 1000;
   overflow: hidden;
   /* Hide content when collapsed */
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
 }
 
-.sidebar:hover {
+.sidebar.expanded {
   width: 250px;
   /* Expanded width */
 }
 
 .logo-section {
   padding: 20px;
-  text-align: center;
-  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   cursor: pointer;
+  position: relative;
+  min-height: 74px;
+  box-sizing: border-box;
 }
 
 .logo-section:hover {
-  background-color: var(--sidebar-hover);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-logo {
+  flex-shrink: 0;
+}
+
+.backend-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .menu-list {
@@ -97,31 +115,45 @@ body {
 }
 
 .menu-item-header {
-  padding: 15px 23px;
-  /* Adjusted for icon centering */
+  padding: 12px 11px;
+  /* Mathematically centers the 24px icon in the 70px collapsed sidebar: 12px margin + 11px padding + 12px half-icon = 35px (exact center) */
+  margin: 4px 12px;
+  border-radius: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 15px;
   /* Gap between icon and label */
   font-weight: 500;
+  font-size: 0.95rem;
   color: var(--sidebar-text);
-  transition: background-color 0.2s, color 0.2s;
+  transition: background-color 0.2s, color 0.2s, padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   white-space: nowrap;
 }
 
+.sidebar.expanded .menu-item-header {
+  padding: 12px 16px;
+  /* Natural padding for the expanded state */
+}
+
 .menu-item-header:hover {
   background-color: var(--sidebar-hover);
-  color: var(--accent-color);
+  color: var(--sidebar-text-active);
+}
+
+.menu-item.active .menu-item-header,
+.menu-item-header.active {
+  background-color: var(--accent-color);
+  color: var(--sidebar-text-active);
+  font-weight: 600;
 }
 
 .submenu {
   list-style: none;
-  padding: 0;
+  padding: 4px 0;
   margin: 0;
-  background-color: rgba(0, 0, 0, 0.03);
-  /* Slightly darker/lighter background for submenu */
+  background-color: transparent;
   display: none;
   /* Hidden by default */
 }
@@ -133,18 +165,33 @@ body {
 }
 
 .submenu-item {
-  padding: 10px 20px 10px 40px;
-  /* Indented */
-  font-size: 0.9em;
+  padding: 8px 20px 8px 52px;
+  /* Indented deeper to align with text */
+  margin: 2px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
   cursor: pointer;
   color: var(--sidebar-text);
-  opacity: 0.9;
+  opacity: 0.85;
   white-space: nowrap;
+  transition: background-color 0.2s, color 0.2s;
 }
 
 .submenu-item:hover {
   background-color: var(--sidebar-hover);
+  color: var(--sidebar-text-active);
+  opacity: 1;
+}
+
+.sidebar:not(.expanded) .submenu {
+  display: none !important;
+}
+
+.submenu-item.active {
+  background-color: rgba(253, 100, 28, 0.08);
   color: var(--accent-color);
+  font-weight: 600;
+  opacity: 1;
 }
 
 .config-section {
@@ -161,8 +208,8 @@ body {
   pointer-events: none;
 }
 
-.sidebar:hover .sidebar-label,
-.sidebar:hover .submenu {
+.sidebar.expanded .sidebar-label,
+.sidebar.expanded .submenu {
   opacity: 1;
   pointer-events: auto;
 }
@@ -204,13 +251,15 @@ body {
   background-color: var(--bg-color);
   color: var(--text-color);
   height: 100vh;
-  overflow: hidden;
+  overflow: clip;
+  /* 'clip' instead of 'hidden': does NOT create a scroll container,
+                     so position:sticky works correctly inside child components */
   box-sizing: border-box;
   transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
 }
 
-.sidebar:hover+.main-content {
+.sidebar.expanded+.main-content {
   margin-left: 250px;
   width: calc(100% - 250px);
 }
@@ -234,15 +283,22 @@ body {
 }
 
 @keyframes toastSlideIn {
-  from { transform: translateX(100%); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 
 .toast-content {
   background: white;
   border-radius: 12px;
   padding: 16px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
   border-left: 6px solid #4a5568;
   position: relative;
 }
@@ -250,7 +306,7 @@ body {
 [data-theme='dark'] .toast-content {
   background: #2d3748;
   color: white;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
 }
 
 .sync-toast.success .toast-content {
@@ -300,4 +356,126 @@ body {
   font-size: 0.85rem;
   opacity: 0.8;
   line-height: 1.5;
+}
+
+/* Authentication Loading Screen */
+.loading-screen-full {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #0f172a;
+  color: white;
+  gap: 20px;
+}
+
+.spinner-large {
+  width: 50px;
+  height: 50px;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Sidebar Footer & Logout */
+.sidebar-footer {
+  padding: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  margin-top: auto;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+}
+
+.sidebar.expanded .sidebar-footer {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.user-info-brief {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+}
+
+.user-avatar {
+  font-size: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.user-details {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.u-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--sidebar-text-active);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.u-role {
+  font-size: 0.75rem;
+  color: var(--sidebar-text);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+.logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 15px;
+  background: rgba(239, 68, 68, 0.08);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-sizing: border-box;
+}
+
+.logout-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.1);
+}
+
+.logout-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

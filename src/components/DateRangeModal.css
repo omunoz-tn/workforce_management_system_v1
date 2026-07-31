@@ -1,191 +1,215 @@
 .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(15, 23, 42, 0.7);
-    backdrop-filter: blur(8px);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-    animation: fadeIn 0.3s ease-out;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(27, 45, 70, 0.15);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-out;
 }
 
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-
-    to {
-        opacity: 1;
-    }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .date-range-modal {
-    background: white;
-    width: 100%;
-    max-width: 450px;
-    border-radius: 24px;
-    padding: 32px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    position: relative;
-    overflow: hidden;
-    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  background: var(--card-bg);
+  width: 90%;
+  max-width: 440px;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 20px 40px -10px rgba(27, 45, 70, 0.15), 0 10px 20px -5px rgba(27, 45, 70, 0.05);
+  border: 1px solid rgba(27, 45, 70, 0.08);
+  position: relative;
+  overflow: hidden;
+  animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
 }
 
 @keyframes slideUp {
-    from {
-        transform: translateY(20px);
-        opacity: 0;
-    }
-
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .date-range-modal::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 6px;
-    background: linear-gradient(90deg, #4f46e5, #9333ea);
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--accent-color);
 }
 
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
+.date-range-modal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
 }
 
-.modal-header h2 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #1e293b;
-    margin: 0;
+.date-range-modal .modal-header h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-color);
+  margin: 0;
 }
 
-.close-btn {
-    background: #f1f5f9;
-    border: none;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    color: #64748b;
-    cursor: pointer;
-    transition: all 0.2s;
+.date-range-modal .close-btn {
+  background: var(--surface-alt);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+  line-height: 1;
 }
 
-.close-btn:hover {
-    background: #e2e8f0;
-    color: #0f172a;
-    transform: rotate(90deg);
+.date-range-modal .close-btn:hover {
+  background: rgba(253, 100, 28, 0.08);
+  color: var(--text-color);
+  transform: rotate(90deg);
 }
 
-.modal-intro {
-    font-size: 0.95rem;
-    color: #64748b;
-    margin-bottom: 24px;
-    line-height: 1.5;
+.date-range-modal .modal-intro {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  margin: 0 0 1.5rem 0;
+  line-height: 1.5;
+  text-align: left;
 }
 
-.form-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    margin-bottom: 24px;
+.date-range-modal .form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
-.full-width-group {
-    margin-bottom: 24px;
+.date-range-modal .full-width-group {
+  margin-bottom: 1.25rem;
 }
 
-.form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+.date-range-modal .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
 }
 
-.form-group label {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #475569;
-    text-transform: uppercase;
-    letter-spacing: 0.025em;
+.date-range-modal .form-group label {
+  font-size: 0.82rem !important;
+  font-weight: 700 !important;
+  color: var(--text-color) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
 }
 
-.form-group input,
-.week-select {
-    padding: 12px 16px;
-    border: 2px solid #e2e8f0;
-    border-radius: 12px;
-    font-size: 1rem;
-    color: #1e293b;
-    background: #f8fafc;
-    transition: all 0.2s;
-    outline: none;
-    width: 100%;
-    box-sizing: border-box;
+.date-range-modal .form-group input,
+.date-range-modal .week-select {
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: var(--text-color);
+  background: var(--card-bg);
+  transition: all 0.2s ease;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.form-group input:focus,
-.week-select:focus {
-    border-color: #4f46e5;
-    background: white;
-    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+.date-range-modal .form-group input:focus,
+.date-range-modal .week-select:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(253, 100, 28, 0.1);
 }
 
-.modal-footer {
-    display: flex;
-    gap: 12px;
-    margin-top: 16px;
+/* Replace the browser's default dark highlight on the active date segment
+   (e.g. the month field while typing) with a subtle accent tint instead. */
+.date-range-modal .form-group input[type="date"]::-webkit-datetime-edit-month-field:focus,
+.date-range-modal .form-group input[type="date"]::-webkit-datetime-edit-day-field:focus,
+.date-range-modal .form-group input[type="date"]::-webkit-datetime-edit-year-field:focus {
+  background-color: rgba(253, 100, 28, 0.15);
+  color: var(--text-color);
+  outline: none;
 }
 
-.btn-cancel {
-    flex: 1;
-    padding: 14px;
-    border-radius: 12px;
-    font-weight: 600;
-    color: #64748b;
-    background: #f1f5f9;
-    border: none;
-    cursor: pointer;
-    transition: background 0.2s;
+.date-range-modal .modal-footer {
+  display: flex;
+  gap: 12px;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(27, 45, 70, 0.06);
 }
 
-.btn-cancel:hover {
-    background: #e2e8f0;
+.date-range-modal .btn-cancel {
+  flex: 1 !important;
+  padding: 0.6rem 1.25rem !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  color: var(--text-color) !important;
+  background: transparent !important;
+  border: 1px solid var(--accent-color) !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
 }
 
-.btn-confirm {
-    flex: 2;
-    padding: 14px;
-    border-radius: 12px;
-    font-weight: 600;
-    color: white;
-    background: #4f46e5;
-    border: none;
-    cursor: pointer;
-    box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.4);
-    transition: all 0.2s;
+.date-range-modal .btn-cancel:hover {
+  background: rgba(253, 100, 28, 0.08) !important;
 }
 
-.btn-confirm:hover {
-    background: #4338ca;
-    transform: translateY(-1px);
-    box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.5);
+.date-range-modal .btn-confirm {
+  flex: 1 !important;
+  padding: 0.6rem 1.25rem !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  color: white !important;
+  background: var(--accent-color) !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.date-range-modal .btn-confirm:hover {
+  background: #e05315 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(253, 100, 28, 0.2) !important;
 }
 
 .btn-confirm:active {
-    transform: translateY(0);
+  transform: translateY(0);
+}
+
+/* Dark mode overrides */
+.dark .close-btn {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark .close-btn:hover {
+  background: rgba(253, 100, 28, 0.15);
 }

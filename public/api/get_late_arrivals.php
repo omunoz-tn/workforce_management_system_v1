@@ -2,12 +2,22 @@
 header('Content-Type: application/json');
 require_once 'db_wfm_config.php';
 
+session_start();
+$isRestricted = isset($_SESSION['allowed_teams']) && !empty($_SESSION['allowed_teams']) && $_SESSION['role_name'] !== 'Admin';
+$allowedTeams = $isRestricted ? $_SESSION['allowed_teams'] : [];
+
 try {
-    $query = "SELECT name, group_name, arrived, work_starts 
-              FROM desktime_employee_data 
-              WHERE arrived IS NOT NULL 
-              AND log_date = CURDATE()
-              ORDER BY group_name ASC, arrived DESC";
+    $query = "SELECT d.name, d.group_name, d.arrived, d.work_starts 
+              FROM desktime_employee_data d
+              LEFT JOIN org_team_assignments ota ON d.employee_id = ota.employee_id
+              WHERE d.arrived IS NOT NULL 
+              AND d.log_date = CURDATE()";
+    
+    if ($isRestricted) {
+        $query .= " AND ota.team_id IN (" . implode(',', array_map('intval', $allowedTeams)) . ")";
+    }
+
+    $query .= " ORDER BY d.group_name ASC, d.arrived DESC";
 
     $stmt = $pdo->query($query);
     $lateArrivals = $stmt->fetchAll(PDO::FETCH_ASSOC);

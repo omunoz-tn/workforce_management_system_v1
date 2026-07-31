@@ -1,153 +1,170 @@
 .reports-container {
-    padding: 24px;
-    animation: fadeIn 0.5s ease-out;
+  padding: 1.5rem 2rem;
+  animation: fadeIn 0.4s ease-out;
+  box-sizing: border-box;
 }
 
 .reports-header {
-    margin-bottom: 40px;
+  margin-bottom: 2rem;
+  text-align: left;
 }
 
 .reports-header h1 {
-    font-size: 2.5rem;
-    font-weight: 700;
-    margin-bottom: 8px;
-    color: var(--text-color);
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--text-color);
 }
 
 .reports-header p {
-    color: var(--text-muted);
-    font-size: 1.1rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 0;
 }
 
 .reports-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
 }
 
 .report-card {
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 18px;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    height: 240px; /* Fixed height for visual consistency */
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    cursor: pointer;
-    overflow: hidden;
+  background: #1b2d46; /* Paleta Navy Blue */
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 1.25rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 230px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 20px rgba(27, 45, 70, 0.15);
+  cursor: pointer;
+  overflow: hidden;
 }
 
 .report-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-    border-color: var(--accent-color);
+  transform: translateY(-5px);
+  box-shadow: 0 12px 24px -6px rgba(253, 100, 28, 0.25), 0 4px 12px rgba(27, 45, 70, 0.2);
+  border-color: var(--accent-color);
 }
 
 .report-card.placeholder {
-    opacity: 0.8;
-    filter: grayscale(0.5);
-    cursor: default;
+  opacity: 0.6;
+  filter: grayscale(0.6);
+  cursor: not-allowed;
 }
 
 .report-card.placeholder:hover {
-    transform: none;
-    box-shadow: none;
-    border-color: var(--border-color);
+  transform: none;
+  box-shadow: 0 4px 20px rgba(27, 45, 70, 0.15);
+  border-color: rgba(255, 255, 255, 0.06);
 }
 
 .report-badge {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    background: rgba(var(--accent-color-rgb, 79, 70, 229), 0.1);
-    color: var(--accent-color);
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .report-icon {
-    font-size: 2.2rem;
-    margin-bottom: 12px;
+  font-size: 2rem;
+  margin-bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .report-content h3 {
-    font-size: 1.15rem;
-    font-weight: 700;
-    margin-bottom: 8px;
-    color: var(--text-color);
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0 0 6px 0;
+  color: #fefefe; /* Pure White text on Navy */
 }
 
 .report-content p {
-    color: var(--text-muted);
-    font-size: 0.85rem;
-    line-height: 1.4;
-    margin-bottom: 16px;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    flex-grow: 0;
+  color: #cbd5e1; /* Slate color for soft contrast description */
+  font-size: 0.8rem;
+  line-height: 1.4;
+  margin: 0 0 16px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex-grow: 0;
 }
 
 .report-footer {
-    margin-top: auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
 }
 
 .view-report-btn {
-    background: var(--accent-color);
-    color: white;
-    padding: 8px 16px;
-    border-radius: 6px;
-    font-weight: 600;
-    font-size: 0.85rem;
-    border: none;
-    width: 100%;
-    transition: background 0.2s;
+  background: var(--accent-color);
+  color: #fefefe;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  border: none;
+  width: 100%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
 }
 
 .view-report-btn:hover {
-    filter: brightness(1.1);
+  background: #e05315;
+  box-shadow: 0 4px 12px rgba(253, 100, 28, 0.3);
 }
 
 .coming-soon {
-    color: var(--text-muted);
-    font-style: italic;
-    font-size: 0.9rem;
-    width: 100%;
-    text-align: center;
-    padding: 10px;
-    background: rgba(0, 0, 0, 0.05);
-    border-radius: 8px;
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
+  font-size: 0.8rem;
+  width: 100%;
+  text-align: center;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* Dark mode overrides if needed */
-[class*='dark'] .report-card {
-    background: #1e293b;
+/* Dark mode overrides (keep the dark cards consistent across themes) */
+.dark .report-card {
+  background: #0f172a;
+  border-color: rgba(255, 255, 255, 0.04);
 }
 
-[class*='dark'] .coming-soon {
-    background: rgba(255, 255, 255, 0.05);
+.dark .report-card:hover {
+  border-color: var(--accent-color);
 }

@@ -35,9 +35,11 @@ try {
     $yesterday = date('Y-m-d', strtotime('-1 day'));
     $today = date('Y-m-d');
 
-    // 2. Check if we already successfully synced "Yesterday" TODAY
-    // This prevents multiple users from triggering the same sync in separate tabs.
-    $checkSql = "SELECT id FROM desktime_sync_log WHERE sync_date = ? AND status = 'success' AND DATE(created_at) = ?";
+    // 2. Check if we already successfully synced "Yesterday" TODAY with PROJECT data
+    // This prevents skipping if a manual/partial sync (like hours-only) happened earlier.
+    $checkSql = "SELECT id FROM desktime_sync_log 
+                 WHERE sync_date = ? AND status = 'success' AND DATE(created_at) = ? 
+                 AND projects_updated > 0";
     $stmt = $pdo->prepare($checkSql);
     $stmt->execute([$yesterday, $today]);
     if ($stmt->fetch()) {

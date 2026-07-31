@@ -133,6 +133,7 @@
 
 .schedule-table {
     width: 100%;
+    table-layout: fixed;
     border-collapse: separate;
     border-spacing: 0;
 }
@@ -154,8 +155,8 @@
     background: var(--card-bg) !important;
     border-right: 2px solid var(--border-color);
     text-align: left !important;
-    width: 250px;
-    min-width: 250px;
+    width: 200px;
+    min-width: 200px;
 }
 
 .emp-header-cell {
@@ -184,25 +185,43 @@
 }
 
 .today-col-header {
-    background: rgba(100, 108, 255, 0.05) !important;
+    background: var(--surface-alt) !important;
 }
 
 .today-col-header .day-date {
-    color: var(--accent-color);
+    color: var(--text-color);
 }
 
 .schedule-cell {
-    padding: 12px;
+    padding: 8px 4px;
     border-bottom: 1px solid var(--border-color);
     border-right: 1px solid var(--border-color);
     text-align: center;
     height: 70px;
     transition: background 0.2s;
+    overflow: hidden;
+}
+
+/* Weekly Hours column */
+.weekly-hours-header,
+.weekly-hours-cell {
+    width: 85px;
+}
+
+.weekly-hours-cell {
+    text-align: center;
+    font-weight: 700;
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--border-color);
+    border-right: 2px solid var(--border-color);
+    height: 70px;
+    transition: background 0.2s;
 }
 
 .emp-cell {
-    padding: 12px 20px;
+    padding: 12px 14px;
     border-bottom: 1px solid var(--border-color);
+    overflow: hidden;
 }
 
 .emp-card-info {
@@ -246,15 +265,18 @@
 .shift-card {
     display: inline-flex;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
     justify-content: center;
     background: white;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
-    padding: 6px 12px;
-    min-width: 100px;
+    padding: 6px 8px;
+    width: 100%;
+    max-width: 108px;
+    box-sizing: border-box;
     box-shadow: 0 2px 4px rgba(0,0,0,0.03);
     transition: all 0.2s;
+    gap: 3px;
 }
 
 .dark .shift-card {
@@ -268,18 +290,87 @@
     border-color: var(--accent-color);
 }
 
-.shift-time {
-    font-size: 0.8rem;
-    font-weight: 700;
-    color: var(--text-color);
+.shift-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+}
+
+.shift-label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    font-weight: 600;
     white-space: nowrap;
 }
 
-.shift-separator {
+.shift-time {
     font-size: 0.7rem;
-    opacity: 0.3;
-    line-height: 1;
-    margin: 2px 0;
+    font-weight: 700;
+    color: var(--text-color);
+    white-space: nowrap;
+    text-align: right;
+}
+
+.lunch-time {
+    color: #16a34a;
+}
+
+.dark .lunch-time {
+    color: #4ade80;
+}
+
+/* Predicted shift (projected from the employee's most common historical schedule) */
+.shift-card.shift-predicted {
+    background: transparent;
+    border-style: dashed;
+    border-color: var(--accent-color);
+    opacity: 0.75;
+    position: relative;
+    padding-top: 16px;
+}
+
+.dark .shift-card.shift-predicted {
+    background: transparent;
+}
+
+.shift-off.shift-off-predicted {
+    opacity: 0.6;
+    border: 1px dashed var(--accent-color);
+    border-radius: 8px;
+    padding: 2px 8px;
+}
+
+.predicted-badge {
+    position: absolute;
+    top: -9px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent-color);
+    color: white;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 1px 6px;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+
+/* Manual forecast override (admin-pinned source week) — distinct accent from an
+   algorithmic prediction, so it reads at a glance as "an admin set this". */
+.shift-card.shift-override {
+    border-color: #8b5cf6;
+    opacity: 0.85;
+}
+
+.shift-off.shift-off-override {
+    border: 1px dashed #8b5cf6;
+    opacity: 0.7;
+}
+
+.predicted-badge.override-badge {
+    background: #8b5cf6;
 }
 
 /* State Handlers */

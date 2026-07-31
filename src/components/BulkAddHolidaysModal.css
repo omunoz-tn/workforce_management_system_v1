@@ -1,0 +1,325 @@
+.modal-content.bulk-holidays-modal {
+    background: var(--card-bg);
+    width: 95%;
+    max-width: 920px;
+    max-height: 88vh;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 40px -10px rgba(27, 45, 70, 0.15), 0 10px 20px -5px rgba(27, 45, 70, 0.05);
+    border: 1px solid rgba(27, 45, 70, 0.08);
+    position: relative;
+    overflow: hidden;
+}
+
+.bulk-holidays-modal::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--accent-color);
+}
+
+.bulk-holidays-modal .modal-header {
+    padding: 1.5rem 1.5rem 1rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.bulk-holidays-modal .modal-header h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+.bulk-holidays-modal .close-btn {
+    background: var(--surface-alt);
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+    line-height: 1;
+}
+
+.bulk-holidays-modal .close-btn:hover {
+    background: rgba(253, 100, 28, 0.08);
+    color: var(--text-color);
+    transform: rotate(90deg);
+}
+
+/* Method tabs */
+.bulk-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 0 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.bulk-tab-btn {
+    padding: 10px 16px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: -1px;
+}
+
+.bulk-tab-btn:hover {
+    color: var(--text-color);
+}
+
+.bulk-tab-btn.is-active {
+    color: var(--accent-color);
+    border-bottom-color: var(--accent-color);
+}
+
+.bulk-modal-body {
+    padding: 1.25rem 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.bulk-method-panel {
+    background: var(--surface-alt);
+    border-radius: 12px;
+    padding: 14px 16px;
+}
+
+.bulk-method-panel .section-desc {
+    margin: 0 0 10px 0;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.bulk-secondary-btn {
+    background: var(--card-bg);
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.bulk-secondary-btn:hover {
+    background: var(--accent-color);
+    color: white;
+}
+
+.bulk-secondary-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.bulk-link-btn {
+    background: none;
+    border: none;
+    color: var(--accent-color);
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.bulk-import-controls,
+.bulk-generate-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.bulk-generate-controls select,
+.bulk-generate-controls input {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-size: 0.85rem;
+}
+
+.bulk-generate-controls input[type="number"] {
+    width: 90px;
+}
+
+.bulk-summary-text {
+    margin: 10px 0 0 0;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+/* Shared editable table */
+.bulk-table-wrapper {
+    flex: 1;
+    min-height: 150px;
+    overflow: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+}
+
+.bulk-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.bulk-table th {
+    position: sticky;
+    top: 0;
+    background: var(--surface-alt);
+    text-align: left;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--text-muted);
+    padding: 8px 10px;
+    border-bottom: 2px solid var(--border-color);
+    z-index: 1;
+}
+
+.bulk-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: top;
+}
+
+.bulk-table input,
+.bulk-table select {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-color);
+    font-size: 0.85rem;
+    box-sizing: border-box;
+}
+
+.bulk-table input:hover,
+.bulk-table select:hover,
+.bulk-table input:focus,
+.bulk-table select:focus {
+    border-color: var(--border-color);
+    background: var(--card-bg);
+    outline: none;
+}
+
+.bulk-table input:focus,
+.bulk-table select:focus {
+    border-color: var(--accent-color);
+}
+
+.bulk-row-actions {
+    display: flex;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.bulk-row-actions button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: all 0.15s;
+}
+
+.bulk-row-actions button:hover {
+    background: var(--surface-alt);
+    color: var(--accent-color);
+}
+
+.bulk-row-error td {
+    background: rgba(220, 38, 38, 0.06);
+}
+
+.bulk-row-error-subrow td {
+    background: rgba(220, 38, 38, 0.06);
+    color: #dc2626;
+    font-size: 0.78rem;
+    padding: 4px 10px 8px 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Footer */
+.bulk-modal-footer {
+    padding: 1.1rem 1.5rem;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.bulk-count-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.bulk-save-error {
+    color: #dc2626;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+/* Success view */
+.bulk-success-modal {
+    max-width: 420px;
+}
+
+.bulk-success-view {
+    padding: 3rem 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+}
+
+.bulk-success-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #16a34a;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    font-weight: 800;
+    margin-bottom: 10px;
+}
+
+.bulk-success-view h2 {
+    margin: 0;
+    color: var(--text-color);
+}
+
+.bulk-success-view p {
+    color: var(--text-muted);
+    margin: 0 0 16px 0;
+}

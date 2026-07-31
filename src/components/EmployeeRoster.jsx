@@ -72,7 +72,9 @@ function EmployeeRoster() {
         </div>
         <div className="header-controls">
           <div className="search-box">
-            <span className="search-icon">🔍</span>
+            <span className="search-icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </span>
             <input
               type="text"
               placeholder="Search by name or team..."
@@ -90,14 +92,29 @@ function EmployeeRoster() {
         <table className="roster-table">
           <thead>
             <tr>
-              <th onClick={() => handleSort('name')} className={sortConfig.key === 'name' ? 'active' : ''}>
-                Employee Name {sortConfig.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+              <th onClick={() => handleSort('name')} className={`sortable-header ${sortConfig.key === 'name' ? 'active' : ''}`}>
+                <div className="header-content">
+                  Employee Name
+                  <span className="sort-indicator">
+                    {sortConfig.key === 'name' ? (sortConfig.direction === 'asc' ? ' ↑' : ' ↓') : ' ↕'}
+                  </span>
+                </div>
               </th>
-              <th onClick={() => handleSort('desktime_group')} className={sortConfig.key === 'desktime_group' ? 'active' : ''}>
-                DeskTime Team {sortConfig.key === 'desktime_group' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+              <th onClick={() => handleSort('desktime_group')} className={`sortable-header ${sortConfig.key === 'desktime_group' ? 'active' : ''}`}>
+                <div className="header-content">
+                  DeskTime Team
+                  <span className="sort-indicator">
+                    {sortConfig.key === 'desktime_group' ? (sortConfig.direction === 'asc' ? ' ↑' : ' ↓') : ' ↕'}
+                  </span>
+                </div>
               </th>
-              <th onClick={() => handleSort('hierarchy_team')} className={sortConfig.key === 'hierarchy_team' ? 'active' : ''}>
-                Hierarchy Team {sortConfig.key === 'hierarchy_team' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+              <th onClick={() => handleSort('hierarchy_team')} className={`sortable-header ${sortConfig.key === 'hierarchy_team' ? 'active' : ''}`}>
+                <div className="header-content">
+                  Hierarchy Team
+                  <span className="sort-indicator">
+                    {sortConfig.key === 'hierarchy_team' ? (sortConfig.direction === 'asc' ? ' ↑' : ' ↓') : ' ↕'}
+                  </span>
+                </div>
               </th>
             </tr>
           </thead>

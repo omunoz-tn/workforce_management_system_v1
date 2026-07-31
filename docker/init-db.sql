@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS `org_teams` (
   `name` varchar(255) NOT NULL,
   `is_visible` tinyint(1) DEFAULT 1,
   `lunch_time` int(11) DEFAULT 0,
+  `run_rate_time_source` enum('desktime_time','at_work_time') NOT NULL DEFAULT 'desktime_time',
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
@@ -124,6 +125,76 @@ CREATE TABLE IF NOT EXISTS `org_team_managers` (
   `manager_name` varchar(255) NOT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `org_schedule_forecast_overrides` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `employee_id` int(11) NOT NULL,
+  `employee_name` varchar(255) NOT NULL,
+  `source_week_start` date NOT NULL,
+  `target_end_week_start` date NOT NULL,
+  `pattern` text DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_employee` (`employee_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `org_run_rate_color_ranges` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `range_start` decimal(6,2) NOT NULL,
+  `color` varchar(7) NOT NULL,
+  `is_blinking` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_range_start` (`range_start`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `org_holidays` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `holiday_date` date NOT NULL,
+  `country_code` varchar(2) NOT NULL,
+  `holiday_type` enum('non_working','working','campaign_defined') NOT NULL DEFAULT 'non_working',
+  `description` text DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_country_date` (`country_code`,`holiday_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `org_holiday_type_colors` (
+  `holiday_type` enum('non_working','working','campaign_defined') NOT NULL,
+  `color` varchar(7) NOT NULL,
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`holiday_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+INSERT INTO `org_holiday_type_colors` (`holiday_type`, `color`) VALUES
+('non_working', '#dc2626'),
+('working', '#16a34a'),
+('campaign_defined', '#eab308');
+
+CREATE TABLE IF NOT EXISTS `org_holiday_country_colors` (
+  `country_code` varchar(2) NOT NULL,
+  `color` varchar(7) NOT NULL,
+  `text_color` varchar(7) NOT NULL,
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`country_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+INSERT INTO `org_holiday_country_colors` (`country_code`, `color`, `text_color`) VALUES
+('DO', '#2563eb', '#ffffff'),
+('US', '#7c3aed', '#ffffff');
+
+-- Employees excluded from Run Rate reporting (Configuration > Reports >
+-- Advance Configuration > Run Rate Report > Employees Exceptions). Absence
+-- from this table is the default (included); a row here is the exception.
+CREATE TABLE IF NOT EXISTS `org_run_rate_excluded_employees` (
+  `employee_id` int(11) NOT NULL,
+  `excluded_at` timestamp NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`employee_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE IF NOT EXISTS `org_audit_log` (

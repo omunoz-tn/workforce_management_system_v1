@@ -3,7 +3,6 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
   background-color: #242424;
 
@@ -16,34 +15,37 @@
 /* Light Mode Variables (Default) */
 :root,
 :root.light {
-  --bg-color: #f7fafc;
-  --text-color: #1a202c;
-  --text-muted: #718096;
-  --card-bg: #ffffff;
+  color-scheme: light;
+  --bg-color: #f0f1f4; /* Light Gray from palette */
+  --text-color: #1b2d46; /* Navy Blue from palette for text */
+  --text-muted: #64748b;
+  --card-bg: #fefefe; /* White from palette */
   --card-border: #e2e8f0;
-  --surface-alt: #edf2f7;
-  --accent-color: #646cff;
-  --sidebar-bg: #f8f9fa;
-  --sidebar-text: #333;
-  --sidebar-hover: #e9ecef;
-  --border-color: #dee2e6;
-  --shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --surface-alt: #f1f5f9;
+  --accent-color: #fd641c; /* Orange from palette */
+  --sidebar-bg: #1b2d46; /* Navy Blue from palette */
+  --sidebar-text: #94a3b8; 
+  --sidebar-text-active: #fefefe;
+  --sidebar-hover: #223755; /* Slightly lighter navy for hover */
+  --border-color: #e2e8f0;
+  --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
 }
 
 /* Dark Mode Variables */
+/* Sidebar intentionally not overridden here — it stays the same navy in both
+   themes (--sidebar-bg/--sidebar-text/--sidebar-hover fall through to the
+   :root defaults above), only the content outside the sidebar switches. */
 :root.dark {
-  --bg-color: #1a202c;
-  --text-color: #f7fafc;
-  --text-muted: #a0aec0;
-  --card-bg: #2d3748;
-  --card-border: #4a5568;
-  --surface-alt: #1a202c;
-  --accent-color: #747bff;
-  --sidebar-bg: #111827;
-  --sidebar-text: #e0e0e0;
-  --sidebar-hover: #333;
-  --border-color: #444;
-  --shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  color-scheme: dark;
+  --bg-color: #0f172a;
+  --text-color: #fefefe;
+  --text-muted: #94a3b8;
+  --card-bg: #1b2d46; /* Use navy for cards in dark mode */
+  --card-border: #334155;
+  --surface-alt: #0f172a;
+  --accent-color: #fd641c; /* Orange from palette */
+  --border-color: #334155;
+  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
 }
 
 body {

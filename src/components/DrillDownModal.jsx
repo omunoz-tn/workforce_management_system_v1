@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import './DrillDownModal.css';
 import DailyDetailsModal from './DailyDetailsModal';
 
@@ -64,6 +64,34 @@ const DrillDownModal = ({ type, title, team, onClose, threshold, initialData, se
         return Math.min(adherence, 100);
     };
 
+    const calculateLostHours = (item) => {
+        const startSec = timeToSeconds(item.work_starts || '00:00:00');
+        const endSec = timeToSeconds(item.work_ends || '00:00:00');
+        const lunchHours = Number(item.lunch_deduction_hours || 0);
+        return Math.max(0, ((endSec - startSec) / 3600) - lunchHours);
+    };
+
+    const formatShiftRange = (item) => {
+        const formatTime = (t) => {
+            if (!t || t === '00:00:00') return '-';
+            const [h, m] = t.split(':');
+            const hour = parseInt(h, 10);
+            return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
+        };
+
+        return `${formatTime(item.work_starts)} - ${formatTime(item.work_ends)} (${calculateLostHours(item).toFixed(1)}h)`;
+    };
+
+    const absenteeismFrequency = useMemo(() => {
+        if (type !== 'absenteeism') return {};
+
+        return data.reduce((acc, item) => {
+            const employeeId = item.employee_id;
+            acc[employeeId] = (acc[employeeId] || 0) + 1;
+            return acc;
+        }, {});
+    }, [data, type]);
+
     useEffect(() => {
         if (initialData) {
             setData(initialData);
@@ -123,10 +151,7 @@ const DrillDownModal = ({ type, title, team, onClose, threshold, initialData, se
     }).filter(item => {
         if (type === 'absenteeism') {
             // Use only the server's MySQL time — never fall back to browser time (timezone mismatch)
-            if (!serverTime) return false;
-            const shiftStart = item.work_starts;
-            if (!shiftStart || shiftStart === '00:00:00') return false;
-            return item.is_online == 0 && item.arrived === null && serverTime > shiftStart;
+            return true;
         }
 
         if (type === 'late') {
@@ -201,6 +226,15 @@ const DrillDownModal = ({ type, title, team, onClose, threshold, initialData, se
             const rateB = adjB > 0 ? (b.mtd_actual / adjB) : 0;
             return rateA - rateB; // Sort by lowest run rate first to highlight issues
         });
+    } else if (type === 'absenteeism') {
+        displayData.sort((a, b) => {
+            if (a.log_date !== b.log_date) {
+                return String(b.log_date || '').localeCompare(String(a.log_date || ''));
+            }
+            const frequencyDelta = (absenteeismFrequency[b.employee_id] || 0) - (absenteeismFrequency[a.employee_id] || 0);
+            if (frequencyDelta !== 0) return frequencyDelta;
+            return String(a.name || '').localeCompare(String(b.name || ''));
+        });
     }
 
     const exportToCSV = () => {
@@ -210,7 +244,7 @@ const DrillDownModal = ({ type, title, team, onClose, threshold, initialData, se
             ? ['Name', 'Team', 'Status', 'Arrived', 'Shift Start']
             : type === 'productivity' ? ['Name', 'Team', 'Productivity %']
                 : type === 'efficiency' ? ['Name', 'Team', 'Efficiency %']
-                    : type === 'absenteeism' ? ['Name', 'Team', 'Scheduled Shift Start']
+                    : type === 'absenteeism' ? ['Name', 'Team', 'Absence Date', 'Scheduled Shift', 'Lost Hours', 'Frequency']
                         : type === 'adherence' ? ['Name', 'Team', 'Adherence %']
                             : type === 'overtime' ? ['Name', 'Team', 'Overtime (Sec)']
                                 : (type === 'teams' || type === 'topTeam') ? ['Rank', 'Team Name', 'Members', 'Online', 'Avg. Productivity']
@@ -231,7 +265,14 @@ const DrillDownModal = ({ type, title, team, onClose, threshold, initialData, se
                 } else if (type === 'efficiency') {
                     row = [item.name, item.group_name || item.team_name, item.efficiency];
                 } else if (type === 'absenteeism') {
-                    row = [item.name, item.group_name || item.team_name, item.work_starts || '-'];
+                    row = [
+                        item.name,
+                        item.group_name || item.team_name,
+                        item.log_date || '-',
+                        formatShiftRange(item),
+                        `${calculateLostHours(item).toFixed(1)}h`,
+                        `${absenteeismFrequency[item.employee_id] || 0}x`
+                    ];
                 } else if (type === 'adherence') {
                     row = [item.name, item.group_name || item.team_name, calculateAdherence(item, serverTime).toFixed(1) + '%'];
                 } else if (type === 'overtime') {
@@ -272,6 +313,12 @@ const DrillDownModal = ({ type, title, team, onClose, threshold, initialData, se
         document.body.removeChild(link);
     };
 
+    const recordLabel = type === 'absenteeism'
+        ? 'absence records'
+        : (type === 'teams' || type === 'topTeam' || (type === 'totalHours' && filter === 'teams_view'))
+            ? 'teams'
+            : 'employees';
+
     return (
         <div className="modal-overlay drilldown-modal" onClick={onClose}>
             <div className="modal-content drill-modal-content" onClick={e => e.stopPropagation()}>
@@ -279,7 +326,7 @@ const DrillDownModal = ({ type, title, team, onClose, threshold, initialData, se
                     <div className="header-left">
                         <h2>{title}</h2>
                         <span className="record-count">
-                            {displayData.length} {(type === 'teams' || type === 'topTeam' || (type === 'totalHours' && filter === 'teams_view')) ? 'teams' : 'employees'}
+                            {displayData.length} {recordLabel}
                         </span>
                         <button className="export-btn" onClick={exportToCSV} title="Export to CSV">
                             <span>📥</span> Export CSV
@@ -371,7 +418,7 @@ const DrillDownModal = ({ type, title, team, onClose, threshold, initialData, se
                                                 {type === 'efficiency' && <th>Efficiency %</th>}
                                                 {type === 'absenteeism' && (
                                                     <>
-                                                        <th>Latest Absence</th>
+                                                        <th>Absence Date</th>
                                                         <th>Typical Shift</th>
                                                         <th>Lost Hours</th>
                                                         <th>Frequency</th>
@@ -470,24 +517,12 @@ const DrillDownModal = ({ type, title, team, onClose, threshold, initialData, se
                                                         <>
                                                             <td>{item.log_date || '-'}</td>
                                                             <td>
-                                                                <div className="shift-chip">
-                                                                    {(() => {
-                                                                        const start = item.work_starts || '08:00:00';
-                                                                        const end = item.work_ends || '17:00:00';
-                                                                        const formatTime = (t) => {
-                                                                            const [h, m] = t.split(':');
-                                                                            const hour = parseInt(h);
-                                                                            return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
-                                                                        };
-                                                                        const duration = Math.max(0, (timeToSeconds(end) - timeToSeconds(start)) / 3600 - (item.lunch_deduction_hours || 0));
-                                                                        return `${formatTime(start)} - ${formatTime(end)} (${duration.toFixed(1)}h)`;
-                                                                    })()}
-                                                                </div>
+                                                                <div className="shift-chip">{formatShiftRange(item)}</div>
                                                             </td>
-                                                            <td>{Math.max(0, ((timeToSeconds(item.work_ends || '17:00:00') - timeToSeconds(item.work_starts || '08:00:00')) / 3600) - (item.lunch_deduction_hours || 0)).toFixed(1)}h</td>
+                                                            <td>{calculateLostHours(item).toFixed(1)}h</td>
                                                             <td>
                                                                 <span className="frequency-badge">
-                                                                    {data.filter(d => d.employee_id === item.employee_id).length}x
+                                                                    {absenteeismFrequency[item.employee_id] || 0}x
                                                                 </span>
                                                             </td>
                                                         </>

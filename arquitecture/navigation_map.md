@@ -1,0 +1,31 @@
+# Navigation Hierarchy
+
+- **Dashboard**
+- **Employees**
+  - All employees (Desktime)
+  - Employee Roster
+  - Teams
+  - Billable
+- **Analytics**
+  - Reports
+  - KPIs
+  - Save Hours
+  - Save Projects & Task
+- **Scheduling**
+  - Schedule Board
+  - Forecast
+  - Coverage
+  - Shift Management
+  - Time Off & Availability
+  - Templates
+  - Shift Swaps
+  - History
+- **Settings**
+  - Dashboard
+  - Reports
+  - Organization
+  - User
+  - Shift Types
+  - Absence Types
+  - Notifications
+  - Switch Theme

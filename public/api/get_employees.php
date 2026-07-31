@@ -2,6 +2,10 @@
 header('Content-Type: application/json');
 require_once 'db_wfm_config.php';
 
+session_start();
+$isRestricted = isset($_SESSION['allowed_teams']) && !empty($_SESSION['allowed_teams']) && $_SESSION['role_name'] !== 'Admin';
+$allowedTeams = $isRestricted ? $_SESSION['allowed_teams'] : [];
+
 try {
     // Get query parameters
     $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
@@ -47,6 +51,10 @@ try {
 
     $whereParts = ["`log_date` = :latest_date"];
     $params = [':latest_date' => $latestDate];
+
+    if ($isRestricted) {
+        $whereParts[] = "employee_id IN (SELECT employee_id FROM org_team_assignments WHERE team_id IN (" . implode(',', array_map('intval', $allowedTeams)) . "))";
+    }
 
     if ($search !== "") {
         $searchParts = [];

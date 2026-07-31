@@ -5,10 +5,35 @@
  */
 header('Content-Type: application/json');
 require_once 'db_wfm_config.php';
+require_once 'sync_desktime_core.php';
 
 try {
+    session_start();
+    $isRestricted = isset($_SESSION['allowed_teams']) && !empty($_SESSION['allowed_teams']) && $_SESSION['role_name'] !== 'Admin';
+    $allowedTeams = $isRestricted ? $_SESSION['allowed_teams'] : [];
+    $teamFilter = $isRestricted ? " AND ota.team_id IN (" . implode(',', array_map('intval', $allowedTeams)) . ") " : "";
+
     $fromDate = isset($_GET['from']) ? $_GET['from'] : date('Y-m-d');
     $toDate = isset($_GET['to']) ? $_GET['to'] : date('Y-m-d');
+    $today = date('Y-m-d');
+
+    // Smart refresh for ranges that include today, to avoid stale false-positive absences.
+    $wasAutoSynced = false;
+    if ($fromDate <= $today && $toDate >= $today) {
+        $syncCheckQuery = "SELECT MAX(updated_at) as last_sync FROM desktime_employee_data WHERE log_date = :log_date";
+        $stmt = $pdo->prepare($syncCheckQuery);
+        $stmt->execute(['log_date' => $today]);
+        $syncInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $lastSync = $syncInfo['last_sync'] ? strtotime($syncInfo['last_sync']) : 0;
+        $currentTime = time();
+        $syncThreshold = 600; // 10 minutes
+
+        if (($currentTime - $lastSync) > $syncThreshold) {
+            syncDeskTime($pdo, $env);
+            $wasAutoSynced = true;
+        }
+    }
 
     // 1. Definition of Absenteeism
     // Criteria: Offline, No Arrival time recorded, Valid schedule present, and time has passed.
@@ -19,9 +44,10 @@ try {
     $summaryQuery = "SELECT 
         SUM(CASE WHEN $absentCondition THEN 1 ELSE 0 END) as total_absences,
         COUNT(DISTINCT CASE WHEN $absentCondition THEN d.employee_id END) as unique_absentees,
-        ROUND(SUM(CASE WHEN $absentCondition THEN (TIME_TO_SEC(d.work_ends) - TIME_TO_SEC(d.work_starts) - (COALESCE(ot.lunch_time, 0) * 60)) ELSE 0 END) / 3600, 2) as lost_hours,
+        ROUND(SUM(CASE WHEN $absentCondition THEN GREATEST(TIME_TO_SEC(d.work_ends) - TIME_TO_SEC(d.work_starts) - (COALESCE(ot.lunch_time, 0) * 60), 0) ELSE 0 END) / 3600, 2) as lost_hours,
         COUNT(DISTINCT d.log_date) as days_covered,
-        COUNT(*) as total_scheduled
+        COUNT(*) as total_scheduled,
+        ROUND((SUM(CASE WHEN $absentCondition THEN 1 ELSE 0 END) * 100.0) / NULLIF(COUNT(*), 0), 2) as absence_rate
     FROM desktime_employee_data d
     LEFT JOIN org_team_assignments ota ON d.employee_id = ota.employee_id
     LEFT JOIN org_teams ot ON ota.team_id = ot.id
@@ -29,7 +55,8 @@ try {
     WHERE d.log_date BETWEEN :from AND :to
     AND d.work_starts != '00:00:00' AND d.work_ends > d.work_starts
     AND (ot.is_visible IS NULL OR ot.is_visible = 1)
-    AND (og.is_visible IS NULL OR og.is_visible = 1)";
+    AND (og.is_visible IS NULL OR og.is_visible = 1)
+    $teamFilter";
 
     $stmt = $pdo->prepare($summaryQuery);
     $stmt->execute(['from' => $fromDate, 'to' => $toDate]);
@@ -38,10 +65,18 @@ try {
     // 3. Trend Data (Daily absence counts)
     $trendQuery = "SELECT 
         d.log_date,
-        COUNT(*) as count
+        SUM(CASE WHEN $absentCondition THEN 1 ELSE 0 END) as absence_count,
+        COUNT(*) as total_scheduled,
+        ROUND((SUM(CASE WHEN $absentCondition THEN 1 ELSE 0 END) * 100.0) / NULLIF(COUNT(*), 0), 2) as absence_rate
     FROM desktime_employee_data d
+    LEFT JOIN org_team_assignments ota ON d.employee_id = ota.employee_id
+    LEFT JOIN org_teams ot ON ota.team_id = ot.id
+    LEFT JOIN org_groups og ON ot.group_id = og.id
     WHERE d.log_date BETWEEN :from AND :to
-    AND $absentCondition
+    AND d.work_starts != '00:00:00' AND d.work_ends > d.work_starts
+    AND (ot.is_visible IS NULL OR ot.is_visible = 1)
+    AND (og.is_visible IS NULL OR og.is_visible = 1)
+    $teamFilter
     GROUP BY d.log_date
     ORDER BY d.log_date ASC";
 
@@ -52,7 +87,8 @@ try {
     $teamQuery = "SELECT 
         COALESCE(ot.name, d.group_name) as group_name,
         SUM(CASE WHEN $absentCondition THEN 1 ELSE 0 END) as absence_count,
-        ROUND(SUM(CASE WHEN $absentCondition THEN (TIME_TO_SEC(d.work_ends) - TIME_TO_SEC(d.work_starts) - (COALESCE(ot.lunch_time, 0) * 60)) ELSE 0 END) / 3600, 2) as lost_hours,
+        ROUND((SUM(CASE WHEN $absentCondition THEN 1 ELSE 0 END) * 100.0) / NULLIF(COUNT(*), 0), 2) as absence_rate,
+        ROUND(SUM(CASE WHEN $absentCondition THEN GREATEST(TIME_TO_SEC(d.work_ends) - TIME_TO_SEC(d.work_starts) - (COALESCE(ot.lunch_time, 0) * 60), 0) ELSE 0 END) / 3600, 2) as lost_hours,
         COUNT(DISTINCT CASE WHEN $absentCondition THEN d.employee_id END) as unique_absentees,
         COUNT(*) as total_scheduled
     FROM desktime_employee_data d
@@ -63,6 +99,7 @@ try {
     AND d.work_starts != '00:00:00' AND d.work_ends > d.work_starts
     AND (ot.is_visible IS NULL OR ot.is_visible = 1)
     AND (og.is_visible IS NULL OR og.is_visible = 1)
+    $teamFilter
     GROUP BY group_name
     ORDER BY lost_hours DESC";
 
@@ -70,23 +107,15 @@ try {
     $stmt->execute(['from' => $fromDate, 'to' => $toDate]);
     $teamStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // 5. Global Roster Context (For rates)
-    $rosterQuery = "SELECT COUNT(*) as scheduled_count 
-                    FROM desktime_employee_data d 
-                    WHERE d.log_date BETWEEN :from AND :to 
-                    AND d.work_starts != '00:00:00'";
-    $stmt = $pdo->prepare($rosterQuery);
-    $stmt->execute(['from' => $fromDate, 'to' => $toDate]);
-    $roster = $stmt->fetch(PDO::FETCH_ASSOC);
-
     echo json_encode([
         'success' => true,
         'summary' => $summary,
         'trend' => $trend,
         'teamStats' => $teamStats,
-        'globalScheduled' => $roster['scheduled_count'] ?? 0,
+        'globalScheduled' => $summary['total_scheduled'] ?? 0,
         'serverTime' => date('H:i:s'),
-        'lastUpdate' => date('c')
+        'lastUpdate' => date('c'),
+        'autoSynced' => $wasAutoSynced
     ]);
 
 } catch (Exception $e) {

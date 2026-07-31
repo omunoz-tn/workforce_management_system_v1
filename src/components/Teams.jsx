@@ -70,23 +70,46 @@ const Teams = ({ onUnsavedChanges }) => {
     const [savingBatch, setSavingBatch] = useState(false);
 
     // ── Initial Load (only API fetch besides Import) ──────────────────────
-    const fetchData = async () => {
-        setLoading(true);
-        try {
-            const [hierarchyRes, employeesRes] = await Promise.all([
-                fetch('./api/get_org_hierarchy.php'),
-                fetch('./api/get_online_employees.php?status=all')
-            ]);
-            const hierarchyData = await hierarchyRes.json();
-            const employeesData = await employeesRes.json();
-            if (hierarchyData.success) setHierarchy(hierarchyData.data);
-            if (employeesData.success) setAllEmployees(employeesData.data);
-        } catch (err) {
-            setError('Failed to load organization data');
-        } finally {
-            setLoading(false);
-        }
-    };
+// State for caching team members
+  const [teamMembersMap, setTeamMembersMap] = useState({});
+
+  // ── Initial Load (fetch hierarchy, employees, and preload all team members) ────────
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // 1️⃣ Load hierarchy and employee list
+      const [hierarchyRes, employeesRes] = await Promise.all([
+        fetch('./api/get_org_hierarchy.php'),
+        fetch('./api/get_online_employees.php?status=all')
+      ]);
+      const hierarchyData = await hierarchyRes.json();
+      const employeesData = await employeesRes.json();
+      if (hierarchyData.success) setHierarchy(hierarchyData.data);
+      if (employeesData.success) setAllEmployees(employeesData.data);
+
+      // 2️⃣ Pre‑load members for every existing team (skip temporary IDs)
+      const teams = (hierarchyData.data || []).flatMap(g =>
+        (g.teams || []).filter(t => !String(t.id).startsWith('temp_'))
+      );
+      const membersMap = {};
+      await Promise.all(
+        teams.map(async (team) => {
+          try {
+            const res = await fetch(`./api/get_team_members.php?team_id=${team.id}`);
+            const data = await res.json();
+            membersMap[team.id] = data.success ? data.data : [];
+          } catch (_) {
+            membersMap[team.id] = [];
+          }
+        })
+      );
+      setTeamMembersMap(membersMap);
+    } catch (err) {
+      setError('Failed to load organization data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
     useEffect(() => { fetchData(); }, []);
 
@@ -261,17 +284,7 @@ const Teams = ({ onUnsavedChanges }) => {
 
         // 2. If no pending, and it's an existing team, fetch from API
         if (team.id && !String(team.id).startsWith('temp_')) {
-            setLoading(true);
-            try {
-                const assignRes = await fetch(`./api/get_team_members.php?team_id=${team.id}`);
-                const assignData = await assignRes.json();
-                setSelectedMembers(assignData.data || []);
-            } catch (err) {
-                console.error(err);
-                setSelectedMembers([]);
-            } finally {
-                setLoading(false);
-            }
+            setSelectedMembers(teamMembersMap[team.id] || []);
         } else {
             // New team without pending assignments starts empty
             setSelectedMembers([]);
@@ -505,7 +518,7 @@ const Teams = ({ onUnsavedChanges }) => {
                                             <span key={i} className="manager-badge">👤 {m.manager_name}</span>
                                         ))}
                                     </div>
-                                    <div className="icon-actions" onClick={e => e.stopPropagation()} style={{ marginTop: '12px', justifyContent: 'flex-end', paddingTop: '12px', borderTop: '1px solid var(--border-color)' }}>
+                                    <div className="team-card-actions" onClick={e => e.stopPropagation()}>
                                         <button className="icon-btn history" onClick={() => fetchHistory('team', team.id)} title="History">
                                             <IconHistory />
                                         </button>

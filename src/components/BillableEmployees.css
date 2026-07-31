@@ -1,236 +1,363 @@
-/* src/components/BillableEmployees.css */
 .billable-employees-container {
-    padding: 12px;
-    background-color: var(--card-bg, #ffffff);
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-    display: flex;
-    flex-direction: column;
-    height: 100%;
+  padding: 1.5rem 2rem;
+  max-width: 100%;
+  height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  background: var(--bg-color);
 }
 
 .billable-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border-color, #e2e8f0);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  gap: 2rem;
+  flex-wrap: wrap;
 }
 
-.billable-header h2 {
-    margin: 0;
-    font-size: 1.25rem;
-    color: var(--text-color, #2d3748);
+.billable-header h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-color);
+  white-space: nowrap;
 }
 
 .billable-filters {
-    display: flex;
-    gap: 12px;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-grow: 1;
+  justify-content: flex-end;
+}
+
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  max-width: 320px;
+  width: 100%;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .search-input {
-    padding: 6px 10px;
-    border: 1px solid var(--border-color, #e2e8f0);
-    border-radius: 6px;
-    font-size: 0.9rem;
-    width: 220px;
+  width: 100%;
+  padding: 0.6rem 1rem 0.6rem 2.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background: var(--card-bg);
+  color: var(--text-color);
+  transition: all 0.2s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(253, 100, 28, 0.1);
 }
 
 .status-dropdown {
-    padding: 6px;
-    border: 1px solid var(--border-color, #e2e8f0);
-    border-radius: 6px;
-    font-size: 0.9rem;
-    background-color: white;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background: var(--card-bg);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.status-dropdown:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(253, 100, 28, 0.1);
 }
 
 .table-controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .selection-links {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .link-btn {
-    background: none;
-    border: none;
-    color: var(--primary-color, #3182ce);
-    cursor: pointer;
-    font-size: 0.9rem;
-    font-weight: 500;
-    padding: 0;
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
 }
 
 .link-btn:hover {
-    text-decoration: underline;
+  background: rgba(253, 100, 28, 0.08);
 }
 
 .separator {
-    color: var(--text-light, #a0aec0);
+  color: var(--border-color);
+  user-select: none;
 }
 
 .selection-count {
-    color: var(--text-light, #a0aec0);
-    font-size: 0.9rem;
-    margin-left: 10px;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  margin-left: 8px;
+  font-weight: 500;
 }
 
 .bulk-actions {
-    display: flex;
-    gap: 10px;
+  display: flex;
+  gap: 0.5rem;
 }
 
 .bulk-actions button {
-    padding: 6px 12px;
-    border-radius: 6px;
-    border: none;
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .btn-bulk-billable {
-    background-color: var(--success-color, #38a169);
-    color: white;
+  background-color: #10b981;
+  color: white;
+}
+
+.btn-bulk-billable:hover:not(.disabled) {
+  background-color: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
 }
 
 .btn-bulk-nonbillable {
-    background-color: var(--warning-color, #dd6b20);
-    color: white;
+  background-color: #ef4444;
+  color: white;
+}
+
+.btn-bulk-nonbillable:hover:not(.disabled) {
+  background-color: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
 
 .bulk-actions button.disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background-color: var(--text-light, #a0aec0);
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: var(--border-color);
+  color: var(--text-muted);
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .billable-table-wrapper {
-    overflow-y: auto;
-    flex-grow: 1;
-    border: 1px solid var(--border-color, #e2e8f0);
-    border-radius: 8px;
+  overflow: auto;
+  flex-grow: 1;
+  border: 1px solid rgba(27, 45, 70, 0.08);
+  border-radius: 12px;
+  background: var(--card-bg);
+  box-shadow: 0 2px 12px rgba(27, 45, 70, 0.02);
+  margin-bottom: 1rem;
+}
+
+/* Custom Scrollbars */
+.billable-table-wrapper::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.billable-table-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.billable-table-wrapper::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+.billable-table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
 
 .billable-table {
-    width: 100%;
-    border-collapse: collapse;
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card-bg);
 }
 
-.billable-table th, .billable-table td {
-    padding: 8px 12px;
-    text-align: left;
-    border-bottom: 1px solid var(--border-color, #edf2f7);
-    font-size: 0.9rem;
+.billable-table th, 
+.billable-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(27, 45, 70, 0.05);
+  font-size: 0.88rem;
+  color: var(--text-color);
+  white-space: nowrap;
 }
 
 .billable-table th {
-    background-color: var(--bg-color, #f7fafc);
-    font-weight: 600;
-    position: sticky;
-    top: 0;
-    z-index: 10;
+  background: #f7f9fa;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  border-bottom: 1px solid rgba(27, 45, 70, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .employee-row {
-    cursor: pointer;
-    transition: background-color 0.15s;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
 }
 
 .employee-row:hover {
-    background-color: var(--bg-color, #f7fafc);
+  background-color: rgba(253, 100, 28, 0.02);
 }
 
 .employee-row.selected {
-    background-color: #ebf8ff; /* Light blue */
+  background-color: rgba(253, 100, 28, 0.04);
 }
 
 .center-col {
-    text-align: center;
+  text-align: center;
 }
 
 .text-right {
-    text-align: right;
+  text-align: right;
 }
 
 .status-badge {
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 0.8rem;
-    font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
 }
 
 .status-badge.billable {
-    background-color: #c6f6d5;
-    color: #22543d;
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #065f46;
 }
 
 .status-badge.non-billable {
-    background-color: #feebc8;
-    color: #744210;
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #991b1b;
 }
 
 /* Switch styling */
 .toggle-container {
-    display: flex;
-    justify-content: flex-end;
+  display: flex;
+  justify-content: flex-end;
 }
 
 .switch {
-    position: relative;
-    display: inline-block;
-    width: 40px;
-    height: 20px;
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 22px;
 }
 
 .switch input { 
-    opacity: 0;
-    width: 0;
-    height: 0;
+  opacity: 0;
+  width: 0;
+  height: 0;
 }
 
 .slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #ccc;
-    transition: .3s;
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--border-color);
+  transition: .25s ease;
 }
 
 .slider:before {
-    position: absolute;
-    content: "";
-    height: 14px;
-    width: 14px;
-    left: 3px;
-    bottom: 3px;
-    background-color: white;
-    transition: .3s;
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .25s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 input:checked + .slider {
-    background-color: var(--success-color, #38a169);
+  background-color: var(--accent-color);
 }
 
 input:checked + .slider:before {
-    transform: translateX(20px);
+  transform: translateX(20px);
 }
 
 .slider.round {
-    border-radius: 24px;
+  border-radius: 24px;
 }
 
 .slider.round:before {
-    border-radius: 50%;
+  border-radius: 50%;
+}
+
+/* Error banner */
+.error-message {
+  padding: 1.25rem;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  margin: 1.5rem 0;
+  font-size: 0.9rem;
+}
+
+/* Dark mode overrides */
+.dark .billable-table thead {
+  background: #1e293b;
+}
+
+.dark .billable-table th {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark .billable-table td {
+  border-bottom-color: rgba(255, 255, 255, 0.04);
+}
+
+.dark .employee-row:hover {
+  background: rgba(253, 100, 28, 0.04);
+}
+
+.dark .employee-row.selected {
+  background: rgba(253, 100, 28, 0.08);
 }

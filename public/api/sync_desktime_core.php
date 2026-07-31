@@ -9,7 +9,8 @@ function syncDeskTime($pdo, $env, $date = null)
         'success' => true,
         'sync_time' => date('Y-m-d H:i:s'),
         'date' => $date ?: date('Y-m-d'),
-        'accounts' => []
+        'accounts' => [],
+        'skipped_records' => 0
     ];
 
     $accounts = [
@@ -30,6 +31,8 @@ function syncDeskTime($pdo, $env, $date = null)
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10); // 10 seconds connect timeout
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15); // 15 seconds total timeout
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -84,6 +87,16 @@ function syncDeskTime($pdo, $env, $date = null)
                 }
 
                 $logDate = $date ?: date('Y-m-d');
+
+                // DATA INTEGRITY CHECK: Ensure the arrival date matches the target log date
+                // This prevents "Friday" data from being saved into "Saturday" during day rollover.
+                if ($arrived) {
+                    $arrivedDateOnly = date('Y-m-d', strtotime($arrived));
+                    if ($arrivedDateOnly !== $logDate) {
+                        $results['skipped_records']++;
+                        continue;
+                    }
+                }
 
                 $sql = "INSERT INTO desktime_employee_data 
                         (employee_id, name, email, group_name, is_online, arrived, left_time, 

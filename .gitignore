@@ -22,6 +22,11 @@ tmp/
 # Secrets (DO NOT UPLOAD TO GITHUB)
 .env
 
+# One-off local scripts (some contain hardcoded server credentials) and other
+# AI-tool local state — not part of the app, never meant to be pushed.
+/scratch/
+/.gemini/
+
 # Deployment Artifacts
 *.tar
 *.b64

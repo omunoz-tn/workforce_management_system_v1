@@ -289,7 +289,7 @@ const Dashboard = () => {
 
         // Calculate Filtered MTD Stats for Run Rate
         const filteredEmpIds = new Set(filteredEmployees.map(e => e.employee_id));
-        const filteredMtd = (mtdEmployeeData || []).filter(mtd => filteredEmpIds.has(mtd.employee_id));
+        const filteredMtd = (mtdEmployeeData || []).filter(mtd => filteredEmpIds.has(mtd.employee_id) && !Number(mtd.is_excluded));
 
         const mtd_actual_hours = filteredMtd.reduce((sum, m) => sum + parseFloat(m.mtd_actual || 0), 0);
         const mtd_scheduled_hours = filteredMtd.reduce((sum, m) => sum + parseFloat(m.mtd_scheduled || 0), 0);
@@ -465,7 +465,9 @@ const Dashboard = () => {
                 return (
                     <div {...commonProps} className={`stat-card online clickable ${dragClasses} ${activeDragClass}`} onClick={() => !isReorderMode && setActiveDrillDown({ type: 'online', title: 'Employee Status Details' })}>
                         <InfoTooltip metricKey="online" />
-                        <div className="stat-icon">🎯</div>
+                        <div className="stat-icon-wrapper">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="stat-icon-svg"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path><path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z"></path><path d="M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"></path></svg>
+                        </div>
                         <div className="stat-content">
                             <h3>Coverage</h3>
                             <p className="stat-value">{stats.scheduled_count > 0 ? ((stats.online_count / stats.scheduled_count) * 100).toFixed(1) : '0.0'}%</p>
@@ -478,7 +480,9 @@ const Dashboard = () => {
                 return (
                     <div {...commonProps} className={`stat-card productivity clickable ${dragClasses} ${activeDragClass}`} onClick={() => !isReorderMode && setActiveDrillDown({ type: 'productivity', title: 'Productivity Details' })}>
                         <InfoTooltip metricKey="productivity" />
-                        <div className="stat-icon">⚡</div>
+                        <div className="stat-icon-wrapper">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="stat-icon-svg"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                        </div>
                         <div className="stat-content">
                             <h3>Avg. Productivity</h3>
                             <p className="stat-value">{parseFloat(stats.avg_productivity).toFixed(1)}%</p>
@@ -490,7 +494,9 @@ const Dashboard = () => {
                 return (
                     <div {...commonProps} className={`stat-card punctuality clickable ${dragClasses} ${activeDragClass}`} onClick={() => !isReorderMode && setActiveDrillDown({ type: 'late', title: `Late Arrivals (${lateThreshold} Mins)`, threshold: lateThreshold })}>
                         <InfoTooltip metricKey="late" />
-                        <div className="stat-icon">⏰</div>
+                        <div className="stat-icon-wrapper">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="stat-icon-svg"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49"></path></svg>
+                        </div>
                         <div className="stat-content">
                             <h3 className="late-header">
                                 LATE ARRIVALS (
@@ -507,12 +513,14 @@ const Dashboard = () => {
                 return (
                     <div {...commonProps} className={`stat-card top-team clickable ${dragClasses} ${activeDragClass}`} onClick={() => !isReorderMode && setActiveDrillDown({ type: 'topTeam', title: 'Team Productivity Ranking' })}>
                         <InfoTooltip metricKey="topTeam" />
-                        <div className="stat-icon">🏆</div>
+                        <div className="stat-icon-wrapper">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="stat-icon-svg"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34"></path><path d="M12 2a5 5 0 0 0-5 5v3c0 2.21 1.79 4 4 4h2c2.21 0 4-1.79 4-4V7a5 5 0 0 0-5-5z"></path></svg>
+                        </div>
                         <div className="stat-content">
                             <h3>Top Productive Team</h3>
                             {topTeam ? (
                                 <>
-                                    <p style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: '2px 0', color: '#1a202c' }}>{topTeam.group_name}</p>
+                                    <p style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: '2px 0', color: 'var(--text-color)' }}>{topTeam.group_name}</p>
                                     <p className="stat-value" style={{ margin: '0' }}>{parseFloat(topTeam.avg_productivity).toFixed(1)}%</p>
                                     <div className="progress-bar"><div className="progress-fill" style={{ width: `${topTeam.avg_productivity}%`, background: '#d69e2e' }}></div></div>
                                 </>
@@ -524,7 +532,9 @@ const Dashboard = () => {
                 return (
                     <div {...commonProps} className={`stat-card absenteeism clickable ${dragClasses} ${activeDragClass}`} onClick={() => !isReorderMode && setActiveDrillDown({ type: 'absenteeism', title: 'Absenteeism Details' })}>
                         <InfoTooltip metricKey="absenteeism" />
-                        <div className="stat-icon">📉</div>
+                        <div className="stat-icon-wrapper">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="stat-icon-svg"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="18" y1="8" x2="23" y2="13"></line><line x1="23" y1="8" x2="18" y2="13"></line></svg>
+                        </div>
                         <div className="stat-content">
                             <h3>Absenteeism</h3>
                             <p className="stat-value">{stats.scheduled_count > 0 ? ((stats.absenteeism_count / stats.scheduled_count) * 100).toFixed(1) : '0.0'}%</p>
@@ -537,7 +547,9 @@ const Dashboard = () => {
                 return (
                     <div {...commonProps} className={`stat-card adherence clickable ${dragClasses} ${activeDragClass}`} onClick={() => !isReorderMode && setActiveDrillDown({ type: 'adherence', title: 'Adherence Details' })}>
                         <InfoTooltip metricKey="adherence" />
-                        <div className="stat-icon">✅</div>
+                        <div className="stat-icon-wrapper">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="stat-icon-svg"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                        </div>
                         <div className="stat-content">
                             <h3>Adherence</h3>
                             <p className="stat-value">{parseFloat(stats.adherence_pct || 0).toFixed(1)}%</p>
@@ -550,7 +562,9 @@ const Dashboard = () => {
                 return (
                     <div {...commonProps} className={`stat-card overtime clickable ${dragClasses} ${activeDragClass}`} onClick={() => !isReorderMode && setActiveDrillDown({ type: 'overtime', title: 'Overtime Details' })}>
                         <InfoTooltip metricKey="overtime" />
-                        <div className="stat-icon">🕒</div>
+                        <div className="stat-icon-wrapper">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="stat-icon-svg"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 15 15"></polyline></svg>
+                        </div>
                         <div className="stat-content">
                             <h3>Overtime</h3>
                             <p className="stat-value">{parseFloat(stats.overtime_pct).toFixed(1)}%</p>
@@ -562,7 +576,9 @@ const Dashboard = () => {
                 return (
                     <div {...commonProps} className={`stat-card total-hours clickable ${dragClasses} ${activeDragClass}`} onClick={() => !isReorderMode && setActiveDrillDown({ type: 'totalHours', title: 'Total Hours Tracked' })}>
                         <InfoTooltip metricKey="totalHours" />
-                        <div className="stat-icon">🕐</div>
+                        <div className="stat-icon-wrapper">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="stat-icon-svg"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M12 14v4"></path><path d="M10 16h4"></path></svg>
+                        </div>
                         <div className="stat-content">
                             <h3>Total Hours Tracked</h3>
                             <p className="stat-value">{parseFloat(stats.total_hours || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
@@ -574,7 +590,9 @@ const Dashboard = () => {
                 return (
                     <div {...commonProps} className={`stat-card run-rate clickable ${dragClasses} ${activeDragClass}`} onClick={() => !isReorderMode && setActiveDrillDown({ type: 'runRate', title: 'Run Rate Details (Month-to-Date)', data: filteredMtd })}>
                         <InfoTooltip metricKey="runRate" />
-                        <div className="stat-icon">📈</div>
+                        <div className="stat-icon-wrapper">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="stat-icon-svg"><path d="M23 6l-9.5 9.5-5-5L1 18"></path><polyline points="17 6 23 6 23 12"></polyline></svg>
+                        </div>
                         <div className="stat-content">
                             <div className="stat-header-main"><h3>Run Rate</h3></div>
                             <div className="run-rate-value-container">

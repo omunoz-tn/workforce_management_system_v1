@@ -1,0 +1,34 @@
+{
+  "employees": [
+    { "id": 1, "name": "Abigail Pichardo", "team": "Avengers", "status": "active", "role": "Agent" },
+    { "id": 2, "name": "Adan Morales", "team": "ACI", "status": "active", "role": "Agent" },
+    { "id": 3, "name": "Sarah Connor", "team": "SkyNet Support", "status": "inactive", "role": "Agent" }
+  ],
+  "kpis": {
+    "total_employees": 145,
+    "online_now": 120,
+    "late_arrivals": 5,
+    "absent": 3,
+    "billable_percentage": 85.5
+  },
+  "hours_report": [
+    {
+      "name": "Abigail Pichardo",
+      "team": "Avengers",
+      "dailyHours": { "2026-05-11": 10.11, "2026-05-12": 10.06, "2026-05-13": 8.5 },
+      "total": 28.67
+    },
+    {
+      "name": "Adan Morales", "team": "ACI", "dailyHours": { "2026-05-11": 9.50, "2026-05-12": 9.60, "2026-05-13": 9.0 },
+      "total": 28.10
+    }
+  ],
+  "projects": [
+    {
+      "name": "Abigail Pichardo",
+      "project": "Client Onboarding",
+      "duration": 14400,
+      "date": "2026-05-11"
+    }
+  ]
+}

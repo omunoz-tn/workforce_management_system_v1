@@ -1,6 +1,11 @@
 <?php
 header('Content-Type: application/json');
 require_once 'db_wfm_config.php';
+require_once 'sync_desktime_core.php';
+
+session_start();
+$isRestricted = isset($_SESSION['allowed_teams']) && !empty($_SESSION['allowed_teams']) && $_SESSION['role_name'] !== 'Admin';
+$allowedTeams = $isRestricted ? $_SESSION['allowed_teams'] : [];
 
 try {
     $status = isset($_GET['status']) ? $_GET['status'] : 'all';
@@ -10,6 +15,26 @@ try {
 
     $fromDate = isset($_GET['from']) ? $_GET['from'] : date('Y-m-d');
     $toDate = isset($_GET['to']) ? $_GET['to'] : date('Y-m-d');
+    $today = date('Y-m-d');
+    $absenteeismCondition = "d.is_online = 0 AND d.arrived IS NULL AND d.work_starts != '00:00:00' AND d.work_ends > d.work_starts AND (
+        (d.log_date < CURDATE()) OR (d.log_date = CURDATE() AND CURTIME() > d.work_starts)
+    )";
+
+    // Smart refresh for today's detail views so active employees don't appear absent from stale snapshots.
+    if ($fromDate <= $today && $toDate >= $today) {
+        $syncCheckQuery = "SELECT MAX(updated_at) as last_sync FROM desktime_employee_data WHERE log_date = ?";
+        $stmt = $pdo->prepare($syncCheckQuery);
+        $stmt->execute([$today]);
+        $syncInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $lastSync = $syncInfo['last_sync'] ? strtotime($syncInfo['last_sync']) : 0;
+        $currentTime = time();
+        $syncThreshold = 600; // 10 minutes
+
+        if (($currentTime - $lastSync) > $syncThreshold) {
+            syncDeskTime($pdo, $env);
+        }
+    }
 
     $query = "SELECT d.employee_id, d.name,
                      ot.name as team_name,
@@ -29,6 +54,10 @@ try {
               WHERE d.log_date BETWEEN ? AND ?
               AND (ot.is_visible IS NULL OR ot.is_visible = 1)
               AND (og.is_visible IS NULL OR og.is_visible = 1)";
+    
+    if ($isRestricted) {
+        $query .= " AND ota.team_id IN (" . implode(',', array_map('intval', $allowedTeams)) . ")";
+    }
     $params = [$fromDate, $toDate];
 
     if ($status === 'online') {
@@ -38,7 +67,7 @@ try {
     }
 
     if ($type === 'absenteeism') {
-        $query .= " AND d.is_online = 0 AND d.arrived IS NULL AND d.work_starts != '00:00:00' AND CURTIME() > d.work_starts";
+        $query .= " AND $absenteeismCondition";
     }
 
     if ($team) {
@@ -51,7 +80,11 @@ try {
         $params[] = $targetTeamId;
     }
 
-    $query .= " ORDER BY d.name ASC";
+    if ($type === 'absenteeism') {
+        $query .= " ORDER BY d.log_date DESC, d.name ASC";
+    } else {
+        $query .= " ORDER BY d.name ASC";
+    }
 
     $stmt = $pdo->prepare($query);
     $stmt->execute($params);

@@ -7,6 +7,11 @@ header('Content-Type: application/json');
 require_once 'db_wfm_config.php';
 
 try {
+    session_start();
+    $isRestricted = isset($_SESSION['allowed_teams']) && !empty($_SESSION['allowed_teams']) && $_SESSION['role_name'] !== 'Admin';
+    $allowedTeams = $isRestricted ? $_SESSION['allowed_teams'] : [];
+    $teamFilter = $isRestricted ? " AND ota.team_id IN (" . implode(',', array_map('intval', $allowedTeams)) . ") " : "";
+
     $from = isset($_GET['from']) ? $_GET['from'] : date('Y-m-01');
     $to = isset($_GET['to']) ? $_GET['to'] : date('Y-m-d');
     $team = isset($_GET['team']) ? $_GET['team'] : null;
@@ -16,7 +21,7 @@ try {
         d.name,
         d.log_date,
         COALESCE(ot.name, d.group_name) as team_name,
-        SUM(d.desktime_time) / 3600 as daily_actual,
+        SUM(CASE WHEN ot.run_rate_time_source = 'at_work_time' THEN COALESCE(d.at_work_time, 0) ELSE COALESCE(d.desktime_time, 0) END) / 3600 as daily_actual,
         SUM(
             CASE
                 -- Primary: employee has a valid schedule for this day
@@ -47,6 +52,7 @@ try {
     LEFT JOIN org_team_assignments ota ON d.employee_id = ota.employee_id
     LEFT JOIN org_teams ot ON ota.team_id = ot.id
     LEFT JOIN org_groups og ON ot.group_id = og.id
+    LEFT JOIN org_run_rate_excluded_employees rre ON d.employee_id = rre.employee_id
     -- Fallback schedule: employee's most frequently used valid shift (only joins when today has no schedule)
     LEFT JOIN (
         SELECT employee_id, work_starts, work_ends
@@ -70,7 +76,9 @@ try {
            AND d.work_starts = '00:00:00'
     WHERE d.log_date BETWEEN :from AND :to
     AND (ot.is_visible IS NULL OR ot.is_visible = 1)
-    AND (og.is_visible IS NULL OR og.is_visible = 1)";
+    AND (og.is_visible IS NULL OR og.is_visible = 1)
+    AND rre.employee_id IS NULL
+    $teamFilter";
 
     $params = ['from' => $from, 'to' => $to];
 

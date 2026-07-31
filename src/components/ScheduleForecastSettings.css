@@ -1,0 +1,448 @@
+.forecast-settings-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: #94a3b8 transparent;
+}
+
+.forecast-settings-scroll::-webkit-scrollbar {
+    width: 12px;
+}
+
+.forecast-settings-scroll::-webkit-scrollbar-track {
+    background: var(--bg-secondary, #f1f5f9);
+    border-radius: 6px;
+}
+
+.forecast-settings-scroll::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border-radius: 6px;
+    border: 3px solid var(--bg-secondary, #f1f5f9);
+    background-clip: padding-box;
+}
+
+.forecast-settings-section {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.5rem 1.75rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04);
+}
+
+.forecast-settings-section h2 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-color);
+    margin: 0 0 6px 0;
+}
+
+.forecast-settings-section .section-desc {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin: 0 0 1rem 0;
+}
+
+/* Employee picker */
+.forecast-employee-search {
+    width: 100%;
+    max-width: 420px;
+    padding: 0.65rem 1rem;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.forecast-employee-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.forecast-employee-item {
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.forecast-employee-item:hover {
+    border-color: var(--accent-color);
+}
+
+.forecast-employee-item.selected {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: white;
+}
+
+.forecast-employee-team {
+    font-weight: 400;
+    opacity: 0.75;
+}
+
+/* Override replace note */
+.forecast-override-note {
+    background: rgba(139, 92, 246, 0.08);
+    border: 1px solid #8b5cf6;
+    color: var(--text-color);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+    margin: -0.5rem 0 1.5rem 0;
+}
+
+/* Week nav */
+.forecast-week-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 1rem;
+}
+
+.forecast-week-label {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text-color);
+    min-width: 200px;
+    text-align: center;
+}
+
+.forecast-week-nav .nav-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.forecast-week-total {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin: -0.5rem 0 0.75rem 0;
+}
+
+/* Apply-through week card grid */
+.forecast-week-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.forecast-week-card {
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.forecast-week-card:hover {
+    border-color: var(--accent-color);
+}
+
+.forecast-week-card.selected {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: white;
+}
+
+/* Source week preview strip */
+.forecast-week-preview {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.forecast-preview-day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 90px;
+}
+
+.forecast-preview-day-name {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+.forecast-preview-card {
+    min-width: 90px;
+    padding: 6px 10px;
+}
+
+.forecast-preview-loading {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+/* Source week day editing */
+.forecast-preview-day-editable {
+    cursor: pointer;
+    position: relative;
+    border-radius: 10px;
+    padding: 4px;
+    transition: background 0.15s;
+}
+
+.forecast-preview-day-editable:hover {
+    background: var(--bg-color);
+}
+
+.forecast-preview-day-edited .forecast-preview-card {
+    border-color: #8b5cf6;
+}
+
+.forecast-preview-day-edited .shift-off {
+    border: 1px dashed #8b5cf6;
+    border-radius: 8px;
+    padding: 2px 8px;
+    opacity: 0.85;
+}
+
+.forecast-day-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.forecast-day-copy-btn,
+.forecast-day-revert-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 2px;
+}
+
+.forecast-day-copy-btn:hover {
+    color: var(--accent-color);
+}
+
+.forecast-day-revert-btn:hover {
+    color: #8b5cf6;
+}
+
+.forecast-preview-day-editing {
+    min-width: 150px;
+}
+
+.forecast-day-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: var(--bg-color);
+    border: 1px solid var(--accent-color);
+    border-radius: 10px;
+    padding: 8px;
+    width: 100%;
+}
+
+.forecast-day-time-input {
+    width: 100%;
+    padding: 4px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-size: 0.8rem;
+}
+
+.forecast-day-edit-error {
+    color: #dc2626;
+    font-size: 0.7rem;
+}
+
+.forecast-day-editor-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.forecast-day-save-btn,
+.forecast-day-off-btn,
+.forecast-day-cancel-btn {
+    flex: 1;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 4px 2px;
+    cursor: pointer;
+}
+
+.forecast-day-save-btn {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: white;
+}
+
+.forecast-day-off-btn:hover {
+    border-color: #dc2626;
+    color: #dc2626;
+}
+
+.forecast-day-cancel-btn:hover {
+    border-color: var(--text-muted);
+}
+
+.forecast-day-save-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Copy-to-other-days panel */
+.forecast-copy-panel {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: var(--bg-color);
+    border: 1px solid var(--accent-color);
+    border-radius: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.forecast-copy-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.forecast-copy-days {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.forecast-copy-day-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8rem;
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+.forecast-copy-actions {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.forecast-copy-actions .forecast-day-save-btn,
+.forecast-copy-actions .forecast-day-cancel-btn {
+    flex: none;
+    padding: 6px 14px;
+    font-size: 0.8rem;
+}
+
+/* Save bar */
+.forecast-error {
+    color: #dc2626;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: -0.5rem 0 1rem 0;
+}
+
+.forecast-save-bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.forecast-save-btn {
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 0.7rem 1.5rem;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.forecast-save-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.forecast-status {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.forecast-status.success {
+    color: #16a34a;
+}
+
+.forecast-status.error {
+    color: #dc2626;
+}
+
+/* Active overrides table */
+.forecast-overrides-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.forecast-overrides-table th {
+    text-align: left;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 8px 10px;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.forecast-overrides-table td {
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.9rem;
+    color: var(--text-color);
+}
+
+.forecast-remove-btn {
+    background: transparent;
+    border: 1px solid #dc2626;
+    color: #dc2626;
+    border-radius: 8px;
+    padding: 4px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.forecast-remove-btn:hover {
+    background: #dc2626;
+    color: white;
+}
