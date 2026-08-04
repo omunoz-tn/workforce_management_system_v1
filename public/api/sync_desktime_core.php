@@ -18,11 +18,20 @@ function syncDeskTime($pdo, $env, $date = null)
         'BAY' => $env['DESKTIME_API_KEY_BAY'] ?? null
     ];
 
+    $isFirstAccount = true;
     foreach ($accounts as $accountName => $apiKey) {
         if (!$apiKey) {
-            $results['accounts'][$accountName] = ['status' => 'skipped', 'reason' => 'No API key'];
+            $results['accounts'][$accountName] = ['status' => 'skipped', 'account' => $accountName, 'reason' => 'No API key'];
             continue;
         }
+
+        // Space out calls between accounts. Rapid bursts (a range sync fires one request per day,
+        // per account) can trip DeskTime's rate limit, which comes back as a non-200 that looks
+        // exactly like an auth failure.
+        if (!$isFirstAccount) {
+            usleep(750000); // 0.75s
+        }
+        $isFirstAccount = false;
 
         $baseUrl = "https://desktime.com/api/v2/json/employees";
         $url = $baseUrl . "?apiKey=" . urlencode($apiKey) . ($date ? "&date=" . urlencode($date) : "");
@@ -32,24 +41,56 @@ function syncDeskTime($pdo, $env, $date = null)
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10); // 10 seconds connect timeout
-        curl_setopt($ch, CURLOPT_TIMEOUT, 15); // 15 seconds total timeout
+        curl_setopt($ch, CURLOPT_TIMEOUT, 45); // 45s total: the BAY account routinely takes ~11s
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = curl_error($ch);
 
-        if ($httpCode !== 200) {
+        if ($httpCode !== 200 || $curlError) {
+            // Build a human-readable cause. DeskTime returns the real reason in the body, e.g.
+            // {"error":{"code":401,"description":"API Key is invalid"}}. Without this, every
+            // non-200 collapsed into the same useless "Unknown" in the sync log.
+            $apiMessage = '';
+            $decoded = json_decode((string) $response, true);
+            if (isset($decoded['error']['description'])) {
+                $apiMessage = $decoded['error']['description'];
+            } elseif (isset($decoded['error']) && is_string($decoded['error'])) {
+                $apiMessage = $decoded['error'];
+            } elseif (trim((string) $response) !== '') {
+                $apiMessage = substr(trim(strip_tags((string) $response)), 0, 150);
+            }
+
+            $parts = [];
+            if ($curlError) {
+                $parts[] = "cURL: " . $curlError;
+            }
+            $parts[] = "HTTP " . $httpCode;
+            if ($apiMessage !== '') {
+                $parts[] = $apiMessage;
+            }
+
             $results['accounts'][$accountName] = [
                 'status' => 'error',
+                'account' => $accountName,
                 'http_code' => $httpCode,
-                'curl_error' => $curlError
+                'curl_error' => $curlError,
+                'api_message' => $apiMessage,
+                'reason' => implode(' - ', $parts)
             ];
             continue;
         }
 
         $data = json_decode($response, true);
         if (!isset($data['employees']) || !is_array($data['employees'])) {
-            $results['accounts'][$accountName] = ['status' => 'error', 'reason' => 'Invalid API response format', 'preview' => substr($response, 0, 100)];
+            $results['accounts'][$accountName] = [
+                'status' => 'error',
+                'account' => $accountName,
+                'http_code' => $httpCode,
+                'curl_error' => '',
+                'reason' => 'Invalid API response format',
+                'preview' => substr((string) $response, 0, 100)
+            ];
             continue;
         }
 
@@ -76,7 +117,11 @@ function syncDeskTime($pdo, $env, $date = null)
                 $isOnline = (isset($empData['isOnline']) && $empData['isOnline']) ? 1 : 0;
                 $arrived = isset($empData['arrived']) && $empData['arrived'] !== false ? $empData['arrived'] : null;
                 $leftTime = isset($empData['left']) && $empData['left'] !== false ? $empData['left'] : null;
-                $workStarts = $empData['work_starts'] ?? '00:00:00';
+                // `??` only skips null, so DeskTime's empty-string work_starts used to reach
+                // MySQL and blow up the row ("Incorrect time value: ''"), silently dropping
+                // that employee from the sync.
+                $workStarts = !empty($empData['work_starts']) ? $empData['work_starts'] : '00:00:00';
+                $workEnds = !empty($empData['work_ends']) ? $empData['work_ends'] : '00:00:00';
 
                 $isLate = 0;
                 if ($arrived && $workStarts && $workStarts !== '00:00:00') {
@@ -134,7 +179,7 @@ function syncDeskTime($pdo, $env, $date = null)
                     $empData['productivity'] ?? 0,
                     $empData['efficiency'] ?? 0,
                     $workStarts,
-                    $empData['work_ends'] ?? '00:00:00',
+                    $workEnds,
                     $accountName,
                     $logDate,
                     $isLate,
@@ -154,6 +199,7 @@ function syncDeskTime($pdo, $env, $date = null)
 
         $results['accounts'][$accountName] = [
             'status' => 'success',
+            'account' => $accountName,
             'updated_records' => $count,
             'errors' => $errors,
             'fetched_count' => count($data['employees'])

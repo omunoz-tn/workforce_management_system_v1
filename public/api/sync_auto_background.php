@@ -58,11 +58,29 @@ try {
 
     // 3. Sync Core Hours (Save Hours)
     $hoursResult = syncDeskTime($pdo, $env, $yesterday);
-    foreach ($hoursResult['accounts'] as $acc) {
+    $rowErrors = []; // per-row insert failures: reported, but do not fail the whole day
+    foreach ($hoursResult['accounts'] as $accName => $acc) {
         if ($acc['status'] === 'success') {
             $hoursCount += $acc['updated_records'];
+            // Previously discarded, which let a sync that dropped employees log a clean SUCCESS.
+            if (!empty($acc['errors'])) {
+                $n = count($acc['errors']);
+                $rowErrors[] = "{$accName}: {$n} fila(s) no guardada(s) [" . substr($acc['errors'][0], 0, 120) . "]";
+            }
         } else if ($acc['status'] === 'error') {
-            $errors[] = "Hours ({$acc['account']}): " . ($acc['curl_error'] ?? $acc['reason'] ?? 'Unknown');
+            // Was: "{$acc['account']}" (that key never existed here, so the name came out blank)
+            // plus `?? ` which does not skip an empty-string curl_error, blanking the detail too.
+            $errDetail = '';
+            if (!empty($acc['reason'])) {
+                $errDetail = $acc['reason'];
+            } elseif (!empty($acc['curl_error'])) {
+                $errDetail = "cURL: " . $acc['curl_error'];
+            } elseif (isset($acc['http_code'])) {
+                $errDetail = "HTTP " . $acc['http_code'];
+            } else {
+                $errDetail = 'Unknown';
+            }
+            $errors[] = "Hours ({$accName}): " . $errDetail;
         }
     }
 
@@ -141,9 +159,18 @@ try {
     }
 
     // 5. Log completion
+    // Status was hardcoded to 'success' here, so an account-level failure was recorded as a
+    // successful sync. Row-level losses are reported in the message without failing the day.
+    $allMessages = array_merge($errors, $rowErrors);
     $logSql = "INSERT INTO desktime_sync_log (sync_date, status, hours_updated, projects_updated, error_message, sync_type) VALUES (?, ?, ?, ?, ?, 'automatic')";
     $stmt = $pdo->prepare($logSql);
-    $stmt->execute([$yesterday, 'success', $hoursCount, $projectsCount, implode(' | ', $errors)]);
+    $stmt->execute([
+        $yesterday,
+        empty($errors) ? 'success' : 'failure',
+        $hoursCount,
+        $projectsCount,
+        implode(' | ', $allMessages)
+    ]);
 
     echo json_encode([
         'success' => true,
@@ -151,7 +178,8 @@ try {
         'date' => $yesterday,
         'hours_synced' => $hoursCount,
         'projects_synced' => $projectsCount,
-        'errors' => $errors
+        'errors' => $errors,
+        'row_errors' => $rowErrors
     ]);
 
 } catch (Exception $e) {
