@@ -3,37 +3,29 @@ version: '3.8'
 services:
   app:
     build: .
+    restart: unless-stopped
     ports:
       - "8080:80"
     environment:
-      - DB_HOST=db
-      - DB_NAME=wfm_platform
-      - DB_USER=root
-      - DB_PASS=rootpassword
-      - DESKTIME_API_KEY_TN=${DESKTIME_API_KEY_TN}
-      - DESKTIME_API_KEY_BAY=${DESKTIME_API_KEY_BAY}
-    depends_on:
-      db:
-        condition: service_healthy
+      # Timezone only. Every database and API credential comes from the mounted .env
+      # below, on purpose: compose interpolates values once at container creation and
+      # db_wfm_config.php lets getenv() override the file, so anything declared here
+      # shadows .env until the container is recreated. That is what silently pinned this
+      # container to a stale DeskTime key and to the old local database. Keeping them in
+      # .env alone means rotating a key or repointing the server takes effect on the
+      # next request, with no recreate.
+      - TZ=America/Santo_Domingo
     volumes:
+      # Mounted at both paths on purpose: db_wfm_config.php resolves the file as
+      # dirname(__DIR__, 2)/.env -> /var/www/.env, and only newer builds fall back to
+      # /var/www/html/.env. Covering both keeps this compose file valid against the
+      # currently deployed image as well as a freshly built one.
+      - .env:/var/www/.env
       - .env:/var/www/html/.env
 
-  db:
-    image: mysql:8.0
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: wfm_platform
-    ports:
-      - "3306:3306"
-    volumes:
-      - db_data:/var/lib/mysql
-      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-volumes:
-  db_data:
+# No `db` service: the application uses the MariaDB server named by DB_HOST in .env, which
+# holds the real data. A local mysql:8.0 service used to run here and, because DB_HOST=db
+# was hardcoded above, the container and its nightly sync wrote to that throwaway database
+# instead of the real one while the dev server read the real one.
+# To go back to a self-contained local stack, restore the service from git history
+# (mysql:8.0 with docker/init-db.sql mounted as an init script) and point .env at it.

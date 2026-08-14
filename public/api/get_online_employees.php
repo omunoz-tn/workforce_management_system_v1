@@ -46,6 +46,9 @@ try {
                      d.online_time, d.offline_time, d.desktime_time, d.at_work_time, d.productive_time,
                      COALESCE(d.is_billable, 1) as is_billable,
                      d.log_date,
+                     (SELECT GROUP_CONCAT(DISTINCT x.api_account ORDER BY x.api_account SEPARATOR '/')
+                        FROM desktime_employee_data x
+                       WHERE x.employee_id = d.employee_id) as api_accounts,
                      COALESCE(ot.lunch_time, 0) / 60.0 as lunch_deduction_hours
               FROM desktime_employee_data d
               LEFT JOIN org_team_assignments ota ON d.employee_id = ota.employee_id

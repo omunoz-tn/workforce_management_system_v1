@@ -695,6 +695,16 @@
   color: var(--text-color);
 }
 
+.manager-option-add {
+  border-top: 1px solid var(--border-color);
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
+.manager-option-add:hover {
+  color: var(--accent-color);
+}
+
 .manager-token {
   background: rgba(27, 45, 70, 0.06);
   color: var(--text-color);
@@ -751,4 +761,215 @@
 
 .dark .import-group-item.selected {
   background: rgba(253, 100, 28, 0.12);
+}
+/* ── Assign Members > Holidays ──────────────────────────────────────────── */
+
+/* The row reuses Team Lunch Time's inline box style (assignConfigBoxStyle in
+   Teams.jsx); these rules only strip the default <button> chrome so it reads as a
+   panel rather than a button, and add the affordance. */
+.team-holidays-row {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.team-holidays-row:hover {
+  border-color: var(--accent-color) !important;
+}
+
+.team-holidays-chevron {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.team-holidays-row:hover .team-holidays-chevron {
+  color: var(--accent-color);
+  transform: translateX(3px);
+}
+
+.team-holidays-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.team-holidays-year {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-color);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.team-holidays-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.team-holidays-empty {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.team-holiday-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--card-bg);
+}
+
+.team-holiday-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.team-holiday-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.team-holiday-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+}
+
+/* Marks a holiday this team has moved off the organization-wide default. */
+.team-holiday-custom {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(253, 100, 28, 0.12);
+  color: var(--accent-color);
+  white-space: nowrap;
+}
+
+.team-holiday-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.team-holiday-select {
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-color);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.team-holiday-reset {
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.team-holiday-reset:hover:not(:disabled) {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.team-holiday-reset:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.dark .team-holiday-item {
+  background: rgba(30, 41, 59, 0.5);
+}
+
+/* Campaign Defined time window */
+.team-holiday-item {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.team-holiday-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.team-holiday-window {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.team-holiday-window label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.team-holiday-window input[type="time"] {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-color);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Custom cannot be saved without a window, so both inputs are marked required and the
+   whole row turns red until they hold a usable range. */
+.team-holiday-required {
+  color: var(--accent-color);
+  font-weight: 700;
+}
+
+.team-holiday-window.is-invalid input[type="time"] {
+  border-color: #dc2626;
+}
+
+.team-holiday-window-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  flex: 1 1 100%;
+}
+
+.team-holiday-window-hint.is-invalid {
+  color: #dc2626;
+  font-weight: 600;
 }

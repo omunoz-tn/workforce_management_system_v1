@@ -1,0 +1,8 @@
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Daily sync of DeskTime Core Hours ("Save Hours") + Employee Project Report for
+# yesterday. The environment file is written at container start by entrypoint.sh and
+# sourced here because cron scrubs the environment; database and API credentials come
+# from the mounted .env, which db_wfm_config.php reads on its own.
+0 6 * * * root . /etc/container-env.sh && php /var/www/html/api/sync_auto_background.php >> /var/log/cron.log 2>&1

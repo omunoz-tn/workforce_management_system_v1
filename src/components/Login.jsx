@@ -24,6 +24,11 @@ const Login = ({ onLoginSuccess }) => {
 
             if (data.success) {
                 onLoginSuccess(data.user);
+            } else if (typeof data.success === 'undefined') {
+                // Not a normal auth.php response (e.g. db_wfm_config.php failed to reach
+                // the database before auth.php's own logic ever ran) — don't imply the
+                // password was wrong when the real problem is the backend/database.
+                setError('Unable to reach the server right now. Please try again shortly or contact IT support.');
             } else {
                 setError(data.message || 'Invalid credentials');
             }

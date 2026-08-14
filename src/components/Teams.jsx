@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import './Teams.css';
 import LoadingScreen from './LoadingScreen';
+// Same source of truth the Holidays module uses, so the type labels and country flags
+// can't drift between the two screens.
+import { HOLIDAY_TYPES, COUNTRIES, FlagIcon } from './Holidays';
 
 // ── SVG Icon Components ─────────────────────────────────────────────────────
 const IconEdit = () => (
@@ -35,6 +38,39 @@ const IconPlus = () => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
     </svg>
 );
+const IconChevronRight = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+    </svg>
+);
+const IconChevronLeft = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+    </svg>
+);
+
+// A holiday date is shown as-is from the DB; parsing at noon avoids the UTC shift that
+// makes `new Date('2026-01-01')` render as Dec 31 in western timezones.
+const formatHolidayDate = (dateStr) =>
+    new Date(dateStr + 'T12:00:00').toLocaleDateString(undefined, {
+        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+    });
+
+const getHolidayCountry = (code) =>
+    COUNTRIES.find(c => c.code === code) || { code, name: code, flag: '🏳️' };
+
+// ── Search Helpers ──────────────────────────────────────────────────────────
+// Decompose to NFD and drop the combining marks so any diacritic is ignored
+// ("josias" finds "Josías", "munoz" finds "Muñoz") without listing characters.
+const normalizeForSearch = (value) =>
+    (value || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+
+const matchesSearch = (emp, term) => {
+    const query = normalizeForSearch(term);
+    if (!query) return true;
+    return normalizeForSearch(emp.name).includes(query) ||
+        normalizeForSearch(emp.group_name).includes(query);
+};
 
 // ── Teams Component ─────────────────────────────────────────────────────────
 const Teams = ({ onUnsavedChanges }) => {
@@ -53,10 +89,27 @@ const Teams = ({ onUnsavedChanges }) => {
     const [editingItem, setEditingItem] = useState(null);
     const [selectedTeam, setSelectedTeam] = useState(null);
     const [selectedMembers, setSelectedMembers] = useState([]);
+    const [showOnlySelected, setShowOnlySelected] = useState(false);
     const [history, setHistory] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [managerSearchTerm, setManagerSearchTerm] = useState('');
     const [lunchTime, setLunchTime] = useState(60);
+
+    // Assign Members modal paging: 'members' is the default page, 'holidays' is the
+    // per-team holiday calendar reached through the Holidays row.
+    const [assignPage, setAssignPage] = useState('members');
+    const [teamHolidays, setTeamHolidays] = useState([]);
+    // holiday_id -> type currently chosen in the modal (always the effective type, never
+    // null, so the <select> stays controlled).
+    const [holidayTypeDraft, setHolidayTypeDraft] = useState({});
+    const [holidayYears, setHolidayYears] = useState([]);
+    const [holidayYear, setHolidayYear] = useState(String(new Date().getFullYear()));
+    const [holidaysLoading, setHolidaysLoading] = useState(false);
+    const [holidaysError, setHolidaysError] = useState(null);
+    // Guards the save: POST replaces the team's whole override set, so submitting a draft
+    // that never loaded (fetch failed, or Save clicked mid-load) would silently wipe every
+    // override the team had. Only a confirmed load is allowed to write.
+    const [holidaysLoaded, setHolidaysLoaded] = useState(false);
 
     // Import from DeskTime state
     const [dtGroups, setDtGroups] = useState([]);
@@ -85,7 +138,14 @@ const Teams = ({ onUnsavedChanges }) => {
       const hierarchyData = await hierarchyRes.json();
       const employeesData = await employeesRes.json();
       if (hierarchyData.success) setHierarchy(hierarchyData.data);
-      if (employeesData.success) setAllEmployees(employeesData.data);
+      if (employeesData.success) {
+        // The source data can contain multiple rows per employee_id (e.g. one
+        // per DeskTime sync/account); keep a single card per employee here.
+        const uniqueEmployees = Array.from(
+          new Map(employeesData.data.map(emp => [emp.employee_id, emp])).values()
+        );
+        setAllEmployees(uniqueEmployees);
+      }
 
       // 2️⃣ Pre‑load members for every existing team (skip temporary IDs)
       const teams = (hierarchyData.data || []).flatMap(g =>
@@ -213,6 +273,19 @@ const Teams = ({ onUnsavedChanges }) => {
         setShowOrgModal(false);
     };
 
+    // Managers are stored as free text (org_team_managers.manager_name), so a name
+    // that is not in the employee list is still valid — external managers or people
+    // not yet synced from DeskTime can be typed in directly.
+    const addManager = (rawName) => {
+        const name = rawName.trim();
+        if (!name) return;
+        setEditingItem(prev => ({
+            ...prev,
+            managers: prev.managers.includes(name) ? prev.managers : [...prev.managers, name]
+        }));
+        setManagerSearchTerm('');
+    };
+
     const handleToggleVisibility = (type, id, groupId, current) => {
         const newVal = current ? 0 : 1;
         if (type === 'group') updateGroupLocally(id, { is_visible: newVal });
@@ -269,15 +342,61 @@ const Teams = ({ onUnsavedChanges }) => {
     };
 
     // ── Assignment ────────────────────────────────────────────────────────
+    // Loads every holiday with this team's effective type. A team that was never saved
+    // has no id yet, so it asks for team 0 and gets the org-wide defaults back.
+    // `seedTypes` re-applies unsaved choices when the modal is reopened before Save All.
+    const loadTeamHolidays = async (team, seedTypes) => {
+        const numericId = team.id && !String(team.id).startsWith('temp_') ? team.id : 0;
+        setHolidaysLoading(true);
+        setHolidaysError(null);
+        setHolidaysLoaded(false);
+        try {
+            const res = await fetch(`./api/manage_team_holiday_types.php?team_id=${numericId}`);
+            const json = await res.json();
+            if (!json.success) throw new Error(json.error || 'Failed to load holidays.');
+
+            const holidays = json.holidays || [];
+            setTeamHolidays(holidays);
+            setHolidayYears([...new Set(holidays.map(h => h.holiday_date.slice(0, 4)))].sort());
+
+            const draft = {};
+            holidays.forEach(h => {
+                draft[h.id] = seedTypes?.[h.id] ?? {
+                    type: h.effective_type,
+                    // Stored as HH:MM:SS but <input type="time"> wants HH:MM.
+                    from: (h.exclude_from || '').slice(0, 5),
+                    to: (h.exclude_to || '').slice(0, 5)
+                };
+            });
+            setHolidayTypeDraft(draft);
+            setHolidaysLoaded(true);
+        } catch (err) {
+            setHolidaysError(err.message || 'Failed to load holidays.');
+            setTeamHolidays([]);
+            setHolidayTypeDraft({});
+        } finally {
+            setHolidaysLoading(false);
+        }
+    };
+
     const handleOpenAssign = async (team) => {
         setSelectedTeam(team);
         setSearchTerm(''); // Clear search when opening
-        
+        setShowOnlySelected(false); // Always start showing everyone
+        setAssignPage('members'); // Always open on the member list, never mid-flow
+
         // 1. Check if we already have pending assignments for this team ID (or temp ID)
         const pending = pendingChanges.find(p => p.action === 'assign_members' && (p.id === team.id || (p.temp_id && p.temp_id === team.id)));
-        
+
+        // Holidays are fetched either way — the pending change only carries the chosen
+        // types, not the holiday names and dates needed to render the list.
+        loadTeamHolidays(team, pending?.holiday_types);
+
         if (pending) {
             setSelectedMembers(pending.employee_ids || []);
+            // Was missing: reopening a team with pending changes kept the previous team's
+            // lunch time on screen, and Save would then write that stale value.
+            setLunchTime(pending.lunch_time ?? team.lunch_time ?? 60);
             setShowAssignModal(true);
             return;
         }
@@ -294,6 +413,13 @@ const Teams = ({ onUnsavedChanges }) => {
     };
 
     const handleSaveAssignments = () => {
+        // A half-filled or backwards Campaign Defined window would be rejected by the
+        // backend with a 400 after the modal already closed, so stop here and show it.
+        if (invalidHolidayRanges.length > 0) {
+            setAssignPage('holidays');
+            return;
+        }
+
         const teamId = selectedTeam.id;
         const isTemp = String(teamId).startsWith('temp_');
 
@@ -305,6 +431,14 @@ const Teams = ({ onUnsavedChanges }) => {
             employee_ids: selectedMembers,
             lunch_time: lunchTime
         };
+
+        // Full effective map, not just the customized ones: the backend drops entries that
+        // match the org default, so what gets stored stays sparse either way. Omitted
+        // entirely when the list never loaded — manage_org.php then leaves the team's
+        // existing overrides alone instead of clearing them.
+        if (holidaysLoaded) {
+            actionObj.holiday_types = holidayTypeDraft;
+        }
 
         // Update pending changes: remove any previous assignment for this team and add new
         setPendingChanges(prev => [
@@ -328,10 +462,7 @@ const Teams = ({ onUnsavedChanges }) => {
 
     const handleSelectAll = () => {
         const filteredIds = allEmployees
-            .filter(emp =>
-                emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (emp.group_name && emp.group_name.toLowerCase().includes(searchTerm.toLowerCase()))
-            )
+            .filter(emp => matchesSearch(emp, searchTerm))
             .map(emp => emp.employee_id);
         
         setSelectedMembers(prev => {
@@ -342,10 +473,7 @@ const Teams = ({ onUnsavedChanges }) => {
 
     const handleDeselectAll = () => {
         const filteredIds = allEmployees
-            .filter(emp =>
-                emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (emp.group_name && emp.group_name.toLowerCase().includes(searchTerm.toLowerCase()))
-            )
+            .filter(emp => matchesSearch(emp, searchTerm))
             .map(emp => emp.employee_id);
 
         setSelectedMembers(prev => prev.filter(id => !filteredIds.includes(id)));
@@ -404,6 +532,59 @@ const Teams = ({ onUnsavedChanges }) => {
     };
 
     // ── Render ────────────────────────────────────────────────────────────
+    const managerQuery = managerSearchTerm.trim();
+    const normalizedManagerQuery = normalizeForSearch(managerSearchTerm);
+    const managerMatches = allEmployees.filter(emp =>
+        normalizeForSearch(emp.name).includes(normalizedManagerQuery) &&
+        !(editingItem?.managers || []).includes(emp.name)
+    );
+
+    // Shared by Team Lunch Time and the Holidays row so the two boxes stay visually
+    // identical instead of being two copies of the same literal.
+    const assignConfigBoxStyle = {
+        marginBottom: '20px',
+        padding: '15px',
+        background: 'var(--surface-alt)',
+        borderRadius: '10px',
+        border: '1px solid var(--border-color)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+    };
+
+    // The year picker only narrows what is displayed — the draft always covers every
+    // holiday, because saving replaces the team's whole override set.
+    const visibleHolidays = teamHolidays.filter(h =>
+        holidayYear === 'all' || h.holiday_date.startsWith(holidayYear)
+    );
+    // Customized = a type the org default does not give, or a Campaign Defined window,
+    // which is team-specific data even when the type itself matches the default.
+    const customizedHolidayCount = teamHolidays.filter(h => {
+        const entry = holidayTypeDraft[h.id];
+        if (!entry) return false;
+        return entry.type !== h.default_type || (entry.type === 'campaign_defined' && entry.from && entry.to);
+    }).length;
+
+    // Custom requires a time window — without one it behaves exactly like Working, so the
+    // choice would mean nothing. The requirement applies to a Custom the team actually
+    // picks, not to one merely inherited: an inherited Custom with no window stores no row
+    // (see saveTeamHolidayTypes), so blocking on it would make an organization-wide type
+    // change lock every team out of saving member assignments.
+    const invalidHolidayRanges = teamHolidays.filter(h => {
+        const entry = holidayTypeDraft[h.id];
+        if (!entry) return false;
+
+        const bothSet = Boolean(entry.from && entry.to);
+        if (entry.from || entry.to) {
+            if (!bothSet) return true;              // half-filled
+            if (entry.to <= entry.from) return true; // ends before it starts
+        }
+        if (entry.type !== 'campaign_defined') return false;
+
+        const isTeamChoice = entry.type !== h.default_type || bothSet;
+        return isTeamChoice && !bothSet;
+    });
+
     return (
         <div className="teams-container">
             <LoadingScreen loading={loading} message="Loading Organization..." />
@@ -646,37 +827,38 @@ const Teams = ({ onUnsavedChanges }) => {
                                         type="text"
                                         value={managerSearchTerm}
                                         onChange={e => setManagerSearchTerm(e.target.value)}
-                                        placeholder="Search for a manager..."
+                                        onKeyDown={e => {
+                                            if (e.key !== 'Enter') return;
+                                            // Enter would otherwise submit the form and drop the typed name
+                                            e.preventDefault();
+                                            addManager(managerSearchTerm);
+                                        }}
+                                        placeholder="Search or type a manager name..."
                                     />
                                     {managerSearchTerm && (
                                         <div className="manager-dropdown">
-                                            {allEmployees
-                                                .filter(emp => 
-                                                    emp.name.toLowerCase().includes(managerSearchTerm.toLowerCase()) && 
-                                                    !editingItem.managers.includes(emp.name)
-                                                )
+                                            {managerMatches
                                                 .slice(0, 8) // Limit results for better performance
                                                 .map(emp => (
-                                                    <div 
-                                                        key={emp.employee_id} 
+                                                    <div
+                                                        key={emp.employee_id}
                                                         className="manager-option"
-                                                        onClick={() => {
-                                                            setEditingItem({
-                                                                ...editingItem,
-                                                                managers: [...editingItem.managers, emp.name]
-                                                            });
-                                                            setManagerSearchTerm('');
-                                                        }}
+                                                        onClick={() => addManager(emp.name)}
                                                     >
                                                         {emp.name}
                                                     </div>
                                                 ))
                                             }
-                                            {allEmployees.filter(emp => 
-                                                emp.name.toLowerCase().includes(managerSearchTerm.toLowerCase()) && 
-                                                !editingItem.managers.includes(emp.name)
-                                            ).length === 0 && (
+                                            {managerMatches.length === 0 && (
                                                 <div className="no-results">No employees found matching "{managerSearchTerm}"</div>
+                                            )}
+                                            {managerQuery && !editingItem.managers.includes(managerQuery) && (
+                                                <div
+                                                    className="manager-option manager-option-add"
+                                                    onClick={() => addManager(managerSearchTerm)}
+                                                >
+                                                    + Add "{managerQuery}"
+                                                </div>
                                             )}
                                         </div>
                                     )}
@@ -696,82 +878,260 @@ const Teams = ({ onUnsavedChanges }) => {
                 <div className="modal-overlay">
                     <div className="modal-content">
                         <div className="modal-header">
-                            <div>
-                                <h2>Assign Members</h2>
-                                <p className="text-muted" style={{ margin: 0 }}>Team: {selectedTeam?.name}</p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                {assignPage === 'holidays' && (
+                                    <button
+                                        className="icon-btn"
+                                        onClick={() => setAssignPage('members')}
+                                        title="Back to members"
+                                    >
+                                        <IconChevronLeft />
+                                    </button>
+                                )}
+                                <div>
+                                    <h2>{assignPage === 'holidays' ? 'Holidays' : 'Assign Members'}</h2>
+                                    <p className="text-muted" style={{ margin: 0 }}>Team: {selectedTeam?.name}</p>
+                                </div>
                             </div>
                             <div className="header-right-group">
-                                <div className="bulk-selection-links">
-                                    <span className="selection-link" onClick={handleSelectAll}>Select All</span>
-                                    <span className="sep">|</span>
-                                    <span className="selection-link" onClick={handleDeselectAll}>Deselect All</span>
-                                </div>
+                                {assignPage === 'members' && (
+                                    <div className="bulk-selection-links">
+                                        <span className="selection-link" onClick={handleSelectAll}>Select All</span>
+                                        <span className="sep">|</span>
+                                        <span className="selection-link" onClick={handleDeselectAll}>Deselect All</span>
+                                    </div>
+                                )}
                                 <button className="icon-btn" onClick={() => setShowAssignModal(false)} title="Close">✕</button>
                             </div>
                         </div>
-                        <div className="modal-body">
-                            <div className="team-lunch-config" style={{ 
-                                marginBottom: '20px', 
-                                padding: '15px', 
-                                background: 'var(--surface-alt)', 
-                                borderRadius: '10px',
-                                border: '1px solid var(--border-color)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between'
-                            }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <label style={{ fontWeight: '600', fontSize: '0.95rem' }}>Team Lunch Time</label>
-                                    <span className="text-muted" style={{ fontSize: '0.85rem' }}>Set daily lunch duration for the entire team</span>
+
+                        {assignPage === 'members' ? (
+                            <div className="modal-body">
+                                <div className="team-lunch-config" style={assignConfigBoxStyle}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <label style={{ fontWeight: '600', fontSize: '0.95rem' }}>Team Lunch Time</label>
+                                        <span className="text-muted" style={{ fontSize: '0.85rem' }}>Set daily lunch duration for the entire team</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="120"
+                                            value={lunchTime}
+                                            onChange={e => setLunchTime(parseInt(e.target.value) || 0)}
+                                            style={{
+                                                width: '80px',
+                                                padding: '8px',
+                                                textAlign: 'center',
+                                                borderRadius: '6px',
+                                                border: '1px solid var(--border-color)',
+                                                fontWeight: 'bold'
+                                            }}
+                                        />
+                                        <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>mins</span>
+                                    </div>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        max="120"
-                                        value={lunchTime}
-                                        onChange={e => setLunchTime(parseInt(e.target.value) || 0)}
-                                        style={{ 
-                                            width: '80px', 
-                                            padding: '8px', 
-                                            textAlign: 'center',
-                                            borderRadius: '6px',
-                                            border: '1px solid var(--border-color)',
-                                            fontWeight: 'bold'
-                                        }}
-                                    />
-                                    <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>mins</span>
+
+                                {/* Same box as Team Lunch Time above (shared style object), but the
+                                    whole row is the control: it opens this modal's Holidays page. */}
+                                <button
+                                    type="button"
+                                    className="team-holidays-row"
+                                    style={assignConfigBoxStyle}
+                                    onClick={() => setAssignPage('holidays')}
+                                >
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left' }}>
+                                        <label style={{ fontWeight: '600', fontSize: '0.95rem', cursor: 'inherit' }}>Holidays</label>
+                                        <span className="text-muted" style={{ fontSize: '0.85rem' }}>
+                                            {holidaysLoading
+                                                ? 'Loading holiday calendar...'
+                                                : holidaysError
+                                                    ? holidaysError
+                                                    : customizedHolidayCount > 0
+                                                        ? `${customizedHolidayCount} holiday${customizedHolidayCount === 1 ? '' : 's'} customized for this team`
+                                                        : 'Set how each holiday applies to this team'}
+                                        </span>
+                                    </div>
+                                    <span className="team-holidays-chevron"><IconChevronRight /></span>
+                                </button>
+
+                                <input
+                                    type="text"
+                                    className="assignment-search"
+                                    placeholder="Search employees by name..."
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                />
+                                <div className="employee-selection-list">
+                                    {allEmployees
+                                        .filter(emp => matchesSearch(emp, searchTerm))
+                                        .filter(emp => !showOnlySelected || selectedMembers.includes(emp.employee_id))
+                                        .map(emp => (
+                                            <div
+                                                key={emp.employee_id}
+                                                className={`employee-select-item ${selectedMembers.includes(emp.employee_id) ? 'selected' : ''}`}
+                                                onClick={() => toggleMemberSelection(emp.employee_id)}
+                                            >
+                                                {emp.name}
+                                                {(emp.api_accounts || emp.group_name) && (
+                                                    <span className="team-suffix">
+                                                        {emp.api_accounts && ` · ${emp.api_accounts}`}
+                                                        {emp.group_name && ` · ${emp.group_name}`}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        ))}
                                 </div>
                             </div>
-                            <input
-                                type="text"
-                                className="assignment-search"
-                                placeholder="Search employees by name..."
-                                value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                            />
-                            <div className="employee-selection-list">
-                                {allEmployees
-                                    .filter(emp => 
-                                        emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                                        (emp.group_name && emp.group_name.toLowerCase().includes(searchTerm.toLowerCase()))
-                                    )
-                                    .map(emp => (
-                                        <div
-                                            key={emp.employee_id}
-                                            className={`employee-select-item ${selectedMembers.includes(emp.employee_id) ? 'selected' : ''}`}
-                                            onClick={() => toggleMemberSelection(emp.employee_id)}
-                                        >
-                                            {emp.name}
-                                            {emp.group_name && <span className="team-suffix"> · {emp.group_name}</span>}
-                                        </div>
-                                    ))}
+                        ) : (
+                            <div className="modal-body">
+                                <p className="text-muted" style={{ marginTop: 0, fontSize: '0.85rem' }}>
+                                    The type chosen here applies to <strong>{selectedTeam?.name}</strong> only. Holidays left
+                                    on their default follow the organization-wide type set in Scheduling → Holidays.
+                                    A Non-Working Holiday removes that day from this team's Run Rate and shows as OFF on the
+                                    Schedule Board. Custom keeps the day, and can discount a time window from the team's
+                                    scheduled hours without altering the hours DeskTime tracked.
+                                </p>
+
+                                <div className="team-holidays-toolbar">
+                                    <select
+                                        className="team-holidays-year"
+                                        value={holidayYear}
+                                        onChange={e => setHolidayYear(e.target.value)}
+                                    >
+                                        <option value="all">All Years</option>
+                                        {holidayYears.map(y => <option key={y} value={y}>{y}</option>)}
+                                    </select>
+                                    <span className="text-muted" style={{ fontSize: '0.85rem' }}>
+                                        {visibleHolidays.length} holiday{visibleHolidays.length === 1 ? '' : 's'}
+                                    </span>
+                                </div>
+
+                                {holidaysLoading ? (
+                                    <div className="team-holidays-empty">Loading holidays...</div>
+                                ) : holidaysError ? (
+                                    <div className="team-holidays-empty">⚠️ {holidaysError}</div>
+                                ) : visibleHolidays.length === 0 ? (
+                                    <div className="team-holidays-empty">
+                                        {teamHolidays.length === 0
+                                            ? 'No holidays created yet. Add them in Scheduling → Holidays.'
+                                            : 'No holidays in the selected year.'}
+                                    </div>
+                                ) : (
+                                    <div className="team-holidays-list">
+                                        {visibleHolidays.map(h => {
+                                            const country = getHolidayCountry(h.country_code);
+                                            const entry = holidayTypeDraft[h.id] || { type: h.effective_type, from: '', to: '' };
+                                            const isCampaign = entry.type === 'campaign_defined';
+                                            const hasWindow = isCampaign && entry.from && entry.to;
+                                            const isCustom = entry.type !== h.default_type || hasWindow;
+                                            const rangeInvalid = invalidHolidayRanges.some(x => x.id === h.id);
+                                            const patch = (changes) => setHolidayTypeDraft(prev => ({
+                                                ...prev,
+                                                [h.id]: { ...(prev[h.id] || {}), ...changes }
+                                            }));
+                                            return (
+                                                <div key={h.id} className="team-holiday-item">
+                                                    <div className="team-holiday-row">
+                                                        <div className="team-holiday-info">
+                                                            <span className="team-holiday-name">
+                                                                {h.name}
+                                                                {isCustom && <span className="team-holiday-custom">Custom</span>}
+                                                            </span>
+                                                            <span className="text-muted team-holiday-meta">
+                                                                {formatHolidayDate(h.holiday_date)} · <FlagIcon country={country} /> {country.name}
+                                                            </span>
+                                                        </div>
+                                                        <div className="team-holiday-actions">
+                                                            <select
+                                                                className="team-holiday-select"
+                                                                value={entry.type}
+                                                                onChange={e => patch({ type: e.target.value })}
+                                                            >
+                                                                {HOLIDAY_TYPES.map(t => (
+                                                                    <option key={t.id} value={t.id}>{t.label}</option>
+                                                                ))}
+                                                            </select>
+                                                            <button
+                                                                type="button"
+                                                                className="team-holiday-reset"
+                                                                disabled={!isCustom}
+                                                                onClick={() => patch({ type: h.default_type, from: '', to: '' })}
+                                                                title={isCustom ? 'Revert to the organization default' : 'Already using the organization default'}
+                                                            >
+                                                                Reset
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {isCampaign && (
+                                                        <div className={`team-holiday-window ${rangeInvalid ? 'is-invalid' : ''}`}>
+                                                            <label>From <span className="team-holiday-required">*</span></label>
+                                                            <input
+                                                                type="time"
+                                                                required
+                                                                value={entry.from || ''}
+                                                                onChange={e => patch({ from: e.target.value })}
+                                                            />
+                                                            <label>To <span className="team-holiday-required">*</span></label>
+                                                            <input
+                                                                type="time"
+                                                                required
+                                                                value={entry.to || ''}
+                                                                onChange={e => patch({ to: e.target.value })}
+                                                            />
+                                                            <span className={`team-holiday-window-hint ${rangeInvalid ? 'is-invalid' : ''}`}>
+                                                                {rangeInvalid
+                                                                    ? (hasWindow
+                                                                        ? 'The end time must be later than the start time.'
+                                                                        : (entry.from || entry.to)
+                                                                            ? 'Set both times.'
+                                                                            : 'Required — Custom needs a time window.')
+                                                                    : hasWindow
+                                                                        ? 'Discounted from this team’s scheduled hours. Tracked hours stay as they are.'
+                                                                        : 'Inherited from the organization default — set a window to apply it to this team.'}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
-                        </div>
+                        )}
+
                         <div className="modal-footer">
-                            <span style={{ marginRight: 'auto', fontSize: '0.9rem' }}>{selectedMembers.length} Selected</span>
+                            {assignPage === 'members' ? (
+                                <button
+                                    type="button"
+                                    className={showOnlySelected ? 'btn-primary' : ''}
+                                    style={{ marginRight: 'auto' }}
+                                    onClick={() => setShowOnlySelected(prev => !prev)}
+                                    title={showOnlySelected ? 'Showing only selected — click to show everyone' : 'Click to show only selected employees'}
+                                >
+                                    {selectedMembers.length} Selected
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    style={{ marginRight: 'auto' }}
+                                    onClick={() => setAssignPage('members')}
+                                >
+                                    ← Back to Members
+                                </button>
+                            )}
                             <button onClick={() => setShowAssignModal(false)}>Cancel</button>
-                            <button className="btn-primary" onClick={handleSaveAssignments}>Update Team</button>
+                            <button
+                                className="btn-primary"
+                                onClick={handleSaveAssignments}
+                                disabled={invalidHolidayRanges.length > 0}
+                                title={invalidHolidayRanges.length > 0
+                                    ? 'Fix the Campaign Defined time window before saving'
+                                    : undefined}
+                            >
+                                Update Team
+                            </button>
                         </div>
                     </div>
                 </div>

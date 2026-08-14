@@ -1,0 +1,5 @@
+# Files consumed by Linux inside the Docker image must keep LF endings.
+# CRLF here breaks the entrypoint (`\r: not found`) and makes cron ignore the job.
+docker/entrypoint.sh text eol=lf
+docker/sync-cron    text eol=lf
+*.sh                text eol=lf

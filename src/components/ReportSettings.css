@@ -170,17 +170,56 @@
 }
 
 /* Advance Configuration */
-.advance-config-select {
-    width: 100%;
-    max-width: 360px;
-    padding: 0.75rem 1rem;
-    border-radius: 12px;
-    border: 1px solid var(--border-color, #e2e8f0);
+.advance-config-report-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.advance-config-report-card {
     background: var(--bg-secondary, #f8fafc);
-    color: var(--text-primary, #1e293b);
-    font-size: 1rem;
-    font-weight: 600;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 16px;
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.advance-config-report-card:hover {
+    transform: translateY(-2px);
+    border-color: #4f46e5;
+    background: white;
+    box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.1);
+}
+
+.advance-config-report-arrow {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-secondary, #64748b);
+}
+
+.advance-config-back-btn {
+    background: transparent;
+    border: none;
+    color: #4f46e5;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    padding: 0;
+    margin-bottom: 0.5rem;
+}
+
+.advance-config-back-btn:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+    .advance-config-report-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .advance-config-empty {
@@ -213,9 +252,9 @@
 }
 
 .advance-config-team-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto;
     align-items: center;
-    justify-content: space-between;
     background: var(--bg-secondary, #f8fafc);
     border: 1px solid var(--border-color, #e2e8f0);
     border-radius: 12px;
@@ -228,14 +267,66 @@
     color: var(--text-primary, #1e293b);
 }
 
-.advance-config-team-row select {
-    padding: 0.5rem 0.75rem;
-    border-radius: 10px;
-    border: 1px solid var(--border-color, #e2e8f0);
-    background: white;
+/* Single auto-width column so the split toggle gets its full natural width
+   instead of being squeezed into a narrow 1fr slice shared with the team
+   name — that's what was wrapping "Desktime Time" onto two lines. */
+.advance-config-team-controls {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    justify-self: end;
+}
+
+.time-source-group {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+/* The shared .nav-btn.today (thin side borders only) is too subtle for a
+   plain 2-way toggle — give the active option a solid fill instead. */
+.time-source-toggle .nav-btn.today {
+    background: var(--accent-color);
+    color: white;
+    border-left: none;
+    border-right: none;
+}
+
+.time-source-toggle .nav-btn.today:hover {
+    background: var(--accent-color);
+    color: white;
+}
+
+.exclude-lunch-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.exclude-lunch-label {
+    font-size: 0.85rem;
+    font-weight: 600;
     color: var(--text-primary, #1e293b);
-    font-size: 0.9rem;
-    min-width: 220px;
+    white-space: nowrap;
+}
+
+.exclude-lunch-toggle.active .toggle-switch {
+    background: var(--accent-color);
+}
+
+.exclude-lunch-toggle.active .switch-slider {
+    left: 23px;
+}
+
+.advance-config-team-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
 }
 
 .advance-config-drilldown-btn {
@@ -307,13 +398,22 @@
 
 @media (max-width: 640px) {
     .advance-config-team-row {
-        flex-direction: column;
-        align-items: flex-start;
+        grid-template-columns: 1fr;
+        justify-items: start;
     }
 
-    .advance-config-team-row select,
-    .advance-config-drilldown-btn {
+    .advance-config-team-controls,
+    .time-source-group,
+    .advance-config-team-actions {
         width: 100%;
+        justify-content: center;
+        justify-self: stretch;
+        flex-wrap: wrap;
+    }
+
+    .time-source-toggle .nav-btn,
+    .advance-config-drilldown-btn {
+        flex: 1;
         justify-content: center;
     }
 }
@@ -504,4 +604,93 @@
         flex-direction: column;
         align-items: stretch;
     }
+}
+
+/* "i" info popover next to each team's Run Rate controls (Exceptions,
+   Billable %, Include Lunch, Desktime Time / At Work Time) — click-triggered,
+   not hover, so it works the same on touch devices. */
+.run-rate-info-wrapper {
+    position: relative;
+}
+
+.run-rate-info-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-secondary, #f8fafc);
+    color: var(--text-secondary, #64748b);
+    font-size: 0.8rem;
+    font-weight: 700;
+    font-style: italic;
+    font-family: Georgia, 'Times New Roman', serif;
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.2s;
+}
+
+.run-rate-info-trigger:hover {
+    background: #4f46e5;
+    color: white;
+    border-color: #4f46e5;
+}
+
+.run-rate-info-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+}
+
+.run-rate-info-popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 320px;
+    max-height: 360px;
+    overflow-y: auto;
+    background: var(--card-bg, #ffffff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 12px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+    padding: 0.9rem 1.1rem;
+    z-index: 100;
+    text-align: left;
+}
+
+.run-rate-info-item {
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.run-rate-info-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.run-rate-info-item:first-child {
+    padding-top: 0;
+}
+
+.run-rate-info-item strong {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--accent-color);
+    margin-bottom: 4px;
+}
+
+.run-rate-info-item p {
+    margin: 0 0 6px 0;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: var(--text-color);
+}
+
+.run-rate-info-affects {
+    display: block;
+    font-size: 0.72rem;
+    font-style: italic;
+    color: var(--text-muted, #64748b);
 }

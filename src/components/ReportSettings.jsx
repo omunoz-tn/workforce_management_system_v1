@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import './ReportSettings.css';
-import RunRateExceptionsModal from './RunRateExceptionsModal';
+import './ScheduleBoard.css';
+import RunRateDayExceptionsModal from './RunRateDayExceptionsModal';
+import RunRateBillablePercentageModal from './RunRateBillablePercentageModal';
 
 const REPORTS = [
     { id: 'sync-history', label: 'Sync History Log', icon: '📜' },
@@ -21,8 +23,32 @@ const REPORTS = [
 const ADVANCED_REPORTS = ['run-rate'];
 
 const TIME_SOURCE_OPTIONS = [
-    { value: 'desktime_time', label: 'Desktime Time (Total Tracked)' },
+    { value: 'desktime_time', label: 'Desktime Time' },
     { value: 'at_work_time', label: 'At Work Time' }
+];
+
+// Shown in the "i" info popover next to each team's Run Rate controls.
+const RUN_RATE_CONTROLS_INFO = [
+    {
+        label: 'Exceptions',
+        desc: 'Exclude specific employees entirely, specific days for the whole team, or specific days for one employee only.',
+        affects: 'Affects: Actual & Scheduled hours (removes the employee/day entirely).'
+    },
+    {
+        label: 'Billable %',
+        desc: "Set a per-employee percentage that scales their hours before Run Rate is calculated — e.g. 50% turns a 7.99h/8h day into 3.995h/4h.",
+        affects: 'Affects: Actual & Scheduled hours (both scaled by the same factor).'
+    },
+    {
+        label: 'Include Lunch',
+        desc: "When on, this team's configured lunch time is subtracted from the scheduled shift.",
+        affects: 'Affects: Scheduled hours only.'
+    },
+    {
+        label: 'Desktime Time / At Work Time',
+        desc: 'Chooses which DeskTime field counts as hours worked — total tracked time, or presence between first arrival and last departure.',
+        affects: 'Affects: Actual hours only.'
+    }
 ];
 
 const BLANK_RANGE_DRAFT = { id: null, start: '', color: '#99C24D', blink: false };
@@ -42,6 +68,8 @@ const ReportSettings = () => {
     const [rangeError, setRangeError] = useState(null);
 
     const [exceptionsTeam, setExceptionsTeam] = useState(null);
+    const [billablePctTeam, setBillablePctTeam] = useState(null);
+    const [infoOpenTeamId, setInfoOpenTeamId] = useState(null);
 
     useEffect(() => {
         const saved = localStorage.getItem('report_preferences');
@@ -107,14 +135,22 @@ const ReportSettings = () => {
     };
 
     const handleTimeSourceChange = (teamId, value) => {
-        setPendingChanges(prev => ({ ...prev, [teamId]: value }));
+        setPendingChanges(prev => ({ ...prev, [teamId]: { ...prev[teamId], run_rate_time_source: value } }));
+    };
+
+    const handleExcludeLunchToggle = (teamId, value) => {
+        setPendingChanges(prev => ({ ...prev, [teamId]: { ...prev[teamId], exclude_lunch_from_run_rate: value } }));
     };
 
     const handleSaveAdvancedConfig = async () => {
-        const updates = Object.entries(pendingChanges).map(([team_id, run_rate_time_source]) => ({
-            team_id: Number(team_id),
-            run_rate_time_source
-        }));
+        const updates = Object.entries(pendingChanges).map(([team_id, changes]) => {
+            const team = teams.find(t => t.id === Number(team_id));
+            return {
+                team_id: Number(team_id),
+                run_rate_time_source: changes.run_rate_time_source ?? team?.run_rate_time_source,
+                exclude_lunch_from_run_rate: changes.exclude_lunch_from_run_rate ?? !!Number(team?.exclude_lunch_from_run_rate)
+            };
+        });
 
         if (updates.length === 0) return;
 
@@ -252,18 +288,33 @@ const ReportSettings = () => {
 
             <section className="settings-section">
                 <h2>Advance Configuration</h2>
-                <p className="section-desc">Select a report to configure advanced, per-team calculation options.</p>
+                <p className="section-desc">Pick a report to configure advanced, per-team calculation options.</p>
 
-                <select
-                    className="advance-config-select"
-                    value={advancedReportId}
-                    onChange={(e) => handleSelectAdvancedReport(e.target.value)}
-                >
-                    <option value="">Select a report...</option>
-                    {REPORTS.map(report => (
-                        <option key={report.id} value={report.id}>{report.icon} {report.label}</option>
-                    ))}
-                </select>
+                {!advancedReportId ? (
+                    <div className="advance-config-report-grid">
+                        {REPORTS.map(report => (
+                            <div
+                                key={report.id}
+                                className="advance-config-report-card"
+                                onClick={() => handleSelectAdvancedReport(report.id)}
+                            >
+                                <div className="report-toggle-info">
+                                    <span className="report-icon">{report.icon}</span>
+                                    <span className="report-label">{report.label}</span>
+                                </div>
+                                <span className="advance-config-report-arrow">›</span>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <button
+                        type="button"
+                        className="advance-config-back-btn"
+                        onClick={() => setAdvancedReportId('')}
+                    >
+                        ← Back to options
+                    </button>
+                )}
 
                 {advancedReportId && !ADVANCED_REPORTS.includes(advancedReportId) && (
                     <p className="advance-config-empty">No advanced options available for this report.</p>
@@ -286,22 +337,78 @@ const ReportSettings = () => {
                                             {groupTeams.map(team => (
                                                 <div key={team.id} className="advance-config-team-row">
                                                     <span className="advance-config-team-name">{team.name}</span>
-                                                    <button
-                                                        type="button"
-                                                        className="advance-config-drilldown-btn"
-                                                        onClick={() => setExceptionsTeam(team)}
-                                                        title={`Manage Run Rate exceptions for ${team.name}`}
-                                                    >
-                                                        👥 Employees Exceptions
-                                                    </button>
-                                                    <select
-                                                        value={pendingChanges[team.id] ?? team.run_rate_time_source}
-                                                        onChange={(e) => handleTimeSourceChange(team.id, e.target.value)}
-                                                    >
-                                                        {TIME_SOURCE_OPTIONS.map(opt => (
-                                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                                        ))}
-                                                    </select>
+                                                    <div className="advance-config-team-controls">
+                                                        <div className="advance-config-team-actions">
+                                                            <button
+                                                                type="button"
+                                                                className="advance-config-drilldown-btn"
+                                                                onClick={() => setExceptionsTeam(team)}
+                                                            >
+                                                                ⚠️ Exceptions
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                className="advance-config-drilldown-btn"
+                                                                onClick={() => setBillablePctTeam(team)}
+                                                            >
+                                                                💲 Billable %
+                                                            </button>
+                                                        </div>
+                                                        <div className="time-source-group">
+                                                            <div
+                                                                className={`exclude-lunch-toggle ${(pendingChanges[team.id]?.exclude_lunch_from_run_rate ?? !!Number(team.exclude_lunch_from_run_rate)) ? 'active' : ''}`}
+                                                                onClick={() => handleExcludeLunchToggle(
+                                                                    team.id,
+                                                                    !(pendingChanges[team.id]?.exclude_lunch_from_run_rate ?? !!Number(team.exclude_lunch_from_run_rate))
+                                                                )}
+                                                            >
+                                                                <span className="exclude-lunch-label">Include Lunch</span>
+                                                                <div className="toggle-switch">
+                                                                    <div className="switch-slider"></div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="time-source-toggle navigation-controls">
+                                                                {TIME_SOURCE_OPTIONS.map(opt => {
+                                                                    const current = pendingChanges[team.id]?.run_rate_time_source ?? team.run_rate_time_source;
+                                                                    return (
+                                                                        <button
+                                                                            key={opt.value}
+                                                                            type="button"
+                                                                            className={`nav-btn ${current === opt.value ? 'today' : ''}`}
+                                                                            onClick={() => handleTimeSourceChange(team.id, opt.value)}
+                                                                        >
+                                                                            {opt.label}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="run-rate-info-wrapper">
+                                                            <button
+                                                                type="button"
+                                                                className="run-rate-info-trigger"
+                                                                onClick={() => setInfoOpenTeamId(infoOpenTeamId === team.id ? null : team.id)}
+                                                                aria-label="What do these controls affect?"
+                                                            >
+                                                                i
+                                                            </button>
+                                                            {infoOpenTeamId === team.id && (
+                                                                <>
+                                                                    <div className="run-rate-info-overlay" onClick={() => setInfoOpenTeamId(null)} />
+                                                                    <div className="run-rate-info-popover">
+                                                                        {RUN_RATE_CONTROLS_INFO.map(item => (
+                                                                            <div key={item.label} className="run-rate-info-item">
+                                                                                <strong>{item.label}</strong>
+                                                                                <p>{item.desc}</p>
+                                                                                <span className="run-rate-info-affects">{item.affects}</span>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
@@ -413,9 +520,16 @@ const ReportSettings = () => {
             </section>
 
             {exceptionsTeam && (
-                <RunRateExceptionsModal
+                <RunRateDayExceptionsModal
                     team={exceptionsTeam}
                     onClose={() => setExceptionsTeam(null)}
+                />
+            )}
+
+            {billablePctTeam && (
+                <RunRateBillablePercentageModal
+                    team={billablePctTeam}
+                    onClose={() => setBillablePctTeam(null)}
                 />
             )}
         </div>

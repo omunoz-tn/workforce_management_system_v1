@@ -57,10 +57,13 @@ export const HOLIDAY_TYPES = [
         color: '#16a34a'
     },
     {
+        // The id stays `campaign_defined`: it is the stored enum value in org_holidays,
+        // org_team_holiday_types and org_holiday_type_colors, and renaming it would mean
+        // migrating three tables for a label change. Only the wording is user-facing.
         id: 'campaign_defined',
-        label: 'Campaign Defined',
-        badge: 'Campaign',
-        description: "The default behavior is determined by each campaign's Holiday Rule.",
+        label: 'Custom',
+        badge: 'Custom',
+        description: 'Employees work, but a team can discount a time window from its scheduled hours.',
         icon: CalendarCog,
         color: '#eab308'
     }
@@ -119,6 +122,11 @@ const getWeekDates = (monday) => Array.from({ length: 7 }, (_, i) => {
 });
 
 const formatDateLabel = (dateStr) => new Date(dateStr + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+// Holiday names and descriptions are free text, so a bare join(',') would split a
+// single cell in two the moment someone types a comma. Quote every field and double
+// any inner quote, per RFC 4180.
+const escapeCsvValue = (value) => `"${(value ?? '').toString().replace(/"/g, '""')}"`;
 
 const buildHolidayTooltip = (holiday) => {
     const country = getCountry(holiday.country_code);
@@ -231,6 +239,43 @@ const Holidays = () => {
         });
         return map;
     }, [filteredHolidays]);
+
+    const hasActiveFilters = searchTerm.trim() !== '' || countryFilter !== 'all'
+        || typeFilter !== 'all' || monthFilter !== 'all' || yearFilter !== 'all';
+
+    // Exports exactly the rows the List view is showing: it reads filteredHolidays,
+    // the same array the table renders, so any active filter carries over untouched.
+    const handleExportList = () => {
+        // Column names and value formats match what Bulk Add Holidays' importer accepts
+        // (HEADER_ALIASES / resolveDate / resolveCountryCode / resolveHolidayType), so an
+        // exported list can be fed straight back in. "Holiday Name" and the full type
+        // label are required for that — "Holiday" and "Non-Working" do not resolve.
+        const headers = ['Date', 'Holiday Name', 'Country', 'Type', 'Description'];
+        const rows = filteredHolidays.map(h => [
+            // ISO rather than the on-screen label so Excel reads it as a date and sorts it.
+            h.holiday_date,
+            h.name,
+            getCountry(h.country_code).name,
+            getHolidayType(h.holiday_type).label,
+            h.description || ''
+        ]);
+
+        // Leading BOM, otherwise Excel opens the file as ANSI and mangles the accents
+        // in Spanish holiday names.
+        const csv = '\uFEFF' + [headers, ...rows]
+            .map(row => row.map(escapeCsvValue).join(','))
+            .join('\r\n');
+
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `Holidays_List_${todayStr}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
 
     const availableYears = useMemo(() => {
         const years = new Set(holidays.map(h => new Date(h.holiday_date + 'T12:00:00').getFullYear()));
@@ -552,6 +597,25 @@ const Holidays = () => {
                             ? `${MONTH_NAMES[anchorDate.getMonth()]} ${anchorDate.getFullYear()}`
                             : `Week of ${formatDateLabel(getWeekDates(getMonday(anchorDate))[0])}`}
                     </span>
+                </div>
+            )}
+
+            {viewMode === 'list' && (
+                <div className="holiday-period-nav holiday-list-actions">
+                    <span className="holiday-period-label">
+                        {filteredHolidays.length === holidays.length
+                            ? `${filteredHolidays.length} holidays`
+                            : `${filteredHolidays.length} of ${holidays.length} holidays`}
+                        {hasActiveFilters && <span className="holiday-filtered-tag">filtered</span>}
+                    </span>
+                    <button
+                        className="holiday-add-btn holiday-export-btn"
+                        onClick={handleExportList}
+                        disabled={filteredHolidays.length === 0}
+                        title="Download the rows currently listed, with the active filters applied"
+                    >
+                        Export
+                    </button>
                 </div>
             )}
 

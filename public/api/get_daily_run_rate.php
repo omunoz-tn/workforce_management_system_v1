@@ -5,6 +5,7 @@ error_reporting(0);
 
 header('Content-Type: application/json');
 require_once 'db_wfm_config.php';
+require_once 'RunRateWindowSql.php';
 
 try {
     session_start();
@@ -16,43 +17,25 @@ try {
     $to = isset($_GET['to']) ? $_GET['to'] : date('Y-m-d');
     $team = isset($_GET['team']) ? $_GET['team'] : null;
 
-    $query = "SELECT 
+    $query = "SELECT
         d.employee_id,
         d.name,
         d.log_date,
         COALESCE(ot.name, d.group_name) as team_name,
-        SUM(CASE WHEN ot.run_rate_time_source = 'at_work_time' THEN COALESCE(d.at_work_time, 0) ELSE COALESCE(d.desktime_time, 0) END) / 3600 as daily_actual,
-        SUM(
-            CASE
-                -- Primary: employee has a valid schedule for this day
-                WHEN d.work_starts != '00:00:00'
-                     AND d.work_ends NOT IN ('00:00:00', '23:59:59')
-                     AND d.work_ends > d.work_starts
-                THEN (TIME_TO_SEC(d.work_ends) - TIME_TO_SEC(d.work_starts)) / 3600
-                -- Fallback: no schedule today, use employee's most common historical schedule
-                WHEN sched.work_starts IS NOT NULL
-                THEN (TIME_TO_SEC(sched.work_ends) - TIME_TO_SEC(sched.work_starts)) / 3600
-                ELSE 0
-            END
-        ) as daily_scheduled,
-        SUM(
-            CASE
-                -- Primary: employee has a valid schedule for this day
-                WHEN d.work_starts != '00:00:00'
-                     AND d.work_ends NOT IN ('00:00:00', '23:59:59')
-                     AND d.work_ends > d.work_starts
-                THEN COALESCE(ot.lunch_time, 0) / 60.0
-                -- Fallback: apply lunch deduction when using historical schedule
-                WHEN sched.work_starts IS NOT NULL
-                THEN COALESCE(ot.lunch_time, 0) / 60.0
-                ELSE 0
-            END
-        ) as lunch_deduction_hours
+        " . rrActualHoursSum() . "
+            * (MAX(COALESCE(brp.billable_percentage, 100)) / 100) as daily_actual,
+        SUM(" . rrScheduledHours() . ")
+            * (MAX(COALESCE(brp.billable_percentage, 100)) / 100) as daily_scheduled,
+        SUM(" . rrLunchHours() . ") as lunch_deduction_hours
     FROM desktime_employee_data d
     LEFT JOIN org_team_assignments ota ON d.employee_id = ota.employee_id
     LEFT JOIN org_teams ot ON ota.team_id = ot.id
     LEFT JOIN org_groups og ON ot.group_id = og.id
     LEFT JOIN org_run_rate_excluded_employees rre ON d.employee_id = rre.employee_id
+    LEFT JOIN org_run_rate_excluded_days red ON red.team_id = ota.team_id AND red.excluded_date = d.log_date
+    LEFT JOIN org_run_rate_excluded_employee_days red_emp ON red_emp.employee_id = d.employee_id AND red_emp.excluded_date = d.log_date
+    LEFT JOIN org_run_rate_billable_percentage brp ON brp.employee_id = d.employee_id
+    " . rrCampaignExclusionJoin() . "
     -- Fallback schedule: employee's most frequently used valid shift (only joins when today has no schedule)
     LEFT JOIN (
         SELECT employee_id, work_starts, work_ends
@@ -78,6 +61,9 @@ try {
     AND (ot.is_visible IS NULL OR ot.is_visible = 1)
     AND (og.is_visible IS NULL OR og.is_visible = 1)
     AND rre.employee_id IS NULL
+    AND red.id IS NULL
+    AND red_emp.id IS NULL
+    AND " . rrNonWorkingHolidayFilter() . "
     $teamFilter";
 
     $params = ['from' => $from, 'to' => $to];

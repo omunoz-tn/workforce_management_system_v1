@@ -26,6 +26,7 @@ import DatabaseViewer from './components/DatabaseViewer'
 import Infograph from './components/Infograph'
 import OdooEmployees from './components/OdooEmployees'
 import Holidays from './components/Holidays'
+import ChangePassword from './components/ChangePassword'
 
 // SVG Icons
 const Icons = {
@@ -101,6 +102,7 @@ const MENU_ITEMS = [
       { id: 'shift-types', label: 'Shift Types' },
       { id: 'abs-types', label: 'Absence Types' },
       { id: 'notifications', label: 'Notifications' },
+      { id: 'change-password', label: 'Password' },
       { id: 'toggle-theme', label: 'Switch Theme' }
     ]
   }
@@ -262,8 +264,8 @@ function App() {
     // If it's a parent with a submenu, filter the submenu
     if (item.submenu && item.submenu.length > 0) {
       const filteredSub = item.submenu.filter(sub => {
-        // toggle-theme and databases are always allowed
-        if (sub.id === 'toggle-theme' || sub.id === 'databases') return true;
+        // toggle-theme, databases, and change-password (self-service, not role-gated) are always allowed
+        if (sub.id === 'toggle-theme' || sub.id === 'databases' || sub.id === 'change-password') return true;
         return user.permissions.includes(sub.id);
       });
 
@@ -464,6 +466,8 @@ function App() {
           <ScheduleSettings />
         ) : currentView === 'login-mgmt' ? (
           <LoginManagement />
+        ) : currentView === 'change-password' ? (
+          <ChangePassword user={user} />
         ) : currentView === 'project-analytics' ? (
           <ProjectAnalyticsDashboard />
         ) : currentView === 'infograph' ? (

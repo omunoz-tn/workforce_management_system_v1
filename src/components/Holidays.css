@@ -125,6 +125,51 @@
     white-space: nowrap;
 }
 
+/* List view actions — sits in the row the period nav occupies for Month/Week, so
+   switching views does not shift the table up and down. */
+.holiday-list-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+
+.holiday-list-actions .holiday-period-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 0;
+}
+
+.holiday-filtered-tag {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--surface-alt);
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+}
+
+/* Carries .holiday-add-btn in the markup rather than restating its rules, so it stays
+   identical to "+ Add Holiday" if the accent or radius ever changes. Only the disabled
+   state is added here — the add button is never disabled. */
+.holiday-export-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* .holiday-add-btn:hover has no :not(:disabled) guard, so without this a disabled
+   Export would still darken and lift on hover. */
+.holiday-export-btn:disabled:hover {
+    background: var(--accent-color);
+    transform: none;
+    box-shadow: none;
+}
+
 /* Each view (Month/Week/List) is the single flex child here and owns its own
    height/overflow — Month and Week fit exactly (no scroll), List scrolls
    internally since its row count is unbounded. */

@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS `org_teams` (
   `is_visible` tinyint(1) DEFAULT 1,
   `lunch_time` int(11) DEFAULT 0,
   `run_rate_time_source` enum('desktime_time','at_work_time') NOT NULL DEFAULT 'desktime_time',
+  `exclude_lunch_from_run_rate` tinyint(1) NOT NULL DEFAULT 0,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
@@ -164,6 +165,29 @@ CREATE TABLE IF NOT EXISTS `org_holidays` (
   UNIQUE KEY `unique_country_date` (`country_code`,`holiday_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- Per-team override of a holiday's type. A row exists ONLY where a team differs from
+-- org_holidays.holiday_type (the org-wide default), so a team with no row inherits it
+-- and new holidays apply everywhere without fanning out a row per team.
+-- Effective type = COALESCE(org_team_holiday_types.holiday_type, org_holidays.holiday_type)
+CREATE TABLE IF NOT EXISTS `org_team_holiday_types` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `team_id` int(11) NOT NULL,
+  `holiday_id` int(11) NOT NULL,
+  `holiday_type` enum('non_working','working','campaign_defined') NOT NULL,
+  -- Custom type only (enum value `campaign_defined`): this range is discounted from the
+  -- team's SCHEDULED hours that day, so the Run Rate measures against a shorter window.
+  -- The tracked hours from DeskTime are never modified. NULL means no time restriction.
+  `exclude_from` time DEFAULT NULL,
+  `exclude_to` time DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_team_holiday` (`team_id`,`holiday_id`),
+  KEY `holiday_id` (`holiday_id`),
+  CONSTRAINT `org_team_holiday_types_ibfk_1` FOREIGN KEY (`team_id`) REFERENCES `org_teams` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `org_team_holiday_types_ibfk_2` FOREIGN KEY (`holiday_id`) REFERENCES `org_holidays` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE IF NOT EXISTS `org_holiday_type_colors` (
   `holiday_type` enum('non_working','working','campaign_defined') NOT NULL,
   `color` varchar(7) NOT NULL,
@@ -194,6 +218,42 @@ INSERT INTO `org_holiday_country_colors` (`country_code`, `color`, `text_color`)
 CREATE TABLE IF NOT EXISTS `org_run_rate_excluded_employees` (
   `employee_id` int(11) NOT NULL,
   `excluded_at` timestamp NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`employee_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Specific calendar days excluded from a given team's Run Rate calculation
+-- (Configuration > Reports > Advance Configuration > Run Rate Report > Days
+-- Exceptions). Scoped per team_id, not global — the same date can be excluded
+-- for one team (e.g. ACI) while still counting for another (e.g. Cherry).
+CREATE TABLE IF NOT EXISTS `org_run_rate_excluded_days` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `team_id` int(11) NOT NULL,
+  `excluded_date` date NOT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_team_date` (`team_id`,`excluded_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Specific calendar days excluded from a single EMPLOYEE's Run Rate (Days
+-- Exceptions > By Employee) — unlike org_run_rate_excluded_days above, this
+-- doesn't touch the rest of that employee's team.
+CREATE TABLE IF NOT EXISTS `org_run_rate_excluded_employee_days` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `employee_id` int(11) NOT NULL,
+  `excluded_date` date NOT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_employee_date` (`employee_id`,`excluded_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Per-employee "Billable %" (Run Rate Report > Exceptions > Billable %).
+-- Absence from this table means 100% (full hours count, unchanged). A stored
+-- value scales BOTH actual and scheduled hours by the same factor before Run
+-- Rate is computed — e.g. 50% turns a 7.99h/8h day into 3.995h/4h.
+CREATE TABLE IF NOT EXISTS `org_run_rate_billable_percentage` (
+  `employee_id` int(11) NOT NULL,
+  `billable_percentage` decimal(5,2) NOT NULL,
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`employee_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

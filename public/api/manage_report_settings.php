@@ -10,6 +10,7 @@ if ($method === 'GET') {
                 ot.id,
                 ot.name,
                 ot.run_rate_time_source,
+                ot.exclude_lunch_from_run_rate,
                 og.name as group_name
             FROM org_teams ot
             LEFT JOIN org_groups og ON ot.group_id = og.id
@@ -32,12 +33,13 @@ if ($method === 'POST') {
     try {
         $pdo->beginTransaction();
 
-        $stmt = $pdo->prepare("SELECT name, run_rate_time_source FROM org_teams WHERE id = ?");
-        $update = $pdo->prepare("UPDATE org_teams SET run_rate_time_source = ? WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT name, run_rate_time_source, exclude_lunch_from_run_rate FROM org_teams WHERE id = ?");
+        $update = $pdo->prepare("UPDATE org_teams SET run_rate_time_source = ?, exclude_lunch_from_run_rate = ? WHERE id = ?");
 
         foreach ($updates as $u) {
             $teamId = $u['team_id'] ?? null;
             $source = $u['run_rate_time_source'] ?? null;
+            $excludeLunch = !empty($u['exclude_lunch_from_run_rate']) ? 1 : 0;
 
             if (!$teamId || !in_array($source, $validSources, true)) {
                 continue;
@@ -45,13 +47,23 @@ if ($method === 'POST') {
 
             $stmt->execute([$teamId]);
             $team = $stmt->fetch(PDO::FETCH_ASSOC);
-            if (!$team || $team['run_rate_time_source'] === $source) {
+            if (!$team) {
+                continue;
+            }
+            if ($team['run_rate_time_source'] === $source && (int) $team['exclude_lunch_from_run_rate'] === $excludeLunch) {
                 continue;
             }
 
-            $update->execute([$source, $teamId]);
-            log_audit($pdo, 'team', $teamId, 'report_config',
-                "Run Rate time source for '{$team['name']}' changed from '{$team['run_rate_time_source']}' to '$source'");
+            $update->execute([$source, $excludeLunch, $teamId]);
+
+            if ($team['run_rate_time_source'] !== $source) {
+                log_audit($pdo, 'team', $teamId, 'report_config',
+                    "Run Rate time source for '{$team['name']}' changed from '{$team['run_rate_time_source']}' to '$source'");
+            }
+            if ((int) $team['exclude_lunch_from_run_rate'] !== $excludeLunch) {
+                log_audit($pdo, 'team', $teamId, 'report_config',
+                    "Exclude Lunch for '{$team['name']}' changed to '" . ($excludeLunch ? 'on' : 'off') . "'");
+            }
         }
 
         $pdo->commit();

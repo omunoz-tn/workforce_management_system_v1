@@ -29,6 +29,7 @@ try {
                 d.employee_id,
                 d.name,
                 COALESCE(ot.name, d.group_name) as team_name,
+                ota.team_id,
                 ot.lunch_time as team_lunch,
                 d.work_starts,
                 d.work_ends,
@@ -52,6 +53,7 @@ try {
                 r.employee_id,
                 r.name,
                 COALESCE(ot.name, r.group_name) as team_name,
+                ota.team_id,
                 ot.lunch_time as team_lunch,
                 sched.work_starts as predicted_start,
                 sched.work_ends as predicted_end
@@ -296,6 +298,7 @@ try {
             'id' => $id,
             'name' => $row['name'],
             'team' => $row['team_name'],
+            '_team_id' => $row['team_id'] !== null ? (int) $row['team_id'] : null,
             'lunch_time' => $row['team_lunch'] ?? 0,
             'schedules' => [],
             '_predicted' => ($row['predicted_start'] && $row['predicted_end']) ? [
@@ -337,6 +340,92 @@ try {
         }
     }
 
+    // Holidays in range, resolved per team. org_holidays.holiday_type is the org-wide
+    // default and org_team_holiday_types holds only the teams that disagree (Employees >
+    // Teams > Assign Members > Holidays), so the same date can close one team and not
+    // another. Resolved in PHP rather than joined into the roster query because
+    // org_holidays is unique per (country_code, holiday_date) — two countries sharing a
+    // date would duplicate every roster row.
+    $stmt = $pdo->prepare("SELECT id, holiday_date, holiday_type FROM org_holidays WHERE holiday_date BETWEEN :from AND :to");
+    $stmt->execute(['from' => $from, 'to' => $to]);
+    $holidaysInRange = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $stmt = $pdo->prepare("SELECT tht.team_id, tht.holiday_id, tht.holiday_type, tht.exclude_from, tht.exclude_to
+                           FROM org_team_holiday_types tht
+                           INNER JOIN org_holidays oh ON oh.id = tht.holiday_id
+                           WHERE oh.holiday_date BETWEEN :from AND :to");
+    $stmt->execute(['from' => $from, 'to' => $to]);
+    $holidayOverrides = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $holidayOverrides[(int) $row['team_id']][(int) $row['holiday_id']] = $row;
+    }
+
+    // True when any holiday on that date is non_working for this team. An unassigned
+    // employee (team_id null) has no overrides and simply follows the org default.
+    $isNonWorkingFor = function ($teamId, $dateStr) use ($holidaysInRange, $holidayOverrides) {
+        foreach ($holidaysInRange as $holiday) {
+            if ($holiday['holiday_date'] !== $dateStr) {
+                continue;
+            }
+            $effective = $holidayOverrides[$teamId][(int) $holiday['id']]['holiday_type'] ?? $holiday['holiday_type'];
+            if ($effective === 'non_working') {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    // The Custom (`campaign_defined`) window this team discounts on that date, if any.
+    // Merged with MIN/MAX when two holidays share a date, matching the Run Rate query.
+    $campaignExclusionFor = function ($teamId, $dateStr) use ($holidaysInRange, $holidayOverrides) {
+        $from = null;
+        $to = null;
+        foreach ($holidaysInRange as $holiday) {
+            if ($holiday['holiday_date'] !== $dateStr) {
+                continue;
+            }
+            $override = $holidayOverrides[$teamId][(int) $holiday['id']] ?? null;
+            if (!$override || $override['holiday_type'] !== 'campaign_defined') {
+                continue;
+            }
+            if (empty($override['exclude_from']) || empty($override['exclude_to'])) {
+                continue;
+            }
+            $from = $from === null ? $override['exclude_from'] : min($from, $override['exclude_from']);
+            $to = $to === null ? $override['exclude_to'] : max($to, $override['exclude_to']);
+        }
+        return $from !== null ? ['from' => $from, 'to' => $to] : null;
+    };
+
+    // Trims a predicted shift by the excluded window. Only the part of the shift that
+    // survives is forecast, so the board shows what the team is actually expected to work.
+    // Returns null when nothing survives (the exclusion swallows the whole shift), and
+    // leaves the shift untouched when the exclusion sits entirely outside it or would cut
+    // a hole in the middle — a shift cannot be split into two blocks here, so the longer
+    // remaining side wins.
+    $clipShift = function ($start, $end, $exclusion) {
+        if (!$exclusion) {
+            return [$start, $end];
+        }
+        $s = strtotime("1970-01-01 $start");
+        $e = strtotime("1970-01-01 $end");
+        $xs = strtotime('1970-01-01 ' . $exclusion['from']);
+        $xe = strtotime('1970-01-01 ' . $exclusion['to']);
+
+        if ($xe <= $s || $xs >= $e) {
+            return [$start, $end]; // no overlap
+        }
+        if ($xs <= $s && $xe >= $e) {
+            return null; // fully excluded
+        }
+        $leftSecs = max(0, $xs - $s);
+        $rightSecs = max(0, $e - $xe);
+        if ($leftSecs >= $rightSecs) {
+            return [$start, date('H:i:s', $xs)];
+        }
+        return [date('H:i:s', $xe), $end];
+    };
+
     foreach ($pivot as $id => &$emp) {
         $tier2 = $emp['_predicted'];
         $override = $overrides[$id] ?? null;
@@ -345,7 +434,38 @@ try {
                 continue;
             }
 
+            // Highest priority: a non-working holiday closes the day for this team, so it
+            // outranks even a manual forecast override — nobody is scheduled when the
+            // team is closed.
+            if ($isNonWorkingFor($emp['_team_id'], $dateStr)) {
+                $emp['schedules'][$dateStr] = [
+                    'start' => '00:00:00',
+                    'end' => '00:00:00',
+                    'predicted' => true,
+                    'holiday' => true
+                ];
+                continue;
+            }
+
             $weekday = $isoWeekday($dateStr);
+            $exclusion = $campaignExclusionFor($emp['_team_id'], $dateStr);
+
+            // Writes a predicted shift with the team's Custom window removed. The board
+            // forecasts scheduled time, which is the side that window applies to, so it
+            // stays in step with the Run Rate. A shift left with nothing becomes OFF.
+            $setShift = function ($start, $end, $extra) use (&$emp, $dateStr, $exclusion, $clipShift) {
+                $clipped = $clipShift($start, $end, $exclusion);
+                if ($clipped === null) {
+                    $emp['schedules'][$dateStr] = ['start' => '00:00:00', 'end' => '00:00:00', 'predicted' => true]
+                        + $extra + ['holiday' => true];
+                    return;
+                }
+                $entry = ['start' => $clipped[0], 'end' => $clipped[1], 'predicted' => true] + $extra;
+                if ($exclusion && $clipped !== [$start, $end]) {
+                    $entry['holiday'] = true;
+                }
+                $emp['schedules'][$dateStr] = $entry;
+            };
 
             // Tier 0: manual override, only while the date's week is within the
             // admin-chosen range.
@@ -360,12 +480,7 @@ try {
                     ];
                 } else {
                     [$start, $end] = explode('|', $signature);
-                    $emp['schedules'][$dateStr] = [
-                        'start' => $start,
-                        'end' => $end,
-                        'predicted' => true,
-                        'manualOverride' => true
-                    ];
+                    $setShift($start, $end, ['manualOverride' => true]);
                 }
                 continue;
             }
@@ -380,20 +495,12 @@ try {
                 ];
             } elseif ($signature !== null) {
                 [$start, $end] = explode('|', $signature);
-                $emp['schedules'][$dateStr] = [
-                    'start' => $start,
-                    'end' => $end,
-                    'predicted' => true
-                ];
+                $setShift($start, $end, []);
             } elseif ($tier2) {
-                $emp['schedules'][$dateStr] = [
-                    'start' => $tier2['start'],
-                    'end' => $tier2['end'],
-                    'predicted' => true
-                ];
+                $setShift($tier2['start'], $tier2['end'], []);
             }
         }
-        unset($emp['_predicted']);
+        unset($emp['_predicted'], $emp['_team_id']);
     }
     unset($emp);
 

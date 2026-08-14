@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json');
 require_once 'db_wfm_config.php';
+require_once 'TeamHolidayTypes.php';
 
 $data = json_decode(file_get_contents('php://input'), true);
 
@@ -121,7 +122,20 @@ try {
                 $stmt->execute([$lunchTime, $id]);
             }
 
-            log_audit($pdo, 'team', $id, 'assignment', "Batch update: " . count($employeeIds) . " employees assigned" . ($lunchTime !== null ? ", Lunch Time set to $lunchTime mins" : ""));
+            // Per-team holiday types (Assign Members > Holidays). Absent key means the
+            // client never opened that page, so leave existing overrides untouched —
+            // only an explicit (possibly empty) map replaces the set.
+            $holidayTypesTouched = array_key_exists('holiday_types', $actionObj);
+            $storedOverrides = 0;
+            if ($holidayTypesTouched) {
+                $holidayTypes = is_array($actionObj['holiday_types']) ? $actionObj['holiday_types'] : [];
+                validateTeamHolidayTypes($holidayTypes);
+                $storedOverrides = saveTeamHolidayTypes($pdo, (int) $id, $holidayTypes);
+            }
+
+            log_audit($pdo, 'team', $id, 'assignment', "Batch update: " . count($employeeIds) . " employees assigned"
+                . ($lunchTime !== null ? ", Lunch Time set to $lunchTime mins" : "")
+                . ($holidayTypesTouched ? ", $storedOverrides holiday type override(s)" : ""));
         }
 
         // Handle Managers (if provided in update/create)

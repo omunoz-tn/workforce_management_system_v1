@@ -1,0 +1,48 @@
+.billable-pct-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 360px;
+    overflow-y: auto;
+    padding: 2px;
+}
+
+.billable-pct-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 0.6rem 0.9rem;
+}
+
+.billable-pct-name {
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.billable-pct-input-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.billable-pct-input {
+    width: 70px;
+    padding: 0.4rem 0.6rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-align: right;
+}
+
+.billable-pct-suffix {
+    font-weight: 700;
+    color: var(--text-muted);
+}

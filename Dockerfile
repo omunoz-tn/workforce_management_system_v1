@@ -18,11 +18,15 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-install pdo pdo_mysql curl \
     && apt-get clean && rm -rf /var/www/html/*
 
-# Create the cron job file
-RUN echo "0 6 * * * /usr/local/bin/php /var/www/html/api/sync_auto_background.php >> /var/log/cron.log 2>&1" > /etc/cron.d/sync-cron \
-    && chmod 0644 /etc/cron.d/sync-cron \
-    && crontab /etc/cron.d/sync-cron \
+# Install the daily sync cron job (runs as root via /etc/cron.d)
+COPY docker/sync-cron /etc/cron.d/sync-cron
+RUN chmod 0644 /etc/cron.d/sync-cron \
+    && chown root:root /etc/cron.d/sync-cron \
     && touch /var/log/cron.log
+
+# Entrypoint exports the container environment for cron, then starts cron + Apache
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Enable Apache mod_rewrite
 RUN a2enmod rewrite
@@ -34,8 +38,7 @@ COPY --from=build-stage /app/dist /var/www/html/
 RUN chown -R www-data:www-data /var/www/html/ \
     && chown www-data:www-data /var/log/cron.log
 
-# Start cron and Apache
-CMD ["sh", "-c", "cron && apache2-foreground"]
+CMD ["/usr/local/bin/entrypoint.sh"]
 
 # Expose port 80
 EXPOSE 80
