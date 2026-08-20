@@ -1,3 +1,4 @@
+import { todayStr as currentDateStr, formatDate } from '../utils/dates';
 import React, { useState, useEffect, useMemo } from 'react';
 import './ScheduleBoard.css';
 import './ScheduleForecastSettings.css';
@@ -12,7 +13,7 @@ const getMonday = (date) => {
 const getWeekDates = (monday) => Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    return d.toISOString().split('T')[0];
+    return formatDate(d);
 });
 
 const formatTime = (t) => {
@@ -56,7 +57,7 @@ const formatWeekLabelWithNumber = (weekDates) => {
     return `${start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} — ${end.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} (${weekNum})`;
 };
 
-const todayMonday = getMonday(new Date()).toISOString().split('T')[0];
+const todayMonday = formatDate(getMonday(new Date(currentDateStr() + 'T12:00:00')));
 
 // Every remaining week of the current calendar year, starting from this week, as
 // selectable cards for the "Apply Through Week" step.
@@ -132,7 +133,7 @@ const ScheduleForecastSettings = ({ activeTab, onTabChange }) => {
     useEffect(() => {
         if (!selectedEmployee) return;
         setLoadingPreview(true);
-        fetch(`./api/get_schedule_board.php?from=${sourceWeekDates[0]}&to=${sourceWeekDates[6]}`)
+        fetch(`./api/get_schedule_board.php?from=${sourceWeekDates[0]}&to=${sourceWeekDates[6]}&employee_id=${selectedEmployee.employee_id}`)
             .then(res => res.json())
             .then(json => {
                 if (json.success) {

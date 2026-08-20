@@ -1,8 +1,9 @@
+import { todayStr } from '../utils/dates';
 import React, { useState } from 'react';
 import './DateRangeModal.css';
 
 const DateRangeModal = ({ isOpen, onClose, onConfirm }) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayStr();
     const [fromDate, setFromDate] = useState(today);
     const [toDate, setToDate] = useState(today);
     const [selectedWeek, setSelectedWeek] = useState('');

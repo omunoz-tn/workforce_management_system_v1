@@ -27,10 +27,56 @@
  * Every function returns a SQL expression string; nothing here touches the database.
  */
 
-/** The window's start, or NULL when the employee has no usable shift at all. */
+/**
+ * Resolves one row per (employee, date) with the shift that Scheduling > Shift Management
+ * has pinned for it, when a version covers that date.
+ *
+ * A schedule applied with a past Effective Start is authoritative over what DeskTime
+ * recorded as the shift, so this outranks d.work_starts/d.work_ends below. Only the
+ * SCHEDULED side is affected — tracked hours are never rewritten.
+ *
+ * Ranked rather than joined directly because several versions can cover the same date
+ * (that is how re-applying supersedes an old schedule); the newest effective_start wins,
+ * matching resolveShiftSignature() in ShiftSchedulePatterns.php. Without the ranking every
+ * overlapping version would duplicate the employee's row and double each SUM().
+ *
+ * Binds the same :from / :to the surrounding query already uses.
+ */
+function rrShiftPatternJoin(): string
+{
+    return "LEFT JOIN (
+                SELECT employee_id, log_date, signature
+                FROM (
+                    SELECT dd.employee_id,
+                           dd.log_date,
+                           JSON_UNQUOTE(JSON_EXTRACT(p.pattern, CONCAT('$.\"', WEEKDAY(dd.log_date) + 1, '\"'))) AS signature,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY dd.employee_id, dd.log_date
+                               ORDER BY p.effective_start DESC, p.id DESC
+                           ) AS rn
+                    FROM (
+                        SELECT DISTINCT employee_id, log_date
+                        FROM desktime_employee_data
+                        WHERE log_date BETWEEN :from AND :to
+                    ) dd
+                    INNER JOIN org_shift_schedule_patterns p
+                            ON p.employee_id = dd.employee_id
+                           AND dd.log_date BETWEEN p.effective_start AND p.effective_end
+                ) ranked
+                WHERE rn = 1
+            ) smp ON smp.employee_id = d.employee_id AND smp.log_date = d.log_date";
+}
+
+/**
+ * The window's start, or NULL when the day has no usable shift — which now includes a day
+ * a Shift Management schedule marks OFF, so such a day contributes 0 scheduled hours.
+ */
 function rrWindowStart(): string
 {
     return "CASE
+                WHEN smp.signature = 'OFF' THEN NULL
+                WHEN smp.signature IS NOT NULL
+                THEN CAST(SUBSTRING_INDEX(smp.signature, '|', 1) AS TIME)
                 WHEN d.work_starts != '00:00:00'
                      AND d.work_ends NOT IN ('00:00:00', '23:59:59')
                      AND d.work_ends > d.work_starts
@@ -39,10 +85,13 @@ function rrWindowStart(): string
             END";
 }
 
-/** The window's end, or NULL when the employee has no usable shift at all. */
+/** The window's end, or NULL when the day has no usable shift. */
 function rrWindowEnd(): string
 {
     return "CASE
+                WHEN smp.signature = 'OFF' THEN NULL
+                WHEN smp.signature IS NOT NULL
+                THEN CAST(SUBSTRING_INDEX(smp.signature, '|', -1) AS TIME)
                 WHEN d.work_starts != '00:00:00'
                      AND d.work_ends NOT IN ('00:00:00', '23:59:59')
                      AND d.work_ends > d.work_starts

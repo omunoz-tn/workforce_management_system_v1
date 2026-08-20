@@ -19,6 +19,7 @@ import SaveProjects from './components/SaveProjects'
 import ReportSettings from './components/ReportSettings'
 import ScheduleSettings from './components/ScheduleSettings'
 import ScheduleBoard from './components/ScheduleBoard'
+import ShiftManagement from './components/ShiftManagement'
 import Login from './components/Login'
 import LoginManagement from './components/LoginManagement'
 import ProjectAnalyticsDashboard from './components/ProjectAnalyticsDashboard'
@@ -79,10 +80,10 @@ const MENU_ITEMS = [
     icon: Icons.Calendar,
     submenu: [
       { id: 'schedule-board', label: 'Schedule Board' },
+      { id: 'shift-management', label: 'Shift Management' },
       { id: 'forecast', label: 'Forecast' },
       { id: 'holidays', label: 'Holidays' },
       { id: 'coverage', label: 'Coverage' },
-      { id: 'shift-mgmt', label: 'Shift Management' },
       { id: 'time-off', label: 'Time Off & Availability' },
       { id: 'templates', label: 'Templates' },
       { id: 'shift-swaps', label: 'Shift Swaps' },
@@ -113,6 +114,8 @@ function App() {
   const [activeMenu, setActiveMenu] = useState(null)
   const [backendStatus, setBackendStatus] = useState('Checking backend...')
   const [currentView, setCurrentView] = useState('dashboard')
+  // Employee handed from the Schedule Board to Shift Management, consumed once on arrival.
+  const [pendingShiftEmployee, setPendingShiftEmployee] = useState(null)
   const [reportParams, setReportParams] = useState(null)
   const [isReportView, setIsReportView] = useState(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -122,14 +125,25 @@ function App() {
   const [isAuthChecking, setIsAuthChecking] = useState(true)
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(true)
 
+  // Returns whether the navigation actually happened, so a caller that also hands state to
+  // the next view (openShiftManagementFor below) does not do it when the user backs out of
+  // the unsaved-changes prompt.
   const handleNavClick = (viewId) => {
     if (hasUnsavedChanges) {
       if (!window.confirm("You have unsaved changes. If you leave, your changes will be lost. Do you wish to continue?")) {
-        return;
+        return false;
       }
       setHasUnsavedChanges(false);
     }
+    // Reaching Shift Management any other way must not reopen the last employee.
+    if (viewId !== 'shift-management') setPendingShiftEmployee(null);
     setCurrentView(viewId);
+    return true;
+  }
+
+  // Jumps from a Schedule Board row straight into that employee's schedule editor.
+  const openShiftManagementFor = (employee) => {
+    if (handleNavClick('shift-management')) setPendingShiftEmployee(employee);
   }
 
   // Check for report view in URL
@@ -417,7 +431,11 @@ function App() {
         ) : currentView === 'billable' ? (
           <BillableEmployees />
         ) : currentView === 'schedule-board' ? (
-          <ScheduleBoard />
+          <ScheduleBoard
+            onEditSchedule={user?.permissions?.includes('shift-management') ? openShiftManagementFor : null}
+          />
+        ) : currentView === 'shift-management' ? (
+          <ShiftManagement initialEmployee={pendingShiftEmployee} />
         ) : currentView === 'holidays' ? (
           <Holidays />
         ) : currentView === 'reports' ? (

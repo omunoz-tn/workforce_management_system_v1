@@ -399,3 +399,332 @@
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+/* ── Editable shift card (Scheduling > Shift Management) ─────────────────────
+   These rules only add editing affordances on top of .shift-card. The card's
+   dimensions, typography, colors, radius and hierarchy stay exactly as the
+   Schedule Board renders them, so both screens show the same card. */
+
+.shift-time-input {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-color);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 1px 3px;
+  width: 88px;
+  text-align: right;
+  font-family: inherit;
+}
+
+.shift-time-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(253, 100, 28, 0.15);
+}
+
+.shift-card.shift-editing {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(253, 100, 28, 0.15);
+}
+
+.shift-total-row {
+  border-top: 1px dashed var(--border-color);
+  padding-top: 3px;
+  margin-top: 1px;
+}
+
+/* ── Holiday marker on a day ─────────────────────────────────────────────────
+   Shows the type the employee's own team configured, so the same date can read
+   Non-Working on one row and Working on another. Colors mirror the fallbacks in
+   HOLIDAY_TYPES; the holiday name and scope live in the title attribute. */
+.shift-holiday-tag {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin: 3px auto 0;
+  width: fit-content;
+  max-width: 100%;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 0.55rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+  color: #fff;
+  text-align: center;
+  cursor: help;
+}
+
+.shift-holiday-tag.holiday-non_working { background: #dc2626; }
+.shift-holiday-tag.holiday-working { background: #16a34a; }
+/* Yellow needs dark text to stay readable, same rule the Holidays badges use. */
+.shift-holiday-tag.holiday-campaign_defined { background: #eab308; color: #1b2d46; }
+
+/* Flags sit inline with the label. The US one is an inline SVG (see FlagIcon) and needs an
+   explicit size to line up with the emoji used for every other country. */
+.shift-holiday-flags {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.shift-holiday-flags .flag-icon-svg {
+  width: 11px;
+  height: 8px;
+  border-radius: 1px;
+  display: block;
+}
+
+/* ── Header controls: search vs. week navigation ─────────────────────────────
+   The search box carried a hard 280px width inside a wrapper that was free to
+   shrink, so on a narrow viewport the input outgrew its wrapper and drew on top
+   of the navigation buttons. Now the wrapper owns the width and the box follows
+   it, while the buttons never give up space.
+
+   Scoped to .header-controls on purpose: .search-box and .navigation-controls
+   are shared with Holidays, Teams, Report Settings, Shift Management and the
+   Run Rate exception modals, which must keep their current sizing. */
+.header-controls {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  /* Wider than the 16px the shared rule sets: the search box and the week picker are
+     two separate controls and were reading as one attached unit. Scoped here so the
+     Dashboard and All Employees headers keep their original spacing. */
+  gap: 32px;
+}
+
+.header-controls .search-filter-wrapper {
+  flex: 0 1 280px;
+  min-width: 170px;
+}
+
+.header-controls .search-box {
+  /* .search-box is declared in eight stylesheets. HoursReportView.css gives it a
+     surface of its own — display:flex, background, border, radius and
+     padding:10px 18px — and since those are different properties from this
+     file's width, they combine rather than being overridden. That padding on top
+     of width:100% (there is no global border-box reset) pushed the box 36px past
+     its wrapper, straight over the navigation buttons.
+
+     The input below already carries the border, background and radius, so the
+     wrapper is stripped back to a plain positioning context. */
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  flex: 0 1 auto;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.header-controls .navigation-controls {
+  flex-shrink: 0;
+}
+
+/* ── Week picker ───────────────────────────────────────────────────────────── */
+.week-nav-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.week-picker-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.week-picker-caret {
+  font-size: 0.7rem;
+  opacity: 0.6;
+}
+
+.week-picker-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  width: 260px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.14);
+  overflow: hidden;
+}
+
+/* Shift Management puts the trigger near the left edge of its container, where a menu
+   hanging leftward off a 260px box would run past the viewport. */
+.week-picker-menu--left {
+  right: auto;
+  left: 0;
+}
+
+.week-picker-year {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.week-picker-year button {
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  font-size: 1.1rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 2px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.week-picker-year button:hover {
+  background: var(--surface-alt);
+  color: var(--accent-color);
+}
+
+.week-picker-current {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 12px;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--accent-color);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.week-picker-current:hover {
+  background: var(--surface-alt);
+}
+
+.week-picker-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.week-picker-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-color);
+  font: inherit;
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.week-picker-item:hover {
+  background: var(--surface-alt);
+}
+
+.week-picker-item.is-selected {
+  background: rgba(253, 100, 28, 0.1);
+  color: var(--accent-color);
+  font-weight: 700;
+}
+
+.week-picker-num {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.week-picker-range {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.week-picker-item.is-selected .week-picker-range {
+  color: var(--accent-color);
+}
+
+/* Export button. Declared here rather than reusing .btn-primary, which lives in Teams.css
+   and only reaches this page because that component happens to be in the bundle. */
+.board-export-btn {
+  flex-shrink: 0;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 12px;
+  background: var(--accent-color);
+  color: #fefefe;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.board-export-btn:hover:not(:disabled) {
+  background: #e05315;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(253, 100, 28, 0.2);
+}
+
+.board-export-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── Edit-schedule action in the employee cell ──────────────────────────────
+   Kept subtle until the row is hovered: 230 always-visible icons would compete
+   with the schedule itself, which is what the board is for. */
+.emp-cell-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.emp-edit-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.schedule-table tbody tr:hover .emp-edit-btn {
+  opacity: 1;
+}
+
+.emp-edit-btn:hover {
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+}
+
+/* Keyboard users never trigger :hover, so focus has to reveal it too. */
+.emp-edit-btn:focus-visible {
+  opacity: 1;
+  outline: none;
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+}

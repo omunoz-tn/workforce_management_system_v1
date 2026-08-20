@@ -1,3 +1,4 @@
+import { todayStr, parseDate, formatDate } from '../utils/dates';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
     AreaChart, Area, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
@@ -10,11 +11,11 @@ const CHART_COLORS = ['#3182ce', '#319795', '#dd6b20', '#805ad5', '#4c51bf', '#e
 const ProjectAnalyticsDashboard = () => {
     // Dates states
     const [fromDate, setFromDate] = useState(() => {
-        const d = new Date();
+        const d = parseDate();
         d.setDate(1); // Default to first day of current month
-        return d.toISOString().split('T')[0];
+        return formatDate(d);
     });
-    const [toDate, setToDate] = useState(() => new Date().toISOString().split('T')[0]);
+    const [toDate, setToDate] = useState(() => todayStr());
     const [activePreset, setActivePreset] = useState('current-month');
 
     // Filters states
@@ -62,36 +63,37 @@ const ProjectAnalyticsDashboard = () => {
     // Date presets handler
     const applyPreset = (preset) => {
         setActivePreset(preset);
-        const today = new Date();
+        // Noon-anchored so the day maths below cannot slip across midnight.
+        const today = parseDate();
         let from = '';
-        let to = today.toISOString().split('T')[0];
+        let to = todayStr();
 
         switch (preset) {
             case 'today':
                 from = to;
                 break;
             case 'yesterday': {
-                const yest = new Date();
+                const yest = parseDate();
                 yest.setDate(today.getDate() - 1);
-                from = yest.toISOString().split('T')[0];
+                from = formatDate(yest);
                 to = from;
                 break;
             }
             case 'last-7': {
-                const last7 = new Date();
+                const last7 = parseDate();
                 last7.setDate(today.getDate() - 6);
-                from = last7.toISOString().split('T')[0];
+                from = formatDate(last7);
                 break;
             }
             case 'last-30': {
-                const last30 = new Date();
+                const last30 = parseDate();
                 last30.setDate(today.getDate() - 29);
-                from = last30.toISOString().split('T')[0];
+                from = formatDate(last30);
                 break;
             }
             case 'current-month': {
                 const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-                from = firstDay.toISOString().split('T')[0];
+                from = formatDate(firstDay);
                 break;
             }
             default:

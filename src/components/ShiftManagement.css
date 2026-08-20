@@ -1,0 +1,380 @@
+/* Scheduling > Shift Management
+   Layout only. The shift cards themselves come from ShiftCard and are styled by
+   ScheduleBoard.css, so both screens render the identical card. */
+
+.shift-mgmt-main {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
+}
+
+/* ── Employee search ── */
+.shift-mgmt-search {
+    position: relative;
+    max-width: 520px;
+}
+
+.shift-mgmt-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 30;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.shift-mgmt-dropdown-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    text-align: left;
+    padding: 10px 14px;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+}
+
+.shift-mgmt-dropdown-item:last-child { border-bottom: none; }
+.shift-mgmt-dropdown-item:hover { background: var(--surface-alt); }
+
+.shift-mgmt-dd-name { font-weight: 700; font-size: 0.9rem; }
+.shift-mgmt-dd-meta { font-size: 0.78rem; color: var(--text-muted); }
+
+.shift-mgmt-dropdown-empty {
+    padding: 14px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+/* ── Selected employee ── */
+.shift-mgmt-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 18px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+}
+
+.shift-mgmt-summary-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.shift-mgmt-emp-name { font-weight: 700; font-size: 1rem; }
+.shift-mgmt-emp-meta { font-size: 0.82rem; color: var(--text-muted); }
+.shift-mgmt-emp-template { font-size: 0.78rem; color: var(--accent-color); font-weight: 600; }
+
+.shift-mgmt-clear {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-weight: 600;
+    font-size: 0.82rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.shift-mgmt-clear:hover { border-color: var(--accent-color); color: var(--accent-color); }
+
+/* Sits directly above the day cards, so the running weekly total is next to the
+   shifts being edited instead of up in the page header. Negative bottom margin
+   pulls it against the grid, which owns the gap below. */
+.shift-mgmt-week-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: -6px;
+    /* The week picker is a full-height control rather than another inline label, so a
+       narrow viewport wraps it onto its own line instead of squeezing the title. */
+    flex-wrap: wrap;
+}
+
+.shift-mgmt-week-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+}
+
+/* Says what the picker beside it selects: the week the cards were read from, not the
+   period they will be applied to. */
+.shift-mgmt-week-source {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+/* ── Weekly editor ──
+   Seven columns on desktop, folding to four then two so a tablet keeps whole
+   cards rather than shrinking them below the Schedule Board's proportions. */
+.shift-mgmt-week {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 10px;
+}
+
+@media (max-width: 1200px) {
+    .shift-mgmt-week { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media (max-width: 720px) {
+    .shift-mgmt-week { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.shift-mgmt-day {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--card-bg);
+}
+
+.shift-mgmt-day.is-editing {
+    border-color: var(--accent-color);
+    background: var(--surface-alt);
+}
+
+.shift-mgmt-day-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.shift-mgmt-day-header .day-name {
+    font-weight: 800;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.shift-mgmt-day-hours { font-size: 0.72rem; color: var(--text-muted); font-weight: 700; }
+
+/* Keeps the card centred and lets the editable variant grow past the board's
+   108px cap so the time inputs fit without restyling the card itself. */
+.shift-mgmt-card-slot {
+    display: flex;
+    justify-content: center;
+    min-height: 74px;
+    align-items: center;
+}
+
+.shift-mgmt-card-slot .shift-card { max-width: 100%; }
+
+.shift-mgmt-day-actions { display: flex; flex-direction: column; gap: 6px; }
+
+.shift-mgmt-off-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.shift-mgmt-day-buttons { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.shift-mgmt-icon-btn {
+    flex: 1 1 auto;
+    padding: 5px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-color);
+    font-size: 0.7rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.shift-mgmt-icon-btn:hover:not(:disabled) { border-color: var(--accent-color); color: var(--accent-color); }
+.shift-mgmt-icon-btn.is-danger:hover:not(:disabled) { border-color: #dc2626; color: #dc2626; }
+.shift-mgmt-icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ── Effective period, preview, history ── */
+.shift-mgmt-period,
+.shift-mgmt-preview,
+.shift-mgmt-versions {
+    padding: 16px 18px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--card-bg);
+}
+
+.shift-mgmt-period h2,
+.shift-mgmt-preview h2,
+.shift-mgmt-versions h2 {
+    margin: 0 0 12px;
+    font-size: 0.95rem;
+    font-weight: 800;
+}
+
+.shift-mgmt-period-fields { display: flex; flex-wrap: wrap; gap: 18px; }
+
+.shift-mgmt-period-fields label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
+
+/* One flex row for the caption, whether or not it carries the required asterisk, so
+   every input in this section sits on the same baseline. */
+.shift-mgmt-field-label {
+    display: block;
+    white-space: nowrap;
+}
+
+.shift-mgmt-period-fields input {
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.shift-mgmt-required { color: var(--accent-color); }
+
+.shift-mgmt-note { margin: 12px 0 0; font-size: 0.78rem; color: var(--text-muted); line-height: 1.5; }
+
+.shift-mgmt-preview-range { margin: 0 0 10px; font-weight: 700; font-size: 0.85rem; }
+.shift-mgmt-preview ul { margin: 0; padding-left: 18px; font-size: 0.85rem; line-height: 1.8; }
+.shift-mgmt-preview-muted { color: var(--text-muted); }
+
+/* Retroactive periods rewrite figures people may already have reported on, so the warning
+   is given the accent treatment rather than the muted one. */
+.shift-mgmt-preview-retro { color: var(--accent-color); font-weight: 600; }
+
+.shift-mgmt-version {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.82rem;
+}
+
+.shift-mgmt-version:last-child { border-bottom: none; }
+.shift-mgmt-version-days { color: var(--text-muted); font-weight: 700; }
+
+/* ── Actions, states, toast ── */
+.shift-mgmt-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-bottom: 8px;
+}
+
+.shift-mgmt-validation { margin-right: auto; font-size: 0.8rem; color: #dc2626; font-weight: 600; }
+
+/* All three actions share the accent treatment. Declared here instead of leaning on
+   .btn-primary, which lives in Teams.css and only reaches this page because that
+   component happens to be in the bundle — a dependency this page should not have. */
+.shift-mgmt-actions button {
+    background: var(--accent-color);
+    color: #fefefe;
+    border: none;
+    padding: 0.6rem 1.25rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.shift-mgmt-actions button:hover:not(:disabled) {
+    background: #e05315;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(253, 100, 28, 0.2);
+}
+
+.shift-mgmt-actions button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.shift-mgmt-placeholder {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.shift-mgmt-error {
+    padding: 12px 16px;
+    border-radius: 8px;
+    background: rgba(220, 38, 38, 0.08);
+    border: 1px solid rgba(220, 38, 38, 0.3);
+    color: #dc2626;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.shift-mgmt-modal { max-width: 460px; }
+
+.shift-mgmt-confirm-warn {
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: rgba(253, 100, 28, 0.08);
+    border: 1px solid rgba(253, 100, 28, 0.35);
+    font-size: 0.8rem;
+    line-height: 1.5;
+}
+
+.shift-mgmt-dup-day {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 4px;
+    font-size: 0.88rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.shift-mgmt-dup-day:last-child { border-bottom: none; }
+
+.shift-mgmt-dup-warn {
+    margin-left: auto;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--accent-color);
+}
+
+.shift-mgmt-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 60;
+    max-width: 420px;
+    padding: 14px 18px;
+    border-radius: 10px;
+    background: var(--card-bg);
+    border: 1px solid #16a34a;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+    font-size: 0.85rem;
+    font-weight: 600;
+}

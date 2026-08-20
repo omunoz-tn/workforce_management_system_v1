@@ -1,3 +1,4 @@
+import { todayStr, parseDate, formatDate } from '../utils/dates';
 import { useState, useEffect, useMemo } from 'react';
 import './Dashboard.css';
 import DrillDownModal from './DrillDownModal';
@@ -745,11 +746,11 @@ const Dashboard = () => {
                             title={activeDrillDown.title}
                             team={activeDrillDown.team}
                             fromDate={(() => {
-                                const d = new Date();
+                                const d = parseDate();
                                 d.setDate(1);
-                                return d.toISOString().split('T')[0];
+                                return formatDate(d);
                             })()}
-                            toDate={new Date().toISOString().split('T')[0]}
+                            toDate={todayStr()}
                             threshold={lateThreshold}
                             initialData={
                                 activeDrillDown.type === 'late' ? filteredLateData :

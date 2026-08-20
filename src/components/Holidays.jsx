@@ -3,6 +3,7 @@ import { CalendarX2, CalendarCheck2, CalendarCog } from 'lucide-react';
 import './ScheduleBoard.css';
 import './Holidays.css';
 import BulkAddHolidaysModal from './BulkAddHolidaysModal';
+import { todayStr as currentDateStr, formatDate } from '../utils/dates';
 
 // `color`/`textColor` here are only the fallback shown before Configuration >
 // Scheduling > Holiday's saved chip colors load.
@@ -118,7 +119,7 @@ const getMonday = (date) => {
 const getWeekDates = (monday) => Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    return d.toISOString().split('T')[0];
+    return formatDate(d);
 });
 
 const formatDateLabel = (dateStr) => new Date(dateStr + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
@@ -141,7 +142,7 @@ const buildHolidayTooltip = (holiday) => {
     return lines.join('\n');
 };
 
-const todayStr = new Date().toISOString().split('T')[0];
+const todayStr = currentDateStr();
 
 const emptyForm = (dateStr) => ({
     id: null,

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import './DrillDownModal.css';
+import { todayStr, parseDate, formatDate } from '../utils/dates';
 import DailyDetailsModal from './DailyDetailsModal';
 
 const DrillDownModal = ({ type, title, team, onClose, threshold, initialData, serverTime: propServerTime, fromDate, toDate }) => {
@@ -13,11 +14,13 @@ const DrillDownModal = ({ type, title, team, onClose, threshold, initialData, se
 
     // Default MTD range for the daily modal (matching backend logic) if not provided as props
     const getMtdRange = () => {
-        const mtdFrom = new Date();
+        // Month-to-date pinned to Santo Domingo: reading these in UTC used to start the
+        // range on the 2nd and end it tomorrow once it was past 8 PM.
+        const mtdFrom = parseDate();
         mtdFrom.setDate(1);
         return {
-            from: mtdFrom.toISOString().split('T')[0],
-            to: new Date().toISOString().split('T')[0]
+            from: formatDate(mtdFrom),
+            to: todayStr()
         };
     };
 

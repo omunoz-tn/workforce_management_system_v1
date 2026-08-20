@@ -141,6 +141,24 @@ CREATE TABLE IF NOT EXISTS `org_schedule_forecast_overrides` (
   UNIQUE KEY `unique_employee` (`employee_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- Versioned weekly shift pattern per employee (Scheduling > Shift Management). Unlike
+-- org_schedule_forecast_overrides, which keeps one live row per employee, this keeps one
+-- row per version so superseded schedules stay on record. Resolved at read time in
+-- get_schedule_board.php; nothing is materialised per date.
+CREATE TABLE IF NOT EXISTS `org_shift_schedule_patterns` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `employee_id` int(11) NOT NULL,
+  `employee_name` varchar(255) NOT NULL,
+  `effective_start` date NOT NULL,
+  `effective_end` date NOT NULL,
+  -- {"1".."7": "HH:MM:SS|HH:MM:SS" | "OFF"}, ISO weekday 1=Mon .. 7=Sun.
+  `pattern` text NOT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `employee_effective` (`employee_id`,`effective_start`,`effective_end`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE IF NOT EXISTS `org_run_rate_color_ranges` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `range_start` decimal(6,2) NOT NULL,

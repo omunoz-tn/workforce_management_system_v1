@@ -1,3 +1,4 @@
+import { todayStr as currentDateStr } from '../utils/dates';
 import React, { useState, useEffect, useMemo } from 'react';
 import './Teams.css';
 import './ReportSettings.css';
@@ -8,7 +9,7 @@ import RunRateEmployeeDayExceptionsModal from './RunRateEmployeeDayExceptionsMod
 export const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 export const WEEKDAY_HEADERS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
-export const todayStr = new Date().toISOString().split('T')[0];
+export const todayStr = currentDateStr();
 
 export const getCalendarCells = (anchorDate) => {
     const year = anchorDate.getFullYear();

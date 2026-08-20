@@ -156,6 +156,7 @@ try {
     LEFT JOIN org_run_rate_excluded_employee_days red_emp ON red_emp.employee_id = d.employee_id AND red_emp.excluded_date = d.log_date
     LEFT JOIN org_run_rate_billable_percentage brp ON brp.employee_id = d.employee_id
     " . rrCampaignExclusionJoin() . "
+    " . rrShiftPatternJoin() . "
     -- Fallback schedule: employee's most frequently used valid shift (only joins when today has no schedule)
     LEFT JOIN (
         SELECT employee_id, work_starts, work_ends

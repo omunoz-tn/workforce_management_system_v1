@@ -1,8 +1,9 @@
+import { todayStr } from '../utils/dates';
 import { useState, useRef, useEffect } from 'react';
 import './SaveProjects.css';
 
 const SaveProjects = ({ onBack }) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayStr();
     const [fromDate, setFromDate] = useState(today);
     const [toDate, setToDate] = useState(today);
     const [selectedWeek, setSelectedWeek] = useState('');

@@ -5,6 +5,7 @@
  */
 header('Content-Type: application/json');
 require_once 'db_wfm_config.php';
+require_once 'ShiftSchedulePatterns.php';
 
 try {
     session_start();
@@ -15,7 +16,26 @@ try {
     $from = $_GET['from'] ?? null;
     $to = $_GET['to'] ?? null;
 
-    if (!$from || !$to) {
+    // Shift Management's employee search reads three fields off this endpoint — id, name,
+    // team — and was paying for the whole forecast engine to get them: seven queries, a
+    // 42-day history scan per employee and an N x 7 payload, just to fill a dropdown.
+    // `roster=1` answers with the roster alone and returns before any of that runs.
+    //
+    // It lives here rather than in an endpoint of its own on purpose: the freshness rule
+    // in the roster query below and the team RBAC filter above are what decide who exists,
+    // and the search has to list exactly the people the board lists. Two copies of those
+    // rules would drift.
+    $rosterOnly = !empty($_GET['roster']);
+
+    // Narrows every query to one person. The board asks for the whole roster, but the two
+    // screens that render a single employee's week (Shift Management's editor and
+    // Configuration > Scheduling > Forecast) were each pulling the entire board and then
+    // discarding all but one row.
+    $onlyEmployee = isset($_GET['employee_id']) ? (int) $_GET['employee_id'] : null;
+    $employeeFilter = $onlyEmployee ? " AND d.employee_id = $onlyEmployee " : "";
+    $employeeFilterBare = $onlyEmployee ? " AND employee_id = $onlyEmployee " : "";
+
+    if (!$rosterOnly && (!$from || !$to)) {
         throw new Exception("From and To dates are required");
     }
 
@@ -39,42 +59,25 @@ try {
             LEFT JOIN org_teams ot ON ota.team_id = ot.id
             WHERE d.log_date BETWEEN :from AND :to
             $teamFilter
+            $employeeFilter
             ORDER BY d.name ASC, d.log_date ASC";
 
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute(['from' => $from, 'to' => $to]);
-    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $rows = [];
+    if (!$rosterOnly) {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(['from' => $from, 'to' => $to]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 
-    // Roster of currently active employees, each paired with their most frequently
-    // used historical valid shift. Used to project a schedule onto future days that
-    // have no synced DeskTime record yet (same "mode of past shifts" logic used as
-    // the scheduled-hours fallback in get_daily_run_rate.php).
-    $rosterSql = "SELECT
-                r.employee_id,
-                r.name,
-                COALESCE(ot.name, r.group_name) as team_name,
-                ota.team_id,
-                ot.lunch_time as team_lunch,
-                sched.work_starts as predicted_start,
-                sched.work_ends as predicted_end
-            FROM (
-                SELECT d.employee_id, d.name, d.group_name
-                FROM desktime_employee_data d
-                INNER JOIN (
-                    SELECT employee_id, MAX(log_date) as max_log_date
-                    FROM desktime_employee_data
-                    GROUP BY employee_id
-                    -- Each employee's own latest sync date, as long as it's within a few
-                    -- days of the newest data in the whole table. Using a single global
-                    -- MAX(log_date) here (like the old query did) wrongly drops anyone
-                    -- whose sync simply landed a day later than everyone else's; but with
-                    -- no floor at all, employees who stopped syncing months ago would flood
-                    -- the roster too (confirmed: a steep drop-off after ~1 day behind).
-                    HAVING MAX(log_date) >= (SELECT DATE_SUB(MAX(log_date), INTERVAL 3 DAY) FROM desktime_employee_data)
-                ) latest ON latest.employee_id = d.employee_id AND latest.max_log_date = d.log_date
-            ) r
-            LEFT JOIN org_team_assignments ota ON r.employee_id = ota.employee_id
-            LEFT JOIN org_teams ot ON ota.team_id = ot.id
+    // Tier 2 of the forecast: each employee's all-time most used shift. It is the one
+    // aggregate here that no index can serve — it groups by (employee_id, work_starts,
+    // work_ends) over the whole table, with no date bound — so roster mode, which never
+    // projects anything, leaves it out entirely.
+    $predictedColumns = $rosterOnly
+        ? "NULL as predicted_start, NULL as predicted_end"
+        : "sched.work_starts as predicted_start, sched.work_ends as predicted_end";
+
+    $predictedJoin = $rosterOnly ? "" : "
             LEFT JOIN (
                 SELECT employee_id, work_starts, work_ends
                 FROM (
@@ -90,16 +93,70 @@ try {
                     WHERE work_starts != '00:00:00'
                       AND work_ends NOT IN ('00:00:00', '23:59:59')
                       AND work_ends > work_starts
+                      $employeeFilterBare
                     GROUP BY employee_id, work_starts, work_ends
                 ) ranked
                 WHERE rn = 1
-            ) sched ON r.employee_id = sched.employee_id
+            ) sched ON r.employee_id = sched.employee_id";
+
+    // Roster of currently active employees, each paired with their most frequently
+    // used historical valid shift. Used to project a schedule onto future days that
+    // have no synced DeskTime record yet (same "mode of past shifts" logic used as
+    // the scheduled-hours fallback in get_daily_run_rate.php).
+    $rosterSql = "SELECT
+                r.employee_id,
+                r.name,
+                COALESCE(ot.name, r.group_name) as team_name,
+                ota.team_id,
+                ot.lunch_time as team_lunch,
+                $predictedColumns
+            FROM (
+                SELECT d.employee_id, d.name, d.group_name
+                FROM desktime_employee_data d
+                INNER JOIN (
+                    SELECT employee_id, MAX(log_date) as max_log_date
+                    FROM desktime_employee_data
+                    WHERE 1=1 $employeeFilterBare
+                    GROUP BY employee_id
+                    -- Each employee's own latest sync date, as long as it's within a few
+                    -- days of the newest data in the whole table. Using a single global
+                    -- MAX(log_date) here (like the old query did) wrongly drops anyone
+                    -- whose sync simply landed a day later than everyone else's; but with
+                    -- no floor at all, employees who stopped syncing months ago would flood
+                    -- the roster too (confirmed: a steep drop-off after ~1 day behind).
+                    HAVING MAX(log_date) >= (SELECT DATE_SUB(MAX(log_date), INTERVAL 3 DAY) FROM desktime_employee_data)
+                ) latest ON latest.employee_id = d.employee_id AND latest.max_log_date = d.log_date
+                WHERE 1=1 $employeeFilter
+            ) r
+            LEFT JOIN org_team_assignments ota ON r.employee_id = ota.employee_id
+            LEFT JOIN org_teams ot ON ota.team_id = ot.id
+            $predictedJoin
             WHERE 1=1
             $teamFilter";
 
     $rosterStmt = $pdo->prepare($rosterSql);
     $rosterStmt->execute();
     $rosterRows = $rosterStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Everything past this point projects schedules. Roster mode wants none of it, and
+    // answers with the same {id, name, team} shape the full response carries so a caller
+    // can read either one with the same code.
+    if ($rosterOnly) {
+        $roster = array_map(function ($row) {
+            return [
+                'id' => (int) $row['employee_id'],
+                'name' => $row['name'],
+                'team' => $row['team_name'],
+                'lunch_time' => $row['team_lunch'] ?? 0
+            ];
+        }, $rosterRows);
+        usort($roster, function ($a, $b) {
+            return strcasecmp($a['name'], $b['name']);
+        });
+
+        echo json_encode(['success' => true, 'roster' => true, 'data' => $roster]);
+        exit;
+    }
 
     // Weekday-pattern forecast: for each roster employee, find the typical shift (or
     // "OFF") for EACH day of the week using their last 6 weeks (42 days) of history,
@@ -333,10 +390,13 @@ try {
     // confirmed schedule.
     $requestPeriod = new DatePeriod(new DateTime($from), new DateInterval('P1D'), (new DateTime($to))->modify('+1 day'));
     $futureDates = [];
+    $pastDates = [];
     foreach ($requestPeriod as $day) {
         $dateStr = $day->format('Y-m-d');
         if ($dateStr > $today) {
             $futureDates[] = $dateStr;
+        } else {
+            $pastDates[] = $dateStr;
         }
     }
 
@@ -346,7 +406,7 @@ try {
     // another. Resolved in PHP rather than joined into the roster query because
     // org_holidays is unique per (country_code, holiday_date) — two countries sharing a
     // date would duplicate every roster row.
-    $stmt = $pdo->prepare("SELECT id, holiday_date, holiday_type FROM org_holidays WHERE holiday_date BETWEEN :from AND :to");
+    $stmt = $pdo->prepare("SELECT id, name, country_code, holiday_date, holiday_type FROM org_holidays WHERE holiday_date BETWEEN :from AND :to");
     $stmt->execute(['from' => $from, 'to' => $to]);
     $holidaysInRange = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -375,60 +435,83 @@ try {
         return false;
     };
 
-    // The Custom (`campaign_defined`) window this team discounts on that date, if any.
-    // Merged with MIN/MAX when two holidays share a date, matching the Run Rate query.
-    $campaignExclusionFor = function ($teamId, $dateStr) use ($holidaysInRange, $holidayOverrides) {
-        $from = null;
-        $to = null;
+
+    // Every holiday governing this team on a date — plural, because org_holidays is unique
+    // per (country_code, holiday_date), so the same day can carry one row per country. Each
+    // carries the type the team itself gave it, so the board can show the same date as
+    // Non-Working for one employee and Working for another.
+    $holidaysFor = function ($teamId, $dateStr) use ($holidaysInRange, $holidayOverrides) {
+        $found = [];
         foreach ($holidaysInRange as $holiday) {
             if ($holiday['holiday_date'] !== $dateStr) {
                 continue;
             }
             $override = $holidayOverrides[$teamId][(int) $holiday['id']] ?? null;
-            if (!$override || $override['holiday_type'] !== 'campaign_defined') {
-                continue;
+            $type = $override['holiday_type'] ?? $holiday['holiday_type'];
+            $info = [
+                'name' => $holiday['name'],
+                'type' => $type,
+                'country' => $holiday['country_code'],
+                'custom' => $override !== null,
+            ];
+            if ($type === 'campaign_defined' && !empty($override['exclude_from'])) {
+                $info['from'] = $override['exclude_from'];
+                $info['to'] = $override['exclude_to'];
             }
-            if (empty($override['exclude_from']) || empty($override['exclude_to'])) {
-                continue;
-            }
-            $from = $from === null ? $override['exclude_from'] : min($from, $override['exclude_from']);
-            $to = $to === null ? $override['exclude_to'] : max($to, $override['exclude_to']);
+            $found[] = $info;
         }
-        return $from !== null ? ['from' => $from, 'to' => $to] : null;
+        return $found;
     };
 
-    // Trims a predicted shift by the excluded window. Only the part of the shift that
-    // survives is forecast, so the board shows what the team is actually expected to work.
-    // Returns null when nothing survives (the exclusion swallows the whole shift), and
-    // leaves the shift untouched when the exclusion sits entirely outside it or would cut
-    // a hole in the middle — a shift cannot be split into two blocks here, so the longer
-    // remaining side wins.
-    $clipShift = function ($start, $end, $exclusion) {
-        if (!$exclusion) {
-            return [$start, $end];
-        }
-        $s = strtotime("1970-01-01 $start");
-        $e = strtotime("1970-01-01 $end");
-        $xs = strtotime('1970-01-01 ' . $exclusion['from']);
-        $xe = strtotime('1970-01-01 ' . $exclusion['to']);
+    // Shift Management's versioned weekly patterns. Two screens can now pin a future
+    // schedule, so the order between them is fixed here: a Shift Management version whose
+    // effective range covers the date wins, and the Configuration > Scheduling > Forecast
+    // override only fills dates no version covers. Shift Management is the more specific
+    // of the two — it names an explicit start and end date rather than a whole week.
+    $shiftPatterns = fetchShiftPatternsForRange($pdo, $from, $to);
 
-        if ($xe <= $s || $xs >= $e) {
-            return [$start, $end]; // no overlap
+    // Retroactive pass. A Shift Management version whose effective period reaches into days
+    // the board has already recorded replaces the shift DeskTime reported for them — that is
+    // the point of allowing a past Effective Start. Only the shift is replaced; nothing
+    // touches the hours actually tracked.
+    //
+    // Deliberately separate from the tier chain below, which stays future-only: the forecast
+    // override and the weekday pattern are projections and have no business rewriting
+    // history, and running this pass on its own leaves the future precedence untouched.
+    foreach ($pivot as $id => &$emp) {
+        $versions = $shiftPatterns[(int) $id] ?? [];
+        if (!$versions) {
+            continue;
         }
-        if ($xs <= $s && $xe >= $e) {
-            return null; // fully excluded
+        foreach ($pastDates as $dateStr) {
+            $signature = resolveShiftSignature($versions, $dateStr);
+            if ($signature === null) {
+                continue;
+            }
+            if ($signature === 'OFF') {
+                $emp['schedules'][$dateStr] = [
+                    'start' => '00:00:00',
+                    'end' => '00:00:00',
+                    'predicted' => true,
+                    'manualOverride' => true
+                ];
+            } else {
+                [$start, $end] = explode('|', $signature);
+                $emp['schedules'][$dateStr] = [
+                    'start' => $start,
+                    'end' => $end,
+                    'predicted' => true,
+                    'manualOverride' => true
+                ];
+            }
         }
-        $leftSecs = max(0, $xs - $s);
-        $rightSecs = max(0, $e - $xe);
-        if ($leftSecs >= $rightSecs) {
-            return [$start, date('H:i:s', $xs)];
-        }
-        return [date('H:i:s', $xe), $end];
-    };
+    }
+    unset($emp);
 
     foreach ($pivot as $id => &$emp) {
         $tier2 = $emp['_predicted'];
         $override = $overrides[$id] ?? null;
+        $employeeShiftVersions = $shiftPatterns[(int) $id] ?? [];
         foreach ($futureDates as $dateStr) {
             if (isset($emp['schedules'][$dateStr])) {
                 continue;
@@ -441,33 +524,41 @@ try {
                 $emp['schedules'][$dateStr] = [
                     'start' => '00:00:00',
                     'end' => '00:00:00',
-                    'predicted' => true,
-                    'holiday' => true
+                    'predicted' => true
                 ];
                 continue;
             }
 
             $weekday = $isoWeekday($dateStr);
-            $exclusion = $campaignExclusionFor($emp['_team_id'], $dateStr);
 
-            // Writes a predicted shift with the team's Custom window removed. The board
-            // forecasts scheduled time, which is the side that window applies to, so it
-            // stays in step with the Run Rate. A shift left with nothing becomes OFF.
-            $setShift = function ($start, $end, $extra) use (&$emp, $dateStr, $exclusion, $clipShift) {
-                $clipped = $clipShift($start, $end, $exclusion);
-                if ($clipped === null) {
-                    $emp['schedules'][$dateStr] = ['start' => '00:00:00', 'end' => '00:00:00', 'predicted' => true]
-                        + $extra + ['holiday' => true];
-                    return;
-                }
-                $entry = ['start' => $clipped[0], 'end' => $clipped[1], 'predicted' => true] + $extra;
-                if ($exclusion && $clipped !== [$start, $end]) {
-                    $entry['holiday'] = true;
-                }
-                $emp['schedules'][$dateStr] = $entry;
+            // The shift is written unchanged, even on a Custom holiday. A Custom window is a
+            // deduction from the hours that count, not a change to the person's schedule, so
+            // the board keeps showing 8:00–17:00 and the hours maths subtracts the window
+            // from it (shiftHours in ShiftCard.jsx). Keeping the two apart also means a
+            // window cutting a hole in the middle of a shift no longer has to be
+            // misrepresented as a shorter shift, which is what the old clipping did.
+            $setShift = function ($start, $end, $extra) use (&$emp, $dateStr) {
+                $emp['schedules'][$dateStr] = ['start' => $start, 'end' => $end, 'predicted' => true] + $extra;
             };
 
-            // Tier 0: manual override, only while the date's week is within the
+            // Tier 0a: a Shift Management version covering this date.
+            $shiftSignature = resolveShiftSignature($employeeShiftVersions, $dateStr);
+            if ($shiftSignature !== null) {
+                if ($shiftSignature === 'OFF') {
+                    $emp['schedules'][$dateStr] = [
+                        'start' => '00:00:00',
+                        'end' => '00:00:00',
+                        'predicted' => true,
+                        'manualOverride' => true
+                    ];
+                } else {
+                    [$start, $end] = explode('|', $shiftSignature);
+                    $setShift($start, $end, ['manualOverride' => true]);
+                }
+                continue;
+            }
+
+            // Tier 0b: manual forecast override, only while the date's week is within the
             // admin-chosen range.
             if ($override && $weekMondayOf($dateStr) <= $override['target_end_week_start']) {
                 $signature = $overrideSignature[$id][$weekday] ?? 'OFF';
@@ -498,6 +589,34 @@ try {
                 $setShift($start, $end, []);
             } elseif ($tier2) {
                 $setShift($tier2['start'], $tier2['end'], []);
+            }
+        }
+    }
+    unset($emp);
+
+    // Holiday markers for the entire range, not only the projected days. Each employee gets
+    // the type their own team configured (Employees > Teams > Assign Members > Holidays),
+    // so one date can read Non-Working for one person and Working for another. Attached
+    // after every tier has run, so it labels whatever shift ended up on the day.
+    $allDates = array_merge($pastDates, $futureDates);
+    sort($allDates);
+
+    foreach ($pivot as $id => &$emp) {
+        foreach ($allDates as $dateStr) {
+            $info = $holidaysFor($emp['_team_id'], $dateStr);
+            if (empty($info)) {
+                continue;
+            }
+            if (isset($emp['schedules'][$dateStr])) {
+                $emp['schedules'][$dateStr]['holidays'] = $info;
+            } else {
+                // Nothing synced and nothing projected for that day: the cell would be a
+                // bare OFF, so it still gets the marker rather than hiding the holiday.
+                $emp['schedules'][$dateStr] = [
+                    'start' => '00:00:00',
+                    'end' => '00:00:00',
+                    'holidays' => $info
+                ];
             }
         }
         unset($emp['_predicted'], $emp['_team_id']);

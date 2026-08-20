@@ -1,26 +1,45 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import './ScheduleBoard.css';
+// The card markup used to live here as formatShift(); it moved to ShiftCard so Shift
+// Management renders the identical card rather than a copy that can drift.
+import ShiftCard, { shiftHours, formatTime } from './ShiftCard';
+import { todayStr, parseDate, formatDate, mondayOf } from '../utils/dates';
+import WeekPicker from './WeekPicker';
+import { downloadCsv } from '../utils/csv';
+import { HOLIDAY_TYPES } from './Holidays';
 
-const ScheduleBoard = () => {
-    const [currentDate, setCurrentDate] = useState(new Date());
+
+// Lucide's "calendar-pen" geometry, inlined because lucide-react 1.28.0 does not export it
+// yet (CalendarCog is the closest it ships, and Holidays already uses that one for the
+// Custom holiday type — reusing it here would make two different things look alike).
+// Drawn with Lucide's own conventions so it sits consistently next to the icons that do
+// come from the package: 24x24 box, 2px stroke, round caps and joins.
+const IconEditSchedule = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
+         fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"
+         strokeLinejoin="round" aria-hidden="true">
+        <path d="M8 2v4" />
+        <path d="M16 2v4" />
+        <path d="M21 13V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6" />
+        <path d="M3 10h18" />
+        <path d="M21.378 16.626a1 1 0 0 0-3.004-3.004l-4.01 4.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z" />
+    </svg>
+);
+
+const ScheduleBoard = ({ onEditSchedule = null }) => {
+    // Anchored at noon on today's Santo Domingo date, so every week offset below stays on
+    // the intended calendar day regardless of the machine's timezone.
+    const [currentDate, setCurrentDate] = useState(() => parseDate());
     const [searchTerm, setSearchTerm] = useState('');
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // Calculate Monday of the current week (Mon-Sun view)
-    const getMonday = (date) => {
-        const d = new Date(date);
-        const day = d.getDay();
-        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-        return new Date(d.setDate(diff));
-    };
-
-    const monday = getMonday(currentDate);
+    const monday = mondayOf(formatDate(currentDate));
     const weekDates = Array.from({ length: 7 }, (_, i) => {
         const d = new Date(monday);
         d.setDate(monday.getDate() + i);
-        return d.toISOString().split('T')[0];
+        return formatDate(d);
     });
 
     const fromDate = weekDates[0];
@@ -57,96 +76,62 @@ const ScheduleBoard = () => {
         return [...matches].sort((a, b) => a.name.localeCompare(b.name));
     }, [data, searchTerm]);
 
-    const navigateWeek = (weeks) => {
-        const newDate = new Date(currentDate);
-        newDate.setDate(currentDate.getDate() + (weeks * 7));
-        setCurrentDate(newDate);
-    };
-
-    const formatShift = (schedule, lunchHours) => {
-        // OFF day handling: display OFF badge and tooltip with 0 hours
-        if (!schedule || schedule.start === '00:00:00') {
-            const isPredictedOff = schedule?.predicted;
-            const isOverride = schedule?.manualOverride;
-            const note = isOverride ? ' (Set from a manual forecast)' : (isPredictedOff ? ' (Forecast from historical pattern)' : '');
-            const tooltip = `Start: - | End: - | Total: 0h${note}`;
-            return (
-                <span className={`shift-off ${isPredictedOff ? 'shift-off-predicted' : ''} ${isOverride ? 'shift-off-override' : ''}`} title={tooltip}>
-                    {isOverride ? 'Manual Forecast OFF' : (isPredictedOff ? 'Forecast OFF' : 'OFF')}
-                </span>
-            );
-        }
-        
-        const formatTime = (t) => {
-            if (!t || t === '00:00:00') return '-';
-            const [h, m] = t.split(':');
-            const hh = parseInt(h);
-            const ampm = hh >= 12 ? 'PM' : 'AM';
-            const displayHour = hh % 12 || 12;
-            return `${displayHour}:${m} ${ampm}`;
-        };
-        // Calculate day hours adjusted for lunch
-        const diffSec = timeToSeconds(schedule.end) - timeToSeconds(schedule.start);
-        const dayHours = Math.max(diffSec / 3600 - lunchHours, 0);
-        const predictedNote = schedule.manualOverride ? ' (Set from a manual forecast)' : (schedule.predicted ? ' (Forecast from historical pattern)' : '');
-        const tooltip = `Start: ${formatTime(schedule.start)} | End: ${formatTime(schedule.end)} | Total: ${dayHours.toFixed(2)}h${predictedNote}`;
-        const formatLunch = (hours) => {
-            const h = Math.floor(hours);
-            const m = Math.round((hours - h) * 60);
-            return `${h}:${m.toString().padStart(2, '0')} HRS`;
-        };
-
-        return (
-            <div className={`shift-card ${schedule.predicted ? 'shift-predicted' : ''} ${schedule.manualOverride ? 'shift-override' : ''}`} title={tooltip}>
-                {schedule.manualOverride ? (
-                    <span className="predicted-badge override-badge">Manual Forecast</span>
-                ) : schedule.predicted && (
-                    <span className="predicted-badge">Forecast</span>
-                )}
-                <div className="shift-row">
-                    <span className="shift-label">Start:</span>
-                    <span className="shift-time">{formatTime(schedule.start)}</span>
-                </div>
-                <div className="shift-row lunch-row">
-                    <span className="shift-label">Lunch:</span>
-                    <span className="shift-time lunch-time">{formatLunch(lunchHours)}</span>
-                </div>
-                <div className="shift-row">
-                    <span className="shift-label">End:</span>
-                    <span className="shift-time">{formatTime(schedule.end)}</span>
-                </div>
-            </div>
-        );
-    };
-    // Helper: convert HH:MM:SS to seconds
-    const timeToSeconds = (t) => {
-        if (!t || t === '00:00:00') return 0;
-        const parts = t.split(':').map(Number);
-        return (parts[0] * 3600) + (parts[1] * 60) + (parts[2] || 0);
-    };
-
-    // Calculate weekly hours for an employee, subtracting team lunch (minutes)
+    // Weekly Hours delegates to shiftHours so the column, each card's own total and the
+    // Run Rate all apply the same two holiday rules. It used to inline the subtraction and
+    // ignore holidays entirely, which made a Non-Working day still add its full shift here
+    // while the Run Rate dropped it.
     const calcWeeklyHours = (emp) => {
         const lunchHours = (emp.lunch_time || 0) / 60; // minutes to hours
-        let total = 0;
-        weekDates.forEach(date => {
-            const sched = emp.schedules[date];
-            if (sched && sched.start && sched.end && sched.start !== '00:00:00') {
-                const diffSec = timeToSeconds(sched.end) - timeToSeconds(sched.start);
-                const dayHours = diffSec / 3600 - lunchHours;
-                total += dayHours > 0 ? dayHours : 0;
-            } else {
-                // OFF day contributes 0 hours
-                total += 0;
-            }
-        });
-        return total;
+        return weekDates.reduce(
+            (total, date) => total + shiftHours(emp.schedules[date], lunchHours),
+            0
+        );
     };
 
-    const isToday = (dateStr) => {
-        const todayStr = new Date().toISOString().split('T')[0];
-        return dateStr === todayStr;
+
+
+    // Exports exactly the rows on screen: it reads filteredData, the same array the table
+    // renders, so the active search carries over without a second filtering path.
+    // Laid out like the board — one row per employee, one column per day — so the file
+    // reads the way the screen does.
+    const handleExport = () => {
+        const dayLabel = (date) => {
+            const d = parseDate(date);
+            return `${d.toLocaleDateString(undefined, { weekday: 'short' })} ${date}`;
+        };
+
+        // The same "most restrictive wins" order the card's tag uses, so a day labelled
+        // Non-Working on screen is labelled Non-Working in the file.
+        const holidayNote = (schedule) => {
+            const holidays = schedule?.holidays || [];
+            if (holidays.length === 0) return '';
+            const rank = { non_working: 3, campaign_defined: 2, working: 1 };
+            const worst = holidays.reduce((a, b) => (rank[b.type] || 0) > (rank[a.type] || 0) ? b : a);
+            const type = HOLIDAY_TYPES.find(t => t.id === worst.type);
+            const window = worst.from ? ` ${formatTime(worst.from)}-${formatTime(worst.to)} excluded` : '';
+            return ` [${type ? type.badge : worst.type} Holiday${window}]`;
+        };
+
+        const cell = (schedule) => {
+            const note = holidayNote(schedule);
+            if (!schedule || schedule.start === '00:00:00') return `OFF${note}`;
+            return `${formatTime(schedule.start)} - ${formatTime(schedule.end)}${note}`;
+        };
+
+        const rows = [
+            ['Employee', 'Team', 'Weekly Hours', ...weekDates.map(dayLabel)],
+            ...filteredData.map(emp => [
+                emp.name,
+                emp.team || 'Unassigned',
+                calcWeeklyHours(emp).toFixed(2),
+                ...weekDates.map(date => cell(emp.schedules[date]))
+            ])
+        ];
+
+        downloadCsv(`Schedule_Board_${fromDate}_to_${toDate}.csv`, rows);
     };
+
+    const isToday = (dateStr) => dateStr === todayStr();
 
     return (
         <div className="schedule-board-container">
@@ -175,11 +160,19 @@ const ScheduleBoard = () => {
                             />
                         </div>
                     </div>
-                    <div className="navigation-controls">
-                        <button className="nav-btn prev" onClick={() => navigateWeek(-1)} title="Previous Week">←</button>
-                        <button className="nav-btn today" onClick={() => setCurrentDate(new Date())}>Current Week</button>
-                        <button className="nav-btn next" onClick={() => navigateWeek(1)} title="Next Week">→</button>
-                    </div>
+                    <WeekPicker monday={monday} onChange={setCurrentDate} />
+
+                    <button
+                        type="button"
+                        className="board-export-btn"
+                        onClick={handleExport}
+                        disabled={loading || filteredData.length === 0}
+                        title={filteredData.length === 0
+                            ? 'Nothing to export'
+                            : `Export the ${filteredData.length} rows currently listed`}
+                    >
+                        Export
+                    </button>
                 </div>
             </header>
 
@@ -214,9 +207,22 @@ const ScheduleBoard = () => {
                                 filteredData.map(emp => (
                                     <tr key={emp.id}>
                                         <td className="sticky-col emp-cell">
-                                            <div className="emp-card-info">
-                                                <span className="emp-name-text">{emp.name}</span>
-                                                <span className="emp-team-text">{emp.team || 'Unassigned'}</span>
+                                            <div className="emp-cell-inner">
+                                                <div className="emp-card-info">
+                                                    <span className="emp-name-text">{emp.name}</span>
+                                                    <span className="emp-team-text">{emp.team || 'Unassigned'}</span>
+                                                </div>
+                                                {onEditSchedule && (
+                                                    <button
+                                                        type="button"
+                                                        className="emp-edit-btn"
+                                                        onClick={() => onEditSchedule(emp)}
+                                                        title={`Edit ${emp.name}'s schedule in Shift Management`}
+                                                        aria-label={`Edit ${emp.name}'s schedule`}
+                                                    >
+                                                        <IconEditSchedule />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                         <td className="weekly-hours-cell">{calcWeeklyHours(emp).toFixed(2)}</td>
@@ -225,7 +231,7 @@ const ScheduleBoard = () => {
                                             const todayClass = isToday(date) ? 'is-today-cell' : '';
                                             return (
                                                 <td key={date} className={`schedule-cell ${todayClass}`}>
-                                                    {formatShift(schedule, (emp.lunch_time || 0) / 60)}
+                                                    <ShiftCard schedule={schedule} lunchHours={(emp.lunch_time || 0) / 60} />
                                                 </td>
                                             );
                                         })}
