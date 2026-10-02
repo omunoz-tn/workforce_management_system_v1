@@ -73,7 +73,7 @@ export const HOLIDAY_TYPES = [
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WEEKDAY_HEADERS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
-const getCountry = (code, colorOverrides = {}) => {
+export const getCountry = (code, colorOverrides = {}) => {
     const base = COUNTRIES.find(c => c.code === code) || { code, name: code, flag: '🏳️', color: '#64748b', textColor: '#ffffff' };
     const override = colorOverrides[base.code];
     return override ? { ...base, color: override.color, textColor: override.text_color } : base;
@@ -92,7 +92,7 @@ export const getContrastTextColor = (hex) => {
     return yiq >= 150 ? '#1b2d46' : '#ffffff';
 };
 
-const getHolidayType = (id, colorOverrides = {}) => {
+export const getHolidayType = (id, colorOverrides = {}) => {
     const base = HOLIDAY_TYPES.find(t => t.id === id) || HOLIDAY_TYPES[0];
     const color = colorOverrides[base.id] || base.color;
     return { ...base, color, textColor: getContrastTextColor(color) };

@@ -5,6 +5,7 @@
  */
 header('Content-Type: application/json');
 require_once 'db_wfm_config.php';
+require_once 'db_sources.php';
 
 session_start();
 if (!isset($_SESSION['user_id'])) {
@@ -15,21 +16,48 @@ if (!isset($_SESSION['user_id'])) {
 
 $action = $_GET['action'] ?? 'list';
 
+// Which server the rest of this request reads. Resolved through the whitelist in
+// db_sources.php -- the id names a DSN, so an unknown one is rejected here rather than
+// dialled. Absent means the platform database, which is what every caller meant before
+// there was a second source.
+$sourceId = $_GET['source'] ?? 'wfm';
+
 try {
+    if ($action === 'sources') {
+        // `warnings` names any server that could not be listed. Reported alongside the
+        // sources that did answer, so one unreachable server does not blank the picker.
+        $catalog = db_sources_list($env);
+        echo json_encode([
+            'success' => true,
+            'sources' => $catalog['sources'],
+            'warnings' => $catalog['warnings']
+        ]);
+        exit;
+    }
+
+    $db = db_source_connect($sourceId, $env, $pdo);
+
     // Fetch all tables to prevent SQL injection by validating requested table names against a strict whitelist
-    $stmt = $pdo->query("SHOW TABLES");
+    $stmt = $db->query("SHOW TABLES");
     $allTables = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
     if ($action === 'list') {
         $tablesList = [];
         foreach ($allTables as $tableName) {
-            // Count rows dynamically for each table
-            $countStmt = $pdo->query("SELECT COUNT(*) FROM `$tableName`");
-            $rowCount = $countStmt->fetchColumn();
-            
+            // Count rows dynamically for each table. A single unreadable object -- a view
+            // over a table this account has no grant on, which is ordinary on a database
+            // the platform does not own -- must not take the whole listing down with it,
+            // so it is listed without a count instead.
+            try {
+                $countStmt = $db->query("SELECT COUNT(*) FROM `$tableName`");
+                $rowCount = (int) $countStmt->fetchColumn();
+            } catch (PDOException $e) {
+                $rowCount = null;
+            }
+
             $tablesList[] = [
                 'name' => $tableName,
-                'rows' => (int)$rowCount
+                'rows' => $rowCount
             ];
         }
 
@@ -49,7 +77,7 @@ try {
         }
 
         // Get Schema to know available columns
-        $schemaStmt = $pdo->query("DESCRIBE `$table`");
+        $schemaStmt = $db->query("DESCRIBE `$table`");
         $schema = $schemaStmt->fetchAll(PDO::FETCH_ASSOC);
         $columns = array_column($schema, 'Field');
 
@@ -119,7 +147,7 @@ try {
             $whereSql = "WHERE " . implode(" AND ", $whereParts);
         }
 
-        $countStmt = $pdo->prepare("SELECT COUNT(*) FROM `$table` $whereSql");
+        $countStmt = $db->prepare("SELECT COUNT(*) FROM `$table` $whereSql");
         $countStmt->execute($params);
         $count = (int)$countStmt->fetchColumn();
 
@@ -139,7 +167,7 @@ try {
         }
 
         // 1. Get Table Schema
-        $schemaStmt = $pdo->query("DESCRIBE `$table`");
+        $schemaStmt = $db->query("DESCRIBE `$table`");
         $schema = $schemaStmt->fetchAll(PDO::FETCH_ASSOC);
         $columns = array_column($schema, 'Field');
 
@@ -210,7 +238,7 @@ try {
         }
 
         // 2. Get Matching Row Count first
-        $countStmt = $pdo->prepare("SELECT COUNT(*) FROM `$table` $whereSql");
+        $countStmt = $db->prepare("SELECT COUNT(*) FROM `$table` $whereSql");
         $countStmt->execute($params);
         $matchingCount = (int)$countStmt->fetchColumn();
 
@@ -243,17 +271,26 @@ try {
         }
 
         // 4. Get Records
-        $recordsStmt = $pdo->prepare("SELECT * FROM `$table` $whereSql $orderBy $limitSql");
+        $recordsStmt = $db->prepare("SELECT * FROM `$table` $whereSql $orderBy $limitSql");
         $recordsStmt->execute($params);
         $records = $recordsStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Also query total rows in table for statistics
-        $totalStmt = $pdo->query("SELECT COUNT(*) FROM `$table`");
-        $totalCount = (int)$totalStmt->fetchColumn();
+        // Also query total rows in table for statistics. Only a statistic, so it degrades
+        // to null rather than costing the user the rows they asked for.
+        try {
+            $totalStmt = $db->query("SELECT COUNT(*) FROM `$table`");
+            $totalCount = (int) $totalStmt->fetchColumn();
+        } catch (PDOException $e) {
+            $totalCount = null;
+        }
 
         echo json_encode([
             'success' => true,
             'table' => $table,
+            // Where this schema was read from. Resolved through the same path that opened
+            // the connection, so the viewer can name the server holding a table instead of
+            // leaving an admin to guess which of the configured sources is selected.
+            'connection' => db_source_describe($sourceId, $env),
             'rows' => $totalCount,
             'matching_rows' => $matchingCount,
             'schema' => $schema,

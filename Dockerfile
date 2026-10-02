@@ -11,11 +11,16 @@ FROM php:8.2-apache
 WORKDIR /var/www/html
 
 # Install system dependencies, PHP extensions, and cron
+# libpq-dev / pdo_pgsql are for Odoo: it runs on PostgreSQL, so sync_odoo_employees.php
+# cannot connect without them. The image shipped with pdo_mysql only, which is why that
+# sync could never have worked from the container -- it failed with "could not find driver"
+# before it ever reached the network.
 RUN apt-get update && apt-get install -y \
     libcurl4-openssl-dev \
     libssl-dev \
+    libpq-dev \
     cron \
-    && docker-php-ext-install pdo pdo_mysql curl \
+    && docker-php-ext-install pdo pdo_mysql pdo_pgsql curl \
     && apt-get clean && rm -rf /var/www/html/*
 
 # Install the daily sync cron job (runs as root via /etc/cron.d)

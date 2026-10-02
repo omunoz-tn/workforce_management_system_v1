@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import './Reports.css';
 import DateRangeModal from './DateRangeModal';
+import { loadVisibleReports } from '../reportPreferences';
 
 const REPORTS_DATA = [
     {
@@ -48,6 +49,14 @@ const REPORTS_DATA = [
         title: 'Absenteeism Report',
         description: 'Detailed view of no-shows and unscheduled absences.',
         icon: '📉',
+        status: 'active',
+        category: 'Attendance'
+    },
+    {
+        id: 'attendance',
+        title: 'Attendance Report',
+        description: 'List of scheduled employees with no login for the selected range.',
+        icon: '🗓️',
         status: 'active',
         category: 'Attendance'
     },
@@ -104,17 +113,9 @@ const REPORTS_DATA = [
 const Reports = ({ onLaunchReport }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedReport, setSelectedReport] = useState(null);
-    const [visibleReports, setVisibleReports] = useState(REPORTS_DATA.map(r => r.id));
-
-    useEffect(() => {
-        const saved = localStorage.getItem('report_preferences');
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            if (parsed.visibleReports) {
-                setVisibleReports(parsed.visibleReports);
-            }
-        }
-    }, []);
+    // Read once at mount: preferences are local to this browser and only change
+    // from Configuration -> Reports, which remounts this view.
+    const [visibleReports] = useState(() => loadVisibleReports(REPORTS_DATA.map(r => r.id)));
 
     const filteredReports = REPORTS_DATA.filter(r => visibleReports.includes(r.id));
 

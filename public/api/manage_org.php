@@ -2,6 +2,7 @@
 header('Content-Type: application/json');
 require_once 'db_wfm_config.php';
 require_once 'TeamHolidayTypes.php';
+require_once 'EmployeeLunchTimes.php';
 
 $data = json_decode(file_get_contents('php://input'), true);
 
@@ -133,9 +134,21 @@ try {
                 $storedOverrides = saveTeamHolidayTypes($pdo, (int) $id, $holidayTypes);
             }
 
+            // Per-employee lunch overrides (Assign Members > Lunch Time > Employee Lunch
+            // Time). Same absent-key rule as the holiday types above; the map replaces the
+            // set of exactly the employees it names, so anyone it omits keeps theirs.
+            $lunchTimesTouched = array_key_exists('employee_lunch_times', $actionObj);
+            $storedLunchOverrides = 0;
+            if ($lunchTimesTouched) {
+                $employeeLunchTimes = is_array($actionObj['employee_lunch_times']) ? $actionObj['employee_lunch_times'] : [];
+                validateEmployeeLunchTimes($employeeLunchTimes);
+                $storedLunchOverrides = saveEmployeeLunchTimes($pdo, $employeeLunchTimes);
+            }
+
             log_audit($pdo, 'team', $id, 'assignment', "Batch update: " . count($employeeIds) . " employees assigned"
                 . ($lunchTime !== null ? ", Lunch Time set to $lunchTime mins" : "")
-                . ($holidayTypesTouched ? ", $storedOverrides holiday type override(s)" : ""));
+                . ($holidayTypesTouched ? ", $storedOverrides holiday type override(s)" : "")
+                . ($lunchTimesTouched ? ", $storedLunchOverrides employee lunch override(s)" : ""));
         }
 
         // Handle Managers (if provided in update/create)

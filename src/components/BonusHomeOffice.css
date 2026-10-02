@@ -1,0 +1,905 @@
+/* HR > Bonus > Bonus Home Office / Transportation.
+   Only the parts the report shell (StatReportView.css) does not already provide: the
+   toolbar controls and the editable cells. The header, the team cards, the table chrome
+   and the dropdown styling all come from there, so this screen and the Run Rate report
+   cannot drift apart visually. */
+
+/* Left half of the section header: the month, and beside it the month's payout. Wraps and
+   allows a narrow gap so the toolbar on the right keeps its size on a small window —
+   .section-header-row is a space-between flex row. */
+.bonus-title-block {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.bonus-header-totals {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/* Same shape as the currency chips beside it, deliberately — they read as one row of
+   facts about the month. A <span>, not a button: unlike those, there is nothing to press. */
+.bonus-count-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    padding: 4px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--surface-alt);
+    line-height: 1.2;
+}
+
+.bonus-count-chip-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
+
+/* Plain body text, where the currency chips carry their blue and green. Nothing here is
+   colour-coded, and "SHOWING 45 of 267" against "EMPLOYEES 267" already says a filter is on
+   without the chip having to light up. --text-color, not #000, so the dark theme still
+   reads. */
+.bonus-count-chip-value {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.92rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: var(--text-color);
+}
+
+/* A button, not a label: pressing one narrows the list to that currency, pressing it again
+   widens it back. Every declaration that also exists on the bare `button` rule in
+   index.css is restated here — the class wins on specificity, but leaving any of them out
+   would let the global 0.6em padding and dark fill through. */
+.bonus-total-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    padding: 4px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--surface-alt);
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.2;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.bonus-total-chip:hover {
+    border-color: currentColor;
+}
+
+/* Pressed. The border takes the currency's own colour through `currentColor` — the chip
+   carries .bonus-money-dop / .bonus-money-usd, so this needs no per-currency border rule,
+   only the tint below. */
+.bonus-total-chip.is-active {
+    border-color: currentColor;
+    box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.bonus-total-chip.is-active.bonus-money-dop {
+    background: rgba(37, 99, 235, 0.1);
+}
+
+.bonus-total-chip.is-active.bonus-money-usd {
+    background: rgba(22, 163, 74, 0.1);
+}
+
+.bonus-total-chip-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
+
+.bonus-total-chip-value {
+    font-size: 0.92rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* The employee count in a Grid card's corner: number plus a person glyph, which is what
+   says what the number counts now that the "Employees" line below it is gone. The glyph
+   stays muted so the figure keeps the weight. */
+.bonus-card-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: default;
+}
+
+.bonus-card-count svg {
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+/* On the navy All Teams card the muted grey vanishes; the glyph borrows the card's own
+   soft slate instead. */
+.global-team-card .bonus-card-count svg {
+    color: #cbd5e1;
+}
+
+.bonus-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Sized to sit level with the Add button and the selects: same 8px vertical padding, same
+   8px radius, same 0.85rem. The icon and the clear button are absolutely positioned, so the
+   input's own padding leaves them their lanes rather than a flex row shifting the caret. */
+.bonus-search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 250px;
+}
+
+.bonus-search-icon {
+    position: absolute;
+    left: 10px;
+    display: flex;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+.bonus-search-input {
+    width: 100%;
+    padding: 8px 28px 8px 30px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 0.85rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.bonus-search-input::placeholder {
+    color: var(--text-muted);
+}
+
+.bonus-search-input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(253, 100, 28, 0.12);
+}
+
+.bonus-search-clear {
+    position: absolute;
+    right: 6px;
+    display: flex;
+    align-items: center;
+    padding: 2px 4px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.bonus-search-clear:hover {
+    color: var(--accent-color);
+}
+
+.bonus-add-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent-color);
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.bonus-add-btn:hover {
+    background: #e05315;
+    box-shadow: 0 4px 12px rgba(253, 100, 28, 0.25);
+}
+
+/* Split button: the common action stays one click away, the rarer bulk one lives behind
+   the caret. Same shape as "+ Add Holiday" in Scheduling > Holidays, deliberately — it is
+   the same gesture on a different screen. */
+.bonus-add-split {
+    position: relative;
+    display: flex;
+}
+
+.bonus-add-btn-main {
+    border-radius: 8px 0 0 8px;
+}
+
+.bonus-add-btn-caret {
+    border-radius: 0 8px 8px 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 8px 10px;
+    font-size: 0.7rem;
+}
+
+/* The shared .dropdown-menu (StatReportView.css) is 250px and right-aligned, which is
+   right here; only the width needs widening for the longest label. */
+.dropdown-menu.bonus-add-menu {
+    width: 220px;
+}
+
+/* Quieter than Add: it reads data out rather than putting any in. Sized to sit level
+   with the selects and the filter trigger beside it. */
+.bonus-export-btn {
+    padding: 8px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.bonus-export-btn:hover:not(:disabled) {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+.bonus-export-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Only rendered while something is filtered, so it never sits there as dead chrome. */
+.bonus-reset-filters {
+    padding: 8px 14px;
+    border: 1px solid var(--accent-color);
+    border-radius: 8px;
+    background: rgba(253, 100, 28, 0.08);
+    color: var(--accent-color);
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.bonus-reset-filters:hover {
+    background: var(--accent-color);
+    color: #fff;
+}
+
+.bonus-select {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.bonus-select:hover {
+    border-color: var(--accent-color);
+}
+
+.bonus-select:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(253, 100, 28, 0.1);
+}
+
+.bonus-banner {
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+}
+
+.bonus-banner.is-error {
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+    border: 1px solid rgba(220, 38, 38, 0.25);
+}
+
+/* An outcome, not a problem — "copied 14 employees from July 2026". */
+.bonus-banner.is-info {
+    background: rgba(37, 99, 235, 0.08);
+    color: #1d4ed8;
+    border: 1px solid rgba(37, 99, 235, 0.22);
+}
+
+/* ── Editable cells ──────────────────────────────────────────────────────── */
+
+/* Borderless until hovered or focused: a table where every cell is drawn as an input
+   reads as a form, and this one is meant to read as a report you can correct. */
+.bonus-cell-input {
+    width: 100%;
+    padding: 5px 8px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+    box-sizing: border-box;
+    transition: all 0.15s ease;
+}
+
+.bonus-cell-input:hover {
+    border-color: var(--border-color);
+    background: var(--card-bg);
+}
+
+.bonus-cell-input:focus {
+    border-color: var(--accent-color);
+    background: var(--card-bg);
+    box-shadow: 0 0 0 2px rgba(253, 100, 28, 0.1);
+}
+
+.bonus-cell-number {
+    width: 3.4rem;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+/* A team the row was moved off its assignment onto. Same marker as an overridden number,
+   because it means the same thing: this value is not the platform's answer. */
+.bonus-combo-input.is-overridden {
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+}
+
+/* A number that was typed over the computed one. The dotted underline is the whole marker:
+   bold made the manual rows shout across a column whose numbers are meant to be scanned as
+   one block, and weight is a poor carrier for "this was edited" anyway. Colour is not
+   available either — in this table colour already means currency. */
+.bonus-cell-number.is-overridden {
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+}
+
+.bonus-days-cell {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.bonus-team-cell,
+.bonus-name-cell {
+    display: flex;
+    align-items: center;
+}
+
+.bonus-team-cell .bonus-combo-cell,
+.bonus-name-cell .bonus-combo-cell {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Any cell that offers a way back to the platform's own value. The lane is reserved whether
+   or not the button is in it, so a row that gains an override does not shove its content
+   sideways. */
+.bonus-reset-host {
+    position: relative;
+    padding-right: 22px;
+}
+
+/* Two buttons share this one — the breakdown and the revert. */
+.bonus-reset-host.bonus-days-cell {
+    padding-right: 44px;
+}
+
+/* The way back from a hand-set value to the calculated one — shared by Days Employee Worked
+   and Team, because it is the same gesture in both. Hidden until the cell is hovered or
+   holds focus: on a full month most rows are untouched, and a revert icon standing in every
+   one of them would read as an action the column wants you to take. `visibility` rather
+   than `display`, so it never reflows the row on appearing. */
+/* The lane the cell's own buttons live in, pinned to its right edge so nothing they do
+   moves the value beside them. */
+.bonus-cell-actions {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.bonus-cell-reset,
+.bonus-cell-detail {
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.9rem;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.bonus-reset-host:hover .bonus-cell-reset,
+.bonus-reset-host:focus-within .bonus-cell-reset,
+.bonus-reset-host:hover .bonus-cell-detail,
+.bonus-reset-host:focus-within .bonus-cell-detail {
+    opacity: 1;
+    visibility: visible;
+}
+
+.bonus-cell-reset:hover,
+.bonus-cell-detail:hover {
+    background: rgba(253, 100, 28, 0.12);
+    color: var(--accent-color);
+}
+
+/* Slightly smaller than the revert glyph: it opens a view rather than changing anything. */
+.bonus-cell-detail {
+    font-size: 0.75rem;
+}
+
+.bonus-days-separator {
+    color: var(--text-muted);
+    font-weight: 700;
+}
+
+/* Read-only half of the fraction: how many working days the month held for this team.
+   Deliberately not an input — it is a fact about the calendar, not about the employee, so
+   it is drawn as text and given the same width as the box beside it to keep the slash
+   centred down the column. */
+.bonus-workdays {
+    display: inline-block;
+    width: 3.4rem;
+    padding: 5px 8px;
+    text-align: center;
+    font-size: 0.85rem;
+    /* Same weight as the editable half beside it — the muted colour is what says
+       "read-only", and stacking weight on top of it made the fraction read unevenly. */
+    font-weight: 400;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    box-sizing: border-box;
+    cursor: default;
+}
+
+.bonus-amount-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Takes the room the currency picker beside it does not; `min-width: 0` is what lets it
+   shrink inside the fixed column instead of pushing the picker out of the cell. */
+.bonus-cell-amount {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+}
+
+.bonus-amount-cell .bonus-currency-dropdown {
+    flex-shrink: 0;
+}
+
+/* Reads exactly like .bonus-earned next to it — same weight, same tabular figures, same
+   left edge — so the two money columns scan as a pair. Its colour comes from the currency
+   class the component swaps in, except while it has focus: `is-editing` drops back to plain
+   text, which is the visual cue that the field is now a bare number you can type over. */
+.bonus-cell-amount-input {
+    font-weight: 800;
+    font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.bonus-cell-amount-input.is-editing {
+    color: var(--text-color);
+    font-weight: 700;
+}
+
+.bonus-earned {
+    font-weight: 800;
+    font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* ── Column widths ───────────────────────────────────────────────────────── */
+
+/* Fixed layout, and the widths below are the whole story of this table's geometry.
+   Auto layout cannot be trusted here: almost every cell holds an <input> at width:100%,
+   whose intrinsic minimum width is zero, so a single column asking for a large share
+   collapses all the others to nothing and the absolutely positioned currency symbol
+   spills out of its cell onto its neighbour. Fixed layout takes the widths from the
+   header row and never consults the content at all.
+
+   The widths themselves are NOT here any more: they are per-column pixels in
+   BONUS_COLUMNS, dragged by the user and remembered, and the component renders them as
+   inline percentages of their own total. Two rules stay in CSS because they are structural
+   rather than sizing — fixed layout, and a wrapper that scrolls once the columns no longer
+   fit. */
+.bonus-table {
+    table-layout: fixed;
+}
+
+.bonus-table-wrapper {
+    overflow-x: auto;
+}
+
+/* Soaks up the space left over on a screen wider than the columns, so they can keep their
+   exact pixel widths instead of being stretched to fill — stretching is what made a drag
+   move the divider by some amount other than the mouse. Zero-width once the table scrolls. */
+.bonus-col-filler {
+    padding: 0 !important;
+    border-left: none !important;
+}
+
+/* ── Column resizing ─────────────────────────────────────────────────────── */
+
+/* `sticky`, not the `relative` the resizer originally asked for. Both make the cell a
+   containing block for the absolutely positioned grip below, but this rule lands after
+   StatReportView's `.report-table thead th { position: sticky }` at the same specificity —
+   `relative` here was silently unsticking the header, so the labels scrolled away with the
+   rows. `top` and `z-index` are restated rather than left to the other file, so moving
+   either import cannot break it again.
+
+   The line under the header is a shadow, and the inherited border is dropped so the two
+   cannot add up to a 4px rule: the table is `border-collapse: collapse`, where a border
+   belongs to the table rather than to the cell and so stays behind with the rows the moment
+   the header lifts off. An inset shadow is painted by the cell itself and travels with it.
+   Body cells carry only a `border-bottom`, so nothing else was drawing this line. */
+.bonus-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-bottom: none;
+    box-shadow: inset 0 -2px 0 var(--border-color);
+}
+
+/* A 9px strip straddling the divider, invisible until pointed at. Wider than the 1px line
+   it sits on because a 1px hit target is a game, not a control. */
+.bonus-col-resizer {
+    position: absolute;
+    top: 0;
+    right: -4px;
+    width: 9px;
+    height: 100%;
+    z-index: 2;
+    cursor: col-resize;
+    user-select: none;
+}
+
+.bonus-col-resizer::after {
+    content: '';
+    position: absolute;
+    top: 15%;
+    bottom: 15%;
+    left: 4px;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--accent-color);
+    opacity: 0;
+    transition: opacity 0.12s ease;
+}
+
+.bonus-col-resizer:hover::after {
+    opacity: 1;
+}
+
+/* While a drag is running the pointer is regularly outside the strip, so the cursor and the
+   text-selection block have to come from the document, not from the handle. */
+body.bonus-resizing,
+body.bonus-resizing * {
+    cursor: col-resize !important;
+    user-select: none !important;
+}
+
+/* Same shape as Reset filters, quieter colour: this one undoes a layout, not the data. */
+.bonus-reset-columns {
+    border-color: var(--border-color);
+    background: transparent;
+    color: var(--text-muted);
+}
+
+.bonus-reset-columns:hover {
+    background: var(--surface-alt);
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+/* Identity, not data to be read across: quiet, monospaced digits so two rows for the same
+   person are obvious at a glance -- which is the whole reason the column is here. */
+.bonus-employee-id {
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+    cursor: default;
+}
+
+.bonus-employee-id.is-manual {
+    opacity: 0.5;
+}
+
+.bonus-cell-comment {
+    font-size: 0.82rem;
+}
+
+.bonus-cell-comment::placeholder {
+    color: var(--text-muted);
+    opacity: 0.6;
+}
+
+/* Nothing behind the glyph — the × IS the button. The row already carries four boxes a
+   user can click into; a filled pill on top of them reads as a fifth field rather than as
+   the one destructive action. Hover says it with weight and colour instead.
+   `padding: 0` overrides the global button padding in index.css, which is what was
+   stretching a 26px square into an ellipse. */
+.bonus-row-remove {
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 1.05rem;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.55;
+    /* font-weight is not an animatable property; only the three that are get a duration. */
+    transition: color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.bonus-row-remove:hover {
+    opacity: 1;
+    color: #dc2626;
+    font-weight: 900;
+    transform: scale(1.2);
+}
+
+/* The Bonus table carries inputs, so its rows need more vertical room than the report
+   tables StatReportView.css sizes for plain text -- and less horizontal room, because the
+   inputs bring their own padding and seven columns of 16px gutters is 100px of the table
+   spent on nothing. */
+.bonus-table tbody td {
+    padding: 8px 10px;
+    vertical-align: middle;
+}
+
+/* Matching gutters, and `white-space: normal` because "Days Employee Worked / Workdays" is
+   the one header too long for its column — wrapping keeps it inside rather than
+   overflowing onto Bonus Amount. */
+.bonus-table thead th {
+    padding-left: 10px;
+    padding-right: 10px;
+    white-space: normal;
+}
+
+/* ── Sortable / filterable headers ───────────────────────────────────────── */
+
+/* The label takes the room; the two controls stack into one 20px lane at the right edge, so
+   they line up down the whole header row instead of drifting with each label's length.
+   Stacking also buys ~20px of horizontal room per column over sitting them side by side —
+   paid for in header height, which the wrapping labels were already setting anyway. */
+.bonus-header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    width: 100%;
+}
+
+.bonus-header-tools {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    flex-shrink: 0;
+}
+
+/* Arrows and funnel share a footprint so neither nudges the other as the sort changes. */
+.bonus-header-arrows {
+    padding: 0;
+    width: 20px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.bonus-header-arrows:hover {
+    background: rgba(253, 100, 28, 0.1);
+}
+
+/* A button, so the sort is reachable by keyboard. Every property the global `button` rule
+   in index.css sets is restated: it would otherwise paint a dark pill inside the header. */
+.bonus-header-sort {
+    flex: 1;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.bonus-header-label {
+    min-width: 0;
+}
+
+/* .sortable-header already tints the whole cell when it is the active sort; the arrows
+   come from StatReportView.css unchanged. */
+.bonus-table thead th.sortable-header {
+    cursor: default;
+}
+
+/* ── Dark mode ───────────────────────────────────────────────────────────── */
+
+.dark .bonus-banner.is-error {
+    background: rgba(220, 38, 38, 0.18);
+    color: #fca5a5;
+}
+
+.dark .bonus-banner.is-info {
+    background: rgba(37, 99, 235, 0.2);
+    color: #93c5fd;
+}
+
+.dark .bonus-total-chip.is-active.bonus-money-dop {
+    background: rgba(96, 165, 250, 0.18);
+}
+
+.dark .bonus-total-chip.is-active.bonus-money-usd {
+    background: rgba(74, 222, 128, 0.18);
+}
+
+.dark .bonus-cell-input:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.dark .bonus-cell-input:focus {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+/* #dc2626 goes muddy against the dark table; the lighter red keeps the same warning. */
+.dark .bonus-row-remove:hover {
+    color: #f87171;
+}
+
+/* ── Approval (BonusApprovalModal.jsx / the locked list) ─────────────────── */
+
+/* Sits with the Add cluster and reads as the end of the month's work, so it is filled like
+   a primary action rather than outlined like Export beside it. */
+.bonus-approve-btn {
+    padding: 8px 16px;
+    border: 1px solid #16a34a;
+    border-radius: 8px;
+    background: #16a34a;
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.bonus-approve-btn:hover:not(:disabled) {
+    background: #15803d;
+    box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25);
+}
+
+.bonus-approve-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+/* The state of the month, in the band where its other messages already appear. */
+.bonus-approved-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    border: 1px solid rgba(22, 163, 74, 0.35);
+    border-radius: 10px;
+    background: rgba(22, 163, 74, 0.07);
+}
+
+.bonus-approved-banner.is-reopened {
+    border-color: rgba(217, 119, 6, 0.35);
+    background: rgba(217, 119, 6, 0.06);
+}
+
+.bonus-approved-mark {
+    flex-shrink: 0;
+    font-size: 1.05rem;
+    font-weight: 800;
+    line-height: 1.3;
+    color: #15803d;
+}
+
+.bonus-approved-banner.is-reopened .bonus-approved-mark {
+    color: #b45309;
+}
+
+.bonus-approved-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.bonus-approved-text strong {
+    font-size: 0.9rem;
+    color: var(--text-color);
+}
+
+.bonus-approved-text span {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+/* A locked cell keeps its value and loses its affordances: no focus ring, no text caret,
+   no hover. The data is frozen, not taken away, so it stays readable and selectable. */
+.bonus-table .bonus-cell-input[readonly] {
+    cursor: default;
+    background: transparent;
+}
+
+.bonus-table .bonus-cell-input[readonly]:focus {
+    outline: none;
+    border-color: transparent;
+    box-shadow: none;
+}

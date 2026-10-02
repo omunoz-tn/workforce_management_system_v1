@@ -93,11 +93,27 @@
     box-sizing: border-box;
 }
 
+.form-group input::placeholder {
+    color: #64748b;
+}
+
 .form-group input:focus {
     outline: none;
     border-color: #6366f1;
     box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
     background: rgba(15, 23, 42, 0.8);
+}
+
+/* Chrome paints saved-credential fields with an opaque pale-yellow background that
+   ignores `background`. The inset shadow is the only way to repaint it, so an autofill
+   the browser insists on still reads as part of the dark card. */
+.form-group input:-webkit-autofill,
+.form-group input:-webkit-autofill:hover,
+.form-group input:-webkit-autofill:focus {
+    -webkit-text-fill-color: #fff;
+    -webkit-box-shadow: 0 0 0 1000px #16213a inset;
+    caret-color: #fff;
+    transition: background-color 9999s ease-in-out 0s;
 }
 
 .login-error {

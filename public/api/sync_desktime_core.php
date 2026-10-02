@@ -3,6 +3,62 @@
  * sync_desktime_core.php
  * Core function for synchronizing local database with live data from DeskTime API.
  */
+require_once __DIR__ . '/EmployeeRoster.php';
+
+/**
+ * Folds a syncDeskTime() result into the three numbers every caller logs: how many rows
+ * landed, which accounts failed outright, and which rows were lost inside an account that
+ * otherwise succeeded.
+ *
+ * That distinction is the whole point. An account-level failure means the day is wrong and
+ * must be retried; a row-level loss means the day is incomplete but retrying the same call
+ * would lose the same rows again. Collapsing the two is how a sync that silently dropped
+ * employees used to log a clean SUCCESS. This lived as three near-identical copies in
+ * sync_desktime_range.php, sync_auto_day.php and (nearly) a fourth in the weekly job; the
+ * copies had already drifted, which is what motivated pulling it out.
+ */
+function syncSummarizeHourResults(array $result)
+{
+    $hours = 0;
+    $errors = [];    // account-level failures: these set the status to 'failure'
+    $rowErrors = []; // per-row insert failures: reported, but do not fail the whole day
+
+    foreach ($result['accounts'] as $accName => $acc) {
+        $status = $acc['status'] ?? '';
+
+        if ($status === 'success') {
+            $hours += $acc['updated_records'] ?? 0;
+            if (!empty($acc['errors'])) {
+                $n = count($acc['errors']);
+                $rowErrors[] = "{$accName}: {$n} fila(s) no guardada(s) [" . substr($acc['errors'][0], 0, 120) . "]";
+            }
+            continue;
+        }
+
+        if ($status !== 'error') {
+            continue; // 'skipped': no API key configured for that account
+        }
+
+        // 'reason' carries the full cause (cURL error / HTTP code / API message). The raw
+        // pieces are only a fallback for an older shape. Note the account name comes from
+        // the array key: $acc['account'] is not always set, and reading it there once made
+        // every error message come out with a blank account.
+        if (!empty($acc['reason'])) {
+            $detail = $acc['reason'];
+        } elseif (!empty($acc['curl_error'])) {
+            $detail = 'cURL: ' . $acc['curl_error'];
+        } elseif (isset($acc['http_code'])) {
+            $detail = 'HTTP ' . $acc['http_code'];
+        } else {
+            $detail = 'Unknown';
+        }
+
+        $errors[] = "Hours ({$accName}): " . $detail;
+    }
+
+    return ['hours' => $hours, 'errors' => $errors, 'row_errors' => $rowErrors];
+}
+
 function syncDeskTime($pdo, $env, $date = null)
 {
     $results = [
@@ -102,6 +158,13 @@ function syncDeskTime($pdo, $env, $date = null)
             $employeesToProcess = $employeesToProcess[$firstKey];
         }
 
+        // The employee master record is maintained alongside the daily rows: this loop is
+        // the only place that sees every employee DeskTime still knows about, and the
+        // moment it stops seeing one is exactly what `last_seen` has to capture. Prepared
+        // once for the whole account rather than per row -- see EmployeeRoster.php.
+        ensureOrgEmployeesTable($pdo);
+        $rosterStmt = $pdo->prepare(orgEmployeeUpsertSql());
+
         $count = 0;
         $errors = [];
         foreach ($employeesToProcess as $empKey => $employee) {
@@ -143,6 +206,25 @@ function syncDeskTime($pdo, $env, $date = null)
                     }
                 }
 
+                // DeskTime answers with an empty work_starts for anyone it no longer holds a
+                // schedule for -- a removed employee, or a date it simply has nothing on file
+                // for. $workStarts above turns that into the '00:00:00' sentinel, and the upsert
+                // used to write it straight over a schedule that was already correct. Re-syncing
+                // a past range after someone was taken out of DeskTime therefore erased their
+                // shifts, and with them every absence on those days: the reports prove an
+                // employee was expected at work by their schedule, so a day with no schedule
+                // cannot hold a no-show (see $absentCondition in get_attendance_details.php and
+                // get_absenteeism_details.php).
+                //
+                // So a schedule is only ever overwritten by another usable schedule -- "usable"
+                // being the same test RunRateWindowSql.php applies. Both ends move together:
+                // pairing a stored start with an incoming end would invent a window neither
+                // source ever reported. Live data (arrival, tracked seconds) still refreshes
+                // every time; this guards the schedule alone.
+                $incomingShiftIsUsable = "VALUES(work_starts) != '00:00:00'
+                          AND VALUES(work_ends) NOT IN ('00:00:00', '23:59:59')
+                          AND VALUES(work_ends) > VALUES(work_starts)";
+
                 $sql = "INSERT INTO desktime_employee_data 
                         (employee_id, name, email, group_name, is_online, arrived, left_time, 
                          productivity, efficiency, work_starts, work_ends, api_account, log_date, is_late,
@@ -154,10 +236,16 @@ function syncDeskTime($pdo, $env, $date = null)
                         left_time = VALUES(left_time),
                         productivity = VALUES(productivity),
                         efficiency = VALUES(efficiency),
-                        work_starts = VALUES(work_starts),
-                        work_ends = VALUES(work_ends),
+                        work_starts = IF($incomingShiftIsUsable, VALUES(work_starts), work_starts),
+                        work_ends = IF($incomingShiftIsUsable, VALUES(work_ends), work_ends),
                         log_date = VALUES(log_date),
-                        is_late = VALUES(is_late),
+                        -- Recomputed here rather than taken from VALUES(is_late): the PHP above
+                        -- derived that from the incoming work_starts, which is the sentinel on
+                        -- exactly the rows this statement keeps the stored schedule for, and a
+                        -- late arrival would be filed as on time. Assignments are evaluated left
+                        -- to right, so `arrived` and `work_starts` here are the values just set
+                        -- above -- keep this line after both.
+                        is_late = (arrived IS NOT NULL AND work_starts != '00:00:00' AND TIME(arrived) > work_starts),
                         online_time = VALUES(online_time),
                         offline_time = VALUES(offline_time),
                         desktime_time = VALUES(desktime_time),
@@ -191,6 +279,20 @@ function syncDeskTime($pdo, $env, $date = null)
                     $empData['beforeWorkTime'] ?? 0,
                     $empData['productiveTime'] ?? 0
                 ]);
+
+                // Deliberately after the daily row: an employee whose day failed to store
+                // is one this sync cannot vouch for, and widening their window on the
+                // strength of a row that was never written would be a lie.
+                $rosterStmt->execute([
+                    $employeeId,
+                    $empData['name'] ?? 'Unknown',
+                    $empData['email'] ?? '',
+                    $empData['group'] ?? 'Unassigned',
+                    $accountName,
+                    $logDate,
+                    $logDate
+                ]);
+
                 $count++;
             } catch (Exception $e) {
                 $errors[] = "Emp $employeeId: " . $e->getMessage();

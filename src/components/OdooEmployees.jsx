@@ -19,6 +19,8 @@ function OdooEmployees() {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
   const [sortConfig, setSortConfig] = useState({ key: 'employee_name', direction: 'asc' })
   const [pageInput, setPageInput] = useState('1')
+  const [syncing, setSyncing] = useState(false)
+  const [syncNotice, setSyncNotice] = useState(null)
 
   // Draggable Modal State
   const [modalPos, setModalPos] = useState({ x: 0, y: 0 })
@@ -53,6 +55,35 @@ function OdooEmployees() {
       setError('Network error: ' + err.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Pulls hr_employee out of Odoo into odoo_employee_data, which is the only thing this
+  // screen reads. Nothing else in the app ever called that endpoint, so the table sat
+  // empty from the day it was created until this button existed.
+  const syncFromOdoo = async () => {
+    setSyncing(true)
+    setSyncNotice(null)
+    setError(null)
+
+    try {
+      const response = await fetch('./api/sync_odoo_employees.php')
+      const result = await response.json()
+
+      if (!result.success) {
+        throw new Error(result.error || 'Sync failed')
+      }
+
+      setSyncNotice(`Synced ${result.synced_records} employees from Odoo.`)
+      // The column list is re-read too: a first-ever sync is also the first time the table
+      // has any rows to describe, so keeping the empty-table columns would leave the grid
+      // looking unchanged.
+      setAvailableColumns([])
+      await fetchEmployees(1, null, debouncedSearchTerm)
+    } catch (err) {
+      setError('Odoo sync failed: ' + err.message)
+    } finally {
+      setSyncing(false)
     }
   }
 
@@ -118,7 +149,7 @@ function OdooEmployees() {
       const sortParam = `&sort=${sortConfig.key}&order=${sortConfig.direction}`
 
       // We'll request a high limit to get all filtered records
-      const response = await fetch(`/api/get_odoo_employees.php?page=1&limit=10000${columnsParam}${searchParam}${sortParam}`)
+      const response = await fetch(`/api/get_odoo_employees.php?page=1&limit=100000&export=1${columnsParam}${searchParam}${sortParam}`)
       const result = await response.json()
 
       if (!result.success) throw new Error(result.error || 'Export failed')
@@ -225,6 +256,13 @@ function OdooEmployees() {
     <div className="all-employees-container">
       <LoadingScreen loading={loading} message="Loading Employees" />
 
+      {syncNotice && (
+        <div className="sync-notice">
+          <strong>✓</strong> {syncNotice}
+          <button className="sync-notice-close" onClick={() => setSyncNotice(null)}>✕</button>
+        </div>
+      )}
+
       {error && (
         <div className="error-message">
           <strong>Error:</strong> {error}
@@ -256,6 +294,15 @@ function OdooEmployees() {
                   </button>
                 )}
               </div>
+              <button
+                className="export-csv-btn"
+                onClick={syncFromOdoo}
+                disabled={syncing}
+                title="Pull the latest employee records from Odoo into this table"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                {syncing ? 'Syncing...' : 'Sync from Odoo'}
+              </button>
               <button
                 className="export-csv-btn"
                 onClick={exportToCSV}

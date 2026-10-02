@@ -118,7 +118,7 @@ function AllEmployees() {
       const sortParam = `&sort=${sortConfig.key}&order=${sortConfig.direction}`
 
       // We'll request a high limit to get all filtered records
-      const response = await fetch(`/api/get_employees.php?page=1&limit=10000${columnsParam}${searchParam}${sortParam}`)
+      const response = await fetch(`/api/get_employees.php?page=1&limit=100000&export=1${columnsParam}${searchParam}${sortParam}`)
       const result = await response.json()
 
       if (!result.success) throw new Error(result.error || 'Export failed')

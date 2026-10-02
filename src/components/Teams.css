@@ -1,28 +1,473 @@
-.teams-container {
-  padding: 1.5rem 2rem;
-  height: calc(100vh - 80px);
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  background: var(--bg-color);
-  box-sizing: border-box;
-}
+/* ── Employees > Teams ─────────────────────────────────────────────────────
+ * Shares the FOCUS page shell (.schedule-board-container, .board-header, .badge,
+ * .week-range-label, .search-box) with Holidays, Shift Management and HR Milestones, so
+ * only what is specific to this screen lives here. Everything new is prefixed teams- on
+ * purpose: this file is loaded globally, and the unprefixed rules further down
+ * (.btn-primary, .modal-*, .team-card, .empty-state) are relied on by other modules. */
 
-.teams-header {
+.teams-header-actions {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 2rem;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
-.teams-header h1 {
-  margin: 0;
-  font-size: 1.75rem;
+/* Same weight and radius as the Holidays "+ Add Holiday" button. */
+.teams-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--accent-color);
+  color: #fefefe;
+  border: 1px solid var(--accent-color);
+  border-radius: 12px;
+  padding: 0.7rem 1.25rem;
   font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.teams-action-btn:hover:not(:disabled) {
+  background: #e05315;
+  border-color: #e05315;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(253, 100, 28, 0.2);
+}
+
+.teams-action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.teams-action-secondary {
+  background: var(--card-bg);
+  color: var(--text-color);
+  border-color: var(--border-color);
+}
+
+.teams-action-secondary:hover:not(:disabled) {
+  background: var(--card-bg);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+  box-shadow: 0 4px 12px rgba(253, 100, 28, 0.08);
+}
+
+.teams-action-save {
+  background: #10b981;
+  border-color: #10b981;
+}
+
+.teams-action-save:hover:not(:disabled) {
+  background: #059669;
+  border-color: #059669;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+}
+
+.teams-action-count {
+  min-width: 20px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+/* Toolbar */
+.teams-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.teams-search-box {
+  width: 320px;
+  max-width: 100%;
+}
+
+.teams-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.teams-summary-item {
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--card-bg);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.teams-summary-item strong {
+  color: var(--text-color);
+  font-weight: 800;
+  margin-right: 2px;
+}
+
+.teams-pending-tag {
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: rgba(253, 100, 28, 0.1);
+  color: var(--accent-color);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+/* The one scroll region: .schedule-board-container is a 100vh flex column with overflow
+   hidden, so the header and toolbar stay put and only the groups move. min-height: 0 is
+   what lets a flex child shrink below its content and actually scroll. */
+.teams-results {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  /* Room for the scrollbar and for the cards' hover lift not to clip. */
+  padding: 2px 4px 16px 2px;
+}
+
+.teams-empty {
+  padding: 48px 24px;
+  border: 1px dashed var(--border-color);
+  border-radius: 16px;
+  background: var(--card-bg);
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+/* Group */
+.teams-group {
+  flex-shrink: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: var(--card-bg);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.teams-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.teams-group-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.teams-group-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.teams-group-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.teams-group-title h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.3px;
   color: var(--text-color);
 }
+
+.teams-count-pill {
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.teams-status-pill {
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.teams-status-pill.is-visible {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+.teams-status-pill.is-hidden {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.dark .teams-status-pill.is-visible {
+  color: #34d399;
+}
+
+.dark .teams-status-pill.is-hidden {
+  color: #f87171;
+}
+
+.teams-icon-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+/* The group header sits on --surface-alt, the same colour .icon-btn uses for its hover,
+   so the hover has to lift to the card colour to be visible at all. */
+.teams-icon-actions .icon-btn:hover {
+  background: var(--card-bg);
+}
+
+/* Teams inside a group — the HR Milestones card: one tinted top edge, lift on hover. */
+.teams-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  padding: 20px;
+}
+
+.teams-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 16px 10px;
+  border: 1px solid var(--border-color);
+  border-top: 3px solid var(--accent-color);
+  border-radius: 12px;
+  background: var(--card-bg);
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.teams-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.07);
+  border-color: rgba(253, 100, 28, 0.45);
+  border-top-color: var(--accent-color);
+}
+
+/* Hidden from the dashboard: still editable, just visibly set aside. */
+.teams-card.is-hidden {
+  border-top-color: var(--border-color);
+}
+
+.teams-card.is-hidden h3,
+.teams-card.is-hidden .teams-card-stats {
+  opacity: 0.6;
+}
+
+.teams-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.teams-card-head h3 {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.teams-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.teams-status-dot.is-visible {
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+.teams-status-dot.is-hidden {
+  background: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+.teams-card-stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.teams-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 8px;
+  background: var(--surface-alt);
+  color: var(--text-color);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.teams-stat svg {
+  color: var(--text-muted);
+}
+
+.teams-managers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.teams-manager-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.teams-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 2px;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+}
+
+.teams-card-actions .icon-btn {
+  width: 26px;
+  height: 26px;
+}
+
+.teams-card-actions .icon-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* An empty group offers its own "add" in the grid, where the first card would sit. */
+.teams-card-add {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 22px;
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.teams-card-add:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+  background: rgba(253, 100, 28, 0.04);
+}
+
+/* Modals — the Holidays modal look: accent bar on top, round close button. */
+.modal-content.teams-modal {
+  position: relative;
+}
+
+.modal-content.teams-modal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--accent-color);
+}
+
+.teams-modal .modal-header h2 {
+  font-size: 1.25rem;
+}
+
+.teams-modal .form-group label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.teams-modal .modal-footer button {
+  border-radius: 10px;
+  padding: 0.6rem 1.15rem;
+}
+
+.teams-modal-close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.teams-modal-close:hover {
+  background: rgba(253, 100, 28, 0.08);
+  color: var(--text-color);
+  transform: rotate(90deg);
+}
+
+@media (max-width: 720px) {
+  .teams-page .board-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .teams-search-box {
+    width: 100%;
+  }
+}
+
+/* ── Shared rules (used beyond this screen — do not rename) ────────────────── */
 
 .header-actions {
   display: flex;
@@ -31,12 +476,6 @@
 }
 
 /* Icon Action Buttons (minimalistic SVG) */
-.icon-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
 .icon-btn {
   display: inline-flex;
   align-items: center;
@@ -89,24 +528,6 @@
   background: rgba(16, 185, 129, 0.08);
 }
 
-/* Visibility dot */
-.visibility-dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  margin-left: 8px;
-  flex-shrink: 0;
-}
-
-.visibility-dot.visible {
-  background: #10b981;
-}
-
-.visibility-dot.hidden {
-  background: #ef4444;
-}
-
 /* Empty state */
 .empty-state {
   padding: 48px;
@@ -145,58 +566,6 @@
   box-shadow: none;
 }
 
-/* Hierarchy Tree View */
-.org-tree {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.group-card {
-  background: var(--card-bg);
-  border: 1px solid rgba(27, 45, 70, 0.08);
-  border-radius: 16px;
-  padding: 1.25rem;
-  box-shadow: 0 4px 20px rgba(27, 45, 70, 0.02);
-}
-
-.group-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid rgba(27, 45, 70, 0.06);
-}
-
-.group-info h2 {
-  font-size: 1.15rem;
-  font-weight: 700;
-  margin: 0;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  color: var(--text-color);
-}
-
-.tag-group {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  font-weight: 700;
-  background: rgba(27, 45, 70, 0.06);
-  color: var(--text-color);
-  padding: 2px 6px;
-  border-radius: 4px;
-  border: 1px solid rgba(27, 45, 70, 0.08);
-}
-
-.teams-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 0.75rem;
-}
-
 .team-card {
   background: var(--surface-alt);
   border: 1px solid var(--border-color);
@@ -227,40 +596,6 @@
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--text-color);
-}
-
-.team-stats {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-.lunch-stat {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  color: var(--text-color);
-  font-weight: 600;
-}
-
-.managers-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-}
-
-.manager-badge {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
-  color: var(--text-muted);
-  font-size: 0.65rem;
-  padding: 1px 5px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  gap: 3px;
 }
 
 .team-card-actions {
@@ -970,6 +1305,152 @@
 }
 
 .team-holiday-window-hint.is-invalid {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+/* ── Assign Members > Lunch Time ────────────────────────────────────────── */
+
+/* The Team Lunch Time box on this page is the same inline box the members page uses for
+   its two rows (assignConfigBoxStyle in Teams.jsx); only the per-employee grid below it
+   needs styles of its own. */
+
+.team-lunch-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.team-lunch-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.team-lunch-search {
+  flex: 0 1 240px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-color);
+  font-size: 0.85rem;
+}
+
+.team-lunch-search:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+/* One row per employee, one column per weekday. The name column takes the slack so the
+   seven day columns stay the same width down the whole grid and read as a week; the grid
+   scrolls sideways rather than squeezing them when the modal is narrow. */
+.team-lunch-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.team-lunch-grid-head,
+.team-lunch-row {
+  display: grid;
+  grid-template-columns: minmax(170px, 1.5fr) repeat(7, 62px) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 640px;
+}
+
+.team-lunch-grid-head {
+  padding: 0 14px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.team-lunch-day {
+  text-align: center;
+}
+
+.team-lunch-row {
+  padding: 8px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--card-bg);
+}
+
+.dark .team-lunch-row {
+  background: rgba(30, 41, 59, 0.5);
+}
+
+.team-lunch-emp {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.team-lunch-emp-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.team-lunch-emp-meta {
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-lunch-cell {
+  width: 100%;
+  padding: 7px 4px;
+  text-align: center;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-color);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* An empty cell inherits Team Lunch Time and shows it as a placeholder, so the muted
+   number reads as "this is what applies" rather than as a value that was typed. */
+.team-lunch-cell::placeholder {
+  color: var(--text-muted);
+  font-weight: 400;
+  opacity: 0.65;
+}
+
+.team-lunch-cell:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+/* A day given its own lunch, so a customized week is legible at a glance across the row. */
+.team-lunch-cell.is-custom {
+  border-color: var(--accent-color);
+  background: rgba(253, 100, 28, 0.08);
+}
+
+.team-lunch-cell.is-invalid {
+  border-color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.team-lunch-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.team-lunch-hint.is-invalid {
   color: #dc2626;
   font-weight: 600;
 }

@@ -1,15 +1,17 @@
 <?php
 header('Content-Type: application/json');
 require_once 'db_wfm_config.php';
+require_once 'session_access.php';
 
 session_start();
-$isRestricted = isset($_SESSION['allowed_teams']) && !empty($_SESSION['allowed_teams']) && $_SESSION['role_name'] !== 'Admin';
-$allowedTeams = $isRestricted ? $_SESSION['allowed_teams'] : [];
 
 try {
     // Get query parameters
     $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
-    $limit = isset($_GET['limit']) ? max(1, min(100, intval($_GET['limit']))) : 10;
+    // Exports request every filtered row at once; normal paging stays capped at 100
+    $isExport = isset($_GET['export']) && $_GET['export'] === '1';
+    $maxLimit = $isExport ? 100000 : 100;
+    $limit = isset($_GET['limit']) ? max(1, min($maxLimit, intval($_GET['limit']))) : 10;
     $requestedColumns = isset($_GET['columns']) ? explode(',', $_GET['columns']) : [];
 
     $offset = ($page - 1) * $limit;
@@ -50,8 +52,9 @@ try {
     $whereParts = [];
     $params = [];
 
-    if ($isRestricted) {
-        $whereParts[] = "employee_id IN (SELECT employee_id FROM org_team_assignments WHERE team_id IN (" . implode(',', array_map('intval', $allowedTeams)) . "))";
+    $teamCondition = team_condition_employee_sql('employee_id');
+    if ($teamCondition !== '') {
+        $whereParts[] = $teamCondition;
     }
 
     if ($search !== "") {

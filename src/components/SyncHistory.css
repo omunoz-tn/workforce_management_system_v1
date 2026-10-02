@@ -10,7 +10,7 @@
     box-sizing: border-box;
 }
 
-[data-theme='dark'] .sync-history-view {
+.dark .sync-history-view {
     background: #1a202c;
 }
 
@@ -30,7 +30,7 @@
     font-weight: 500;
 }
 
-[data-theme='dark'] .refresh-btn {
+.dark .sync-history-view .refresh-btn {
     background: #2d3748;
     border-color: #4a5568;
     color: white;
@@ -52,7 +52,7 @@
     margin-bottom: 1rem;
 }
 
-[data-theme='dark'] .history-table-wrapper {
+.dark .sync-history-view .history-table-wrapper {
     background: #2d3748;
     border-color: #4a5568;
 }
@@ -76,7 +76,7 @@
     box-shadow: 0 1px 0 #edf2f7; /* Prevents border disappearing on sticky */
 }
 
-[data-theme='dark'] .history-table th {
+.dark .sync-history-view .history-table th {
     background: #1a202c;
     border-bottom-color: #4a5568;
     box-shadow: 0 1px 0 #4a5568;
@@ -87,7 +87,7 @@
     border-bottom: 1px solid #edf2f7;
 }
 
-[data-theme='dark'] .history-table td {
+.dark .sync-history-view .history-table td {
     border-bottom-color: #4a5568;
 }
 
@@ -121,6 +121,13 @@
     color: #2a4365;
 }
 
+/* A day claimed but not yet closed out. Only lingers if the request died mid-crawl --
+   the next automatic run marks leftovers as failures. */
+.status-badge.running {
+    background: #feebc8;
+    color: #7b341e;
+}
+
 .sync-type-badge {
     padding: 2px 8px;
     border-radius: 4px;
@@ -141,6 +148,14 @@
     background: #ebf8ff;
     color: #2b6cb0;
     border: 1px solid #bee3f8;
+}
+
+/* The Tuesday job: a whole Mon-Sun week of hours, no project data. Distinct from the daily
+   automatic run so seven rows landing at once are recognisable at a glance. */
+.sync-type-badge.weekly {
+    background: #faf5ff;
+    color: #6b46c1;
+    border: 1px solid #e9d8fd;
 }
 
 .error-banner {
@@ -188,7 +203,7 @@
     border: 1px solid #e2e8f0;
 }
 
-[data-theme='dark'] .table-name {
+.dark .sync-history-view .table-name {
     background: #1a202c;
     color: #a0aec0;
     border-color: #4a5568;
@@ -204,8 +219,88 @@
     border: 1px solid #e2e8f0;
 }
 
-[data-theme='dark'] .count-badge {
+.dark .sync-history-view .count-badge {
     background: #2d3748;
     color: #cbd5e0;
     border-color: #4a5568;
+}
+
+.dark .sync-history-view .back-btn {
+    background: #2d3748;
+    border-color: #4a5568;
+    color: #e2e8f0;
+}
+
+.dark .sync-history-view .back-btn:hover,
+.dark .sync-history-view .refresh-btn:hover {
+    background: #4a5568;
+    border-color: #718096;
+}
+
+.dark .sync-history-view .report-header h1 {
+    color: #f7fafc;
+}
+
+.dark .sync-history-view .history-table th {
+    color: #a0aec0;
+}
+
+.dark .sync-history-view .history-table td {
+    color: #e2e8f0;
+}
+
+.dark .sync-history-view .history-table tbody tr:hover {
+    background: #374151;
+}
+
+.dark .sync-history-view .error-cell {
+    color: #a0aec0;
+}
+
+.dark .sync-history-view .success-text {
+    color: #68d391;
+}
+
+.dark .sync-history-view .error-banner {
+    background: rgba(229, 62, 62, 0.12);
+    border-color: #9b2c2c;
+    color: #feb2b2;
+}
+
+.dark .sync-history-view .status-badge.success {
+    background: rgba(72, 187, 120, 0.18);
+    color: #9ae6b4;
+}
+
+.dark .sync-history-view .status-badge.failure {
+    background: rgba(229, 62, 62, 0.18);
+    color: #feb2b2;
+}
+
+.dark .sync-history-view .status-badge.skipped {
+    background: rgba(66, 153, 225, 0.18);
+    color: #90cdf4;
+}
+
+.dark .sync-history-view .status-badge.running {
+    background: rgba(237, 137, 54, 0.18);
+    color: #fbd38d;
+}
+
+.dark .sync-history-view .sync-type-badge.manual {
+    background: #1a202c;
+    color: #cbd5e0;
+    border-color: #4a5568;
+}
+
+.dark .sync-history-view .sync-type-badge.automatic {
+    background: rgba(66, 153, 225, 0.15);
+    color: #90cdf4;
+    border-color: rgba(66, 153, 225, 0.35);
+}
+
+.dark .sync-history-view .sync-type-badge.weekly {
+    background: rgba(128, 90, 213, 0.18);
+    color: #d6bcfa;
+    border-color: rgba(128, 90, 213, 0.4);
 }

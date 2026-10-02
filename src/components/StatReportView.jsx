@@ -2,6 +2,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import './StatReportView.css';
 import LoadingScreen from './LoadingScreen';
 import DrillDownModal from './DrillDownModal';
+import TeamFilter from './TeamFilter';
+import ViewToggle from './ViewToggle';
+import SortDropdown from './SortDropdown';
+import { loadTeamFilter, saveTeamFilter } from '../reportPreferences';
+import RunRateProjectionPanel from './RunRateProjectionPanel';
+import { todayStr } from '../utils/dates';
 import { 
   LineChart, 
   Line, 
@@ -26,164 +32,6 @@ const METRIC_CONFIG = {
     'run-rate': { title: 'Run Rate Report', icon: '📈', color: '#4c51bf', type: 'runRate' }
 };
 
-const TeamFilter = ({ teams, selectedTeams, onToggle, onSelectAll, onClearAll }) => {
-    const [isOpen, setIsOpen] = useState(false);
-
-    return (
-        <div className="team-filter-dropdown">
-            <button className={`filter-trigger ${selectedTeams.size < teams.length ? 'has-active' : ''}`} onClick={() => setIsOpen(!isOpen)}>
-                <span className="filter-icon">🔍</span>
-                <span className="filter-label">
-                    {selectedTeams.size === teams.length ? 'All Teams' : `${selectedTeams.size} Selected`}
-                </span>
-                <span className="arrow">{isOpen ? '▲' : '▼'}</span>
-            </button>
-            
-            {isOpen && (
-                <>
-                    <div className="dropdown-overlay" onClick={() => setIsOpen(false)} />
-                    <div className="dropdown-menu">
-                        <div className="dropdown-header">
-                            <button onClick={onSelectAll}>Select All</button>
-                            <button onClick={onClearAll}>Clear All</button>
-                        </div>
-                        <div className="team-options">
-                            {teams.map(team => (
-                                <label key={team} className="team-option">
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedTeams.has(team)}
-                                        onChange={() => onToggle(team)}
-                                    />
-                                    <span>{team}</span>
-                                </label>
-                            ))}
-                        </div>
-                    </div>
-                </>
-            )}
-        </div>
-    );
-};
-
-
-const ListIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-        <line x1="4" y1="6" x2="20" y2="6" />
-        <line x1="4" y1="12" x2="20" y2="12" />
-        <line x1="4" y1="18" x2="20" y2="18" />
-    </svg>
-);
-
-const GridIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <rect x="3" y="3" width="7" height="7" rx="1.5" />
-        <rect x="14" y="3" width="7" height="7" rx="1.5" />
-        <rect x="3" y="14" width="7" height="7" rx="1.5" />
-        <rect x="14" y="14" width="7" height="7" rx="1.5" />
-    </svg>
-);
-
-const VIEW_MODE_OPTIONS = [
-    { id: 'list', label: 'List', icon: ListIcon },
-    { id: 'grid', label: 'Grid', icon: GridIcon }
-];
-
-const ViewToggle = ({ viewMode, onChange }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const ActiveIcon = viewMode === 'grid' ? GridIcon : ListIcon;
-
-    return (
-        <div className="view-toggle-dropdown">
-            <button className="filter-trigger view-toggle-trigger" onClick={() => setIsOpen(!isOpen)} title="Change view">
-                <ActiveIcon />
-            </button>
-
-            {isOpen && (
-                <>
-                    <div className="dropdown-overlay" onClick={() => setIsOpen(false)} />
-                    <div className="dropdown-menu view-toggle-menu">
-                        {VIEW_MODE_OPTIONS.map(opt => {
-                            const OptionIcon = opt.icon;
-                            return (
-                                <button
-                                    key={opt.id}
-                                    className={`view-toggle-option ${viewMode === opt.id ? 'is-active' : ''}`}
-                                    onClick={() => { onChange(opt.id); setIsOpen(false); }}
-                                >
-                                    <span className="view-toggle-check">{viewMode === opt.id ? '✓' : ''}</span>
-                                    <span className="view-toggle-label">{opt.label}</span>
-                                    <span className="view-toggle-icon"><OptionIcon /></span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                </>
-            )}
-        </div>
-    );
-};
-
-const SortDropdown = ({ sortConfig, onChange, metricLabel }) => {
-    const [isOpen, setIsOpen] = useState(false);
-
-    const options = [
-        { key: 'group_name', direction: 'asc', label: 'Alphabetical (A → Z)' },
-        { key: 'group_name', direction: 'desc', label: 'Alphabetical (Z → A)' },
-        { key: 'display_metric', direction: 'desc', label: `${metricLabel}: High to Low` },
-        { key: 'display_metric', direction: 'asc', label: `${metricLabel}: Low to High` }
-    ];
-
-    const activeLabel = options.find(opt => opt.key === sortConfig.key && opt.direction === sortConfig.direction)?.label || 'Sort';
-
-    return (
-        <div className="view-toggle-dropdown">
-            <button className="filter-trigger sort-dropdown-trigger" onClick={() => setIsOpen(!isOpen)} title="Sort cards">
-                <span className="sort-dropdown-icon">⇅</span>
-                <span className="sort-dropdown-label">{activeLabel}</span>
-            </button>
-
-            {isOpen && (
-                <>
-                    <div className="dropdown-overlay" onClick={() => setIsOpen(false)} />
-                    <div className="dropdown-menu sort-dropdown-menu">
-                        {options.map(opt => (
-                            <button
-                                key={`${opt.key}-${opt.direction}`}
-                                className={`view-toggle-option ${sortConfig.key === opt.key && sortConfig.direction === opt.direction ? 'is-active' : ''}`}
-                                onClick={() => { onChange({ key: opt.key, direction: opt.direction }); setIsOpen(false); }}
-                            >
-                                <span className="view-toggle-check">{sortConfig.key === opt.key && sortConfig.direction === opt.direction ? '✓' : ''}</span>
-                                <span className="view-toggle-label">{opt.label}</span>
-                            </button>
-                        ))}
-                    </div>
-                </>
-            )}
-        </div>
-    );
-};
-
-const TEAM_FILTER_STORAGE_KEY = 'stat_report_team_filter';
-
-const loadSavedTeamFilter = () => {
-    try {
-        const raw = localStorage.getItem(TEAM_FILTER_STORAGE_KEY);
-        const parsed = raw ? JSON.parse(raw) : null;
-        return Array.isArray(parsed) ? parsed : null;
-    } catch {
-        return null;
-    }
-};
-
-const saveTeamFilter = (teamsSet) => {
-    try {
-        localStorage.setItem(TEAM_FILTER_STORAGE_KEY, JSON.stringify(Array.from(teamsSet)));
-    } catch {
-        // localStorage unavailable (private browsing, quota, etc.) - filter still works this session
-    }
-};
-
 const StatReportView = ({ reportId, fromDate, toDate, onBack }) => {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -194,6 +42,14 @@ const StatReportView = ({ reportId, fromDate, toDate, onBack }) => {
     const [showZeroTeams, setShowZeroTeams] = useState(false);
     const [sortConfig, setSortConfig] = useState({ key: 'group_name', direction: 'asc' });
     const [viewMode, setViewMode] = useState('grid');
+    // Run Rate only: a range that reaches today or later is also projected
+    // (get_run_rate_projection.php). Wholly in the future there is nothing actual to show,
+    // so the projection is the whole report; otherwise it sits beside the actual view.
+    const [projection, setProjection] = useState(null);
+    const [rrView, setRrView] = useState('projection');
+    const today = todayStr();
+    const projectionActive = reportId === 'run-rate' && Boolean(toDate) && toDate >= today;
+    const projectionOnly = projectionActive && fromDate >= today;
 
 
     const config = METRIC_CONFIG[reportId] || METRIC_CONFIG['run-rate'];
@@ -211,12 +67,22 @@ const StatReportView = ({ reportId, fromDate, toDate, onBack }) => {
                     ? `./api/get_absenteeism_details.php?from=${fromDate}&to=${toDate}`
                     : `./api/get_dashboard_stats.php?from=${fromDate}&to=${toDate}`;
                 
-                const response = await fetch(endpoint);
-                const result = await response.json();
-                if (result.success) {
-                    setData(result);
-                } else {
+                const projectionRequest = projectionActive
+                    ? fetch(`./api/get_run_rate_projection.php?from=${fromDate}&to=${toDate}`).then(res => res.json())
+                    : Promise.resolve(null);
+
+                const [result, projectionResult] = await Promise.all([
+                    fetch(endpoint).then(res => res.json()),
+                    projectionRequest
+                ]);
+                if (!result.success) {
                     setError(result.error);
+                } else if (projectionResult && !projectionResult.success) {
+                    setError(projectionResult.error);
+                } else {
+                    setProjection(projectionResult);
+                    setRrView('projection');
+                    setData(result);
                 }
             } catch (err) {
                 setError("Failed to fetch report data.");
@@ -226,15 +92,22 @@ const StatReportView = ({ reportId, fromDate, toDate, onBack }) => {
         };
 
         if (fromDate && toDate) fetchData();
-    }, [reportId, fromDate, toDate]);
+    }, [reportId, fromDate, toDate, projectionActive]);
 
     // Initialize selected teams when data loads: restore the last saved filter if
     // one exists (intersected with the teams actually present in this report),
     // otherwise default to all teams selected.
+    // Teams the projection covers but that have no actual data in the range (all of them,
+    // for a range wholly in the future) still belong in the filter.
+    const projectionTeams = useMemo(
+        () => [...new Set((projection?.data || []).filter(r => !Number(r.is_excluded)).map(r => r.team_name))],
+        [projection]
+    );
+
     useEffect(() => {
         if (data?.teamStats) {
-            const allTeams = data.teamStats.map(t => t.group_name);
-            const saved = loadSavedTeamFilter();
+            const allTeams = [...new Set([...data.teamStats.map(t => t.group_name), ...projectionTeams])];
+            const saved = loadTeamFilter();
 
             if (saved !== null) {
                 setSelectedTeams(new Set(saved.filter(t => allTeams.includes(t))));
@@ -242,7 +115,7 @@ const StatReportView = ({ reportId, fromDate, toDate, onBack }) => {
                 setSelectedTeams(new Set(allTeams));
             }
         }
-    }, [data]);
+    }, [data, projectionTeams]);
 
     useEffect(() => {
         if (reportId === 'absenteeism') {
@@ -275,8 +148,8 @@ const StatReportView = ({ reportId, fromDate, toDate, onBack }) => {
     const mtdEmployeeData = (data?.mtdEmployeeData || []).filter(m => !Number(m.is_excluded));
 
     const availableTeams = useMemo(() => {
-        return (data?.teamStats || []).map(t => t.group_name).sort();
-    }, [data]);
+        return [...new Set([...(data?.teamStats || []).map(t => t.group_name), ...projectionTeams])].sort();
+    }, [data, projectionTeams]);
 
     const teamTableColumns = useMemo(() => {
         if (reportId === 'absenteeism') {
@@ -500,6 +373,14 @@ const StatReportView = ({ reportId, fromDate, toDate, onBack }) => {
         return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     };
 
+    // Cards only: "Sep 27, 2026" keeps a from–to range on one line inside a card. The
+    // table and the CSV have the room, and keep the full month name.
+    const formatCardDate = (dateStr) => {
+        if (!dateStr) return '';
+        const date = new Date(dateStr + 'T00:00:00');
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+
     // Run Rate health bands: each configured range only has a starting percentage
     // ("floor") — the band that applies is the one with the greatest range_start
     // <= the value, so there's never a gap between bands to fall through. Falls
@@ -617,6 +498,8 @@ const StatReportView = ({ reportId, fromDate, toDate, onBack }) => {
     const renderGlobalCard = () => {
         let val = '0.0%';
         let sub = '';
+        // Second summary line: the absenteeism totals overflow the card on one row.
+        let subExtra = '';
         let progress = 0;
 
         switch(reportId) {
@@ -637,7 +520,8 @@ const StatReportView = ({ reportId, fromDate, toDate, onBack }) => {
             case 'absenteeism':
                 progress = filteredTotals.absenteeism_pct;
                 val = `${progress.toFixed(1)}%`;
-                sub = `${filteredTotals.absenteeism_count} No-Shows | ${filteredTotals.unique_absentees} Unique Absentees | ${filteredTotals.lost_hours} Hours Lost`;
+                sub = `${filteredTotals.absenteeism_count} No-Shows | ${filteredTotals.unique_absentees} Unique Absentees`;
+                subExtra = `${filteredTotals.lost_hours} Hours Lost`;
                 break;
             case 'adherence':
                 progress = filteredTotals.adherence;
@@ -666,7 +550,7 @@ const StatReportView = ({ reportId, fromDate, toDate, onBack }) => {
         return (
             <div
                 className="team-card global-team-card clickable-row"
-                onClick={() => setActiveDrillDown({ type: config.type, title: config.title, data: reportId === 'run-rate' ? mtdEmployeeData : undefined })}
+                onClick={() => setActiveDrillDown({ type: config.type, title: config.title, data: reportId === 'run-rate' ? mtdEmployeeData : undefined, teams: Array.from(selectedTeams) })}
                 title="Click for the full breakdown"
             >
                 <div className="team-card-header">
@@ -692,14 +576,16 @@ const StatReportView = ({ reportId, fromDate, toDate, onBack }) => {
                         </div>
                         <div className="team-card-stat team-card-stat-dates">
                             <span className="team-card-stat-label">Date Range</span>
-                            <span className="team-card-stat-value">{formatDate(fromDate)} – {formatDate(toDate)}</span>
+                            <span className="team-card-stat-value">{formatCardDate(fromDate)} – {formatCardDate(toDate)}</span>
                         </div>
                     </div>
-                ) : sub && (
+                ) : (sub || subExtra) && (
                     <div className="team-card-stats">
-                        <div className="team-card-stat team-card-stat-dates">
-                            <span className="team-card-stat-value" style={{ color: reportId === 'absenteeism' ? config.color : undefined }}>{sub}</span>
-                        </div>
+                        {[sub, subExtra].filter(Boolean).map((line, lineIdx) => (
+                            <div key={lineIdx} className="team-card-stat team-card-stat-dates team-card-summary-line">
+                                <span className="team-card-stat-value" style={{ color: reportId === 'absenteeism' ? config.color : undefined }}>{line}</span>
+                            </div>
+                        ))}
                     </div>
                 )}
             </div>
@@ -764,7 +650,7 @@ const StatReportView = ({ reportId, fromDate, toDate, onBack }) => {
                 ) : (
                     <div className="team-card-stat team-card-stat-dates">
                         <span className="team-card-stat-label">Date Range</span>
-                        <span className="team-card-stat-value">{formatDate(fromDate)} – {formatDate(toDate)}</span>
+                        <span className="team-card-stat-value">{formatCardDate(fromDate)} – {formatCardDate(toDate)}</span>
                     </div>
                 )}
             </div>
@@ -779,8 +665,35 @@ const StatReportView = ({ reportId, fromDate, toDate, onBack }) => {
             <div className="report-header">
                 <button className="back-btn" onClick={onBack}>← Back</button>
                 <h1>{config.title}</h1>
+                {projectionActive && !projectionOnly && (
+                    <div className="rr-view-switch">
+                        <button className={rrView === 'projection' ? 'is-active' : ''} onClick={() => setRrView('projection')}>Projection</button>
+                        <button className={rrView === 'actual' ? 'is-active' : ''} onClick={() => setRrView('actual')}>Actual to date</button>
+                    </div>
+                )}
             </div>
 
+            {projectionActive && (projectionOnly || rrView === 'projection') ? (
+            <div className="report-content">
+                <RunRateProjectionPanel
+                    projection={projection}
+                    selectedTeams={selectedTeams}
+                    colorRanges={colorRanges}
+                    getBand={getRunRateBand}
+                    fromDate={fromDate}
+                    toDate={toDate}
+                    teamFilter={(
+                        <TeamFilter
+                            teams={availableTeams}
+                            selectedTeams={selectedTeams}
+                            onToggle={handleToggleTeam}
+                            onSelectAll={handleSelectAllTeams}
+                            onClearAll={handleClearAllTeams}
+                        />
+                    )}
+                />
+            </div>
+            ) : (
             <div className="report-content">
                 {reportId === 'absenteeism' && data?.trend && data.trend.length > 0 && (
                     <div className="report-summary-card trend-card full-width">
@@ -977,6 +890,7 @@ const StatReportView = ({ reportId, fromDate, toDate, onBack }) => {
                     )}
                 </div>
             </div>
+            )}
 
 
             {activeDrillDown && (
@@ -984,11 +898,13 @@ const StatReportView = ({ reportId, fromDate, toDate, onBack }) => {
                     type={activeDrillDown.type}
                     title={activeDrillDown.title}
                     team={activeDrillDown.team}
+                    teams={activeDrillDown.teams}
                     fromDate={fromDate}
                     toDate={toDate}
                     onClose={() => setActiveDrillDown(null)}
                     initialData={activeDrillDown.data}
                     serverTime={data?.lastUpdate}
+                    applyExceptions={reportId === 'absenteeism'}
                 />
             )}
         </div>

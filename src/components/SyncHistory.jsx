@@ -2,6 +2,14 @@ import React, { useState, useEffect } from 'react';
 import './SyncHistory.css';
 import LoadingScreen from './LoadingScreen';
 
+// What each sync_type means, spelled out: 'weekly' in particular is not a lesser automatic
+// run, it is the Tuesday job that syncs the previous Mon-Sun week of hours only.
+const SYNC_TYPE_LABELS = {
+    manual: 'Manual',
+    automatic: 'Automatic',
+    weekly: 'Weekly Hours'
+};
+
 const SyncHistory = ({ onBack }) => {
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -49,7 +57,7 @@ const SyncHistory = ({ onBack }) => {
                     <button className="back-btn" onClick={onBack}>← Back</button>
                     <div>
                         <h1>Sync History</h1>
-                        <p className="subtitle">Last 30 synchronization events</p>
+                        <p className="subtitle">Last 60 synchronization events</p>
                     </div>
                 </div>
                 <button className="refresh-btn" onClick={fetchLogs}>🔄 Refresh Logs</button>
@@ -85,15 +93,21 @@ const SyncHistory = ({ onBack }) => {
                                             <span className="table-name">desktime_employee_data</span>
                                             <span className="count-badge">{log.hours_updated} records</span>
                                         </div>
-                                        <div className="sync-detail-item" style={{ marginTop: '8px' }}>
-                                            <span className="function-name">🏗️ Employee Project Report</span>
-                                            <span className="table-name">desktime_project_data</span>
-                                            <span className="count-badge">{log.projects_updated} tasks</span>
-                                        </div>
+                                        {/* Only the daily automatic run touches project data. A
+                                            manual Save Hours and the weekly job both write zero
+                                            projects by design, and printing "0 tasks" for them
+                                            reads as a failed project crawl. */}
+                                        {(log.sync_type || 'automatic') === 'automatic' && (
+                                            <div className="sync-detail-item" style={{ marginTop: '8px' }}>
+                                                <span className="function-name">🏗️ Employee Project Report</span>
+                                                <span className="table-name">desktime_project_data</span>
+                                                <span className="count-badge">{log.projects_updated} tasks</span>
+                                            </div>
+                                        )}
                                     </td>
                                     <td className="error-cell" title={log.error_message}>
                                         <span className={`sync-type-badge ${log.sync_type || 'automatic'}`}>
-                                            {log.sync_type || 'Automatic'}
+                                            {SYNC_TYPE_LABELS[log.sync_type] || 'Automatic'}
                                         </span>
                                         {log.error_message || <span className="success-text">✓ No errors</span>}
                                     </td>

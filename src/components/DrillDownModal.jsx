@@ -3,7 +3,7 @@ import './DrillDownModal.css';
 import { todayStr, parseDate, formatDate } from '../utils/dates';
 import DailyDetailsModal from './DailyDetailsModal';
 
-const DrillDownModal = ({ type, title, team, onClose, threshold, initialData, serverTime: propServerTime, fromDate, toDate }) => {
+const DrillDownModal = ({ type, title, team, teams, onClose, threshold, initialData, serverTime: propServerTime, fromDate, toDate, applyExceptions }) => {
     const [data, setData] = useState(initialData || []);
     const [loading, setLoading] = useState(!initialData);
     const [error, setError] = useState(null);
@@ -23,6 +23,14 @@ const DrillDownModal = ({ type, title, team, onClose, threshold, initialData, se
             to: todayStr()
         };
     };
+
+    // The global report cards open this modal without a `team`, so the endpoint returns
+    // every team in the session's RBAC scope. `teams` carries the report's own team
+    // filter so the breakdown lists exactly what the card totalled.
+    const allowedTeams = useMemo(
+        () => (Array.isArray(teams) ? new Set(teams) : null),
+        [teams]
+    );
 
     const range = getMtdRange();
     const fromDateStr = fromDate || range.from;
@@ -108,7 +116,13 @@ const DrillDownModal = ({ type, title, team, onClose, threshold, initialData, se
             try {
                 let url = '';
                 if (type === 'online' || type === 'productivity' || type === 'efficiency' || type === 'absenteeism' || type === 'adherence' || type === 'overtime' || type === 'totalHours') {
-                    url = `./api/get_online_employees.php?status=all${type === 'absenteeism' ? '&type=absenteeism' : ''}${team ? `&team=${encodeURIComponent(team)}` : ''}&from=${fromDateStr}&to=${toDateStr}`;
+                    // `applyExceptions` is set by the Absenteeism Report, which counted its
+                    // rows with the per-team exceptions applied; the Dashboard card leaves it
+                    // off so its drill-down keeps matching the figure on the card.
+                    const absenteeismParams = type === 'absenteeism'
+                        ? `&type=absenteeism${applyExceptions ? '&apply_exceptions=1' : ''}`
+                        : '';
+                    url = `./api/get_online_employees.php?status=all${absenteeismParams}${team ? `&team=${encodeURIComponent(team)}` : ''}&from=${fromDateStr}&to=${toDateStr}`;
                 } else if (type === 'late') {
                     url = `./api/get_late_arrivals.php`;
                 } else if (type === 'teams' || type === 'topTeam') {
@@ -138,7 +152,7 @@ const DrillDownModal = ({ type, title, team, onClose, threshold, initialData, se
         };
 
         fetchData();
-    }, [type, team, initialData, propServerTime]);
+    }, [type, team, initialData, propServerTime, applyExceptions]);
 
     // Apply filtering and sorting in frontend
     let displayData = data.filter(item => {
@@ -146,6 +160,13 @@ const DrillDownModal = ({ type, title, team, onClose, threshold, initialData, se
         if (team && initialData && type !== 'teams' && type !== 'topTeam') {
             if (item.group_name !== team && item.team_name !== team) return false;
         }
+
+        // Rows with no org team resolve to a null name, so they fall out here too --
+        // the card never counted them either.
+        if (allowedTeams && type !== 'teams' && type !== 'topTeam') {
+            if (!allowedTeams.has(item.group_name) && !allowedTeams.has(item.team_name)) return false;
+        }
+
         return true;
     }).filter(item => {
         const term = modalSearchTerm.toLowerCase();

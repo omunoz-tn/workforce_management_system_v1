@@ -1,3 +1,8 @@
+/* Rules for class names that HoursReportView also uses (summary-*, report-controls) are
+   scoped to .project-report-view: this file loads after HoursReportView.css, so
+   unscoped versions overrode that report's theme-aware styles and left it light in dark mode.
+   Dark rules are scoped the same way so they never leak into other views. */
+
 .project-report-view {
     padding: 1.5rem;
     height: 100%;
@@ -8,8 +13,9 @@
     box-sizing: border-box;
 }
 
-[data-theme='dark'] .project-report-view {
+.dark .project-report-view {
     background: #1a202c;
+    color: #e2e8f0;
 }
 
 .report-header {
@@ -31,7 +37,7 @@
     color: #2d3748;
 }
 
-[data-theme='dark'] .report-header h1 {
+.dark .project-report-view .report-header h1 {
     color: #f7fafc;
 }
 
@@ -50,6 +56,17 @@
     border-color: #cbd5e0;
 }
 
+.dark .project-report-view .back-btn {
+    background: #2d3748;
+    border-color: #4a5568;
+    color: #e2e8f0;
+}
+
+.dark .project-report-view .back-btn:hover {
+    background: #4a5568;
+    border-color: #718096;
+}
+
 .date-range-badge {
     background: #ebf4ff;
     color: #3182ce;
@@ -57,6 +74,11 @@
     border-radius: 20px;
     font-size: 0.9rem;
     font-weight: 600;
+}
+
+.dark .project-report-view .date-range-badge {
+    background: rgba(49, 130, 206, 0.15);
+    color: #63b3ed;
 }
 
 .export-btn {
@@ -78,7 +100,7 @@
     background: #357ABD;
 }
 
-.report-controls {
+.project-report-view .report-controls {
     display: flex;
     gap: 1rem;
     background: white;
@@ -86,6 +108,10 @@
     border-radius: 12px;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     margin-bottom: 0.25rem;
+}
+
+.dark .project-report-view .report-controls {
+    background: #2d3748;
 }
 
 /* Summary Dashboard Styles */
@@ -96,7 +122,7 @@
     margin-bottom: 0.25rem;
 }
 
-.summary-card {
+.project-report-view .summary-card {
     background: white;
     padding: 1rem;
     border-radius: 12px;
@@ -108,12 +134,12 @@
     transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.summary-card:hover {
+.project-report-view .summary-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
-.summary-icon {
+.project-report-view .summary-icon {
     font-size: 1.5rem;
     background: #f7fafc;
     width: 48px;
@@ -124,12 +150,12 @@
     border-radius: 10px;
 }
 
-.summary-info {
+.project-report-view .summary-info {
     display: flex;
     flex-direction: column;
 }
 
-.summary-label {
+.project-report-view .summary-label {
     font-size: 0.85rem;
     color: #718096;
     font-weight: 500;
@@ -137,26 +163,26 @@
     letter-spacing: 0.025em;
 }
 
-.summary-value {
+.project-report-view .summary-value {
     font-size: 1.25rem;
     font-weight: 700;
     color: #2d3748;
 }
 
-[data-theme='dark'] .summary-card {
+.dark .project-report-view .summary-card {
     background: #2d3748;
     border-color: #4a5568;
 }
 
-[data-theme='dark'] .summary-icon {
+.dark .project-report-view .summary-icon {
     background: #1a202c;
 }
 
-[data-theme='dark'] .summary-value {
+.dark .project-report-view .summary-value {
     color: #f7fafc;
 }
 
-[data-theme='dark'] .summary-label {
+.dark .project-report-view .summary-label {
     color: #a0aec0;
 }
 
@@ -170,10 +196,6 @@
     .report-summary-dashboard {
         grid-template-columns: 1fr;
     }
-}
-
-[data-theme='dark'] .report-controls {
-    background: #2d3748;
 }
 
 .search-box {
@@ -204,10 +226,18 @@
     outline: none;
 }
 
-[data-theme='dark'] .search-box input {
+.dark .project-report-view .search-box input {
     background: #1a202c;
     border-color: #4a5568;
     color: white;
+}
+
+.dark .project-report-view .search-box input::placeholder {
+    color: #718096;
+}
+
+.dark .project-report-view .search-box input:focus {
+    border-color: #4299e1;
 }
 
 .report-table-container {
@@ -222,8 +252,10 @@
     margin-bottom: 1rem;
 }
 
-[data-theme='dark'] .report-table-container {
+.dark .project-report-view .report-table-container {
     background: #2d3748;
+    border-color: #4a5568;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
 }
 
 .project-table {
@@ -246,7 +278,7 @@
     box-shadow: 0 1px 0 #edf2f7;
 }
 
-[data-theme='dark'] .project-table th {
+.dark .project-report-view .project-table th {
     background: #1a202c;
     color: #a0aec0;
     border-bottom-color: #4a5568;
@@ -259,7 +291,7 @@
     font-size: 0.95rem;
 }
 
-[data-theme='dark'] .project-table td {
+.dark .project-report-view .project-table td {
     border-bottom-color: #4a5568;
     color: #e2e8f0;
 }
@@ -268,13 +300,17 @@
     background: #f8fafc;
 }
 
-[data-theme='dark'] .project-table tr:hover {
+.dark .project-report-view .project-table tr:hover {
     background: #374151;
 }
 
 .text-muted {
     color: #718096;
     font-size: 0.85rem;
+}
+
+.dark .project-report-view .text-muted {
+    color: #a0aec0;
 }
 
 .project-badge {
@@ -286,13 +322,18 @@
     font-weight: 500;
 }
 
+.dark .project-report-view .project-badge {
+    background: rgba(66, 153, 225, 0.15);
+    color: #90cdf4;
+}
+
 .time-col {
     font-family: 'Courier New', Courier, monospace;
     font-weight: bold;
     color: #2d3748;
 }
 
-[data-theme='dark'] .time-col {
+.dark .project-report-view .time-col {
     color: #f7fafc;
 }
 
@@ -367,20 +408,33 @@
     color: #718096;
 }
 
-[data-theme='dark'] .pagination {
+.dark .project-report-view .pagination {
     background: #2d3748;
     color: #e2e8f0;
 }
 
-[data-theme='dark'] .rows-selector select,
-[data-theme='dark'] .pagination-controls button {
+.dark .project-report-view .rows-selector {
+    color: #cbd5e0;
+}
+
+.dark .project-report-view .rows-selector select,
+.dark .project-report-view .pagination-controls button {
     background: #1a202c;
     border-color: #4a5568;
     color: #e2e8f0;
 }
 
-[data-theme='dark'] .page-info {
+.dark .project-report-view .pagination-controls button:hover:not(:disabled) {
+    background: #4a5568;
+    border-color: #718096;
+}
+
+.dark .project-report-view .page-info {
     color: #f7fafc;
+}
+
+.dark .project-report-view .total-count {
+    color: #a0aec0;
 }
 
 /* Sync Indicator Styles */
@@ -397,7 +451,7 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
-[data-theme='dark'] .sync-indicator {
+.dark .project-report-view .sync-indicator {
     background: #2d3748;
     border-color: #4a5568;
     color: #e2e8f0;
@@ -412,6 +466,11 @@
     animation: spin 1s linear infinite;
 }
 
+.dark .project-report-view .sync-spinner {
+    border-color: #4a5568;
+    border-top-color: #4299e1;
+}
+
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
@@ -424,7 +483,7 @@
     overflow: hidden;
 }
 
-[data-theme='dark'] .sync-progress-mini {
+.dark .project-report-view .sync-progress-mini {
     background: #4a5568;
 }
 

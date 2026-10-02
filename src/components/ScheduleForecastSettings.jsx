@@ -2,6 +2,7 @@ import { todayStr as currentDateStr, formatDate } from '../utils/dates';
 import React, { useState, useEffect, useMemo } from 'react';
 import './ScheduleBoard.css';
 import './ScheduleForecastSettings.css';
+import { normalizeForSearch } from '../utils/search';
 
 const getMonday = (date) => {
     const d = new Date(date);
@@ -147,10 +148,10 @@ const ScheduleForecastSettings = ({ activeTab, onTabChange }) => {
     }, [selectedEmployee, sourceWeekStart]);
 
     const filteredEmployees = useMemo(() => {
-        const term = employeeSearch.toLowerCase();
+        const term = normalizeForSearch(employeeSearch);
         return employees.filter(emp =>
-            emp.name.toLowerCase().includes(term) ||
-            (emp.group_name && emp.group_name.toLowerCase().includes(term))
+            normalizeForSearch(emp.name).includes(term) ||
+            normalizeForSearch(emp.group_name).includes(term)
         );
     }, [employees, employeeSearch]);
 

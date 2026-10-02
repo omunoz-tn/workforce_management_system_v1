@@ -233,6 +233,15 @@
     color: var(--text-color);
 }
 
+/* Other reports' global .search-box input rules load after this file and add a light border and
+   icon padding; the .search-box wrapper here already draws the border, so pin the input back. */
+.report-view-container .search-box input {
+    border: none;
+    padding: 0;
+    background: transparent;
+    color: var(--text-color);
+}
+
 .advanced-filters {
     display: flex;
     gap: 16px;

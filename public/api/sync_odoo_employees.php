@@ -2,6 +2,19 @@
 header('Content-Type: application/json');
 require_once 'db_wfm_config.php';
 
+// Triggered from the Sync button on the Odoo Employees screen, so it is a browser-facing
+// endpoint and cannot stay open: one unauthenticated hit pulls every employee record out
+// of Odoo. Same gate, and the same CLI exemption, as sync_auto_background.php -- there is
+// no session when this is run from a shell or a cron.
+if (PHP_SAPI !== 'cli') {
+    session_start();
+    if (!isset($_SESSION['user_id'])) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'error' => 'Not authenticated']);
+        exit;
+    }
+}
+
 // Try to connect to Odoo
 $odoo_host = $env['ODOO_DB_HOST'] ?? '';
 $odoo_port = $env['ODOO_DB_PORT'] ?? '5432';
@@ -30,10 +43,16 @@ try {
             e.gender as gender,
             e.birthday as date_of_birth,
             e.marital as marital_status,
-            rc.name as country_name,
+            -- hr_department.name and res_country.name are jsonb in this Odoo (translatable
+            -- fields); every other name column here is plain varchar. Selected raw they
+            -- arrive as a literal JSON object and get stored that way, which is what 907 of
+            -- 907 departments and 515 of 956 countries looked like. ->> pulls the en_US value
+            -- out; the #>> fallback covers a row holding a bare jsonb string instead of a
+            -- translation object.
+            COALESCE(rc.name->>'en_US', rc.name#>>'{}') as country_name,
             e.x_site_country as site_country_name,
             c.name as company_name,
-            d.name as department_name,
+            COALESCE(d.name->>'en_US', d.name#>>'{}') as department_name,
             e.private_city as private_city,
             rs.name as private_state,
             e.private_zip as private_zip,
@@ -124,7 +143,7 @@ try {
             ':gender' => $emp['gender'],
             ':date_of_birth' => $emp['date_of_birth'] ?: null,
             ':marital_status' => $emp['marital_status'],
-            ':country_name' => $emp['country_name'] ?: 'Unknown', // Sometimes name in res_country can be JSON if translatable, but we assume string here
+            ':country_name' => $emp['country_name'] ?: 'Unknown', // the SELECT already unwraps the translatable jsonb
             ':site_country_name' => $emp['site_country_name'],
             ':company_name' => $emp['company_name'],
             ':department_name' => $emp['department_name'],

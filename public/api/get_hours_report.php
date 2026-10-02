@@ -5,11 +5,10 @@ error_reporting(0);
 
 header('Content-Type: application/json');
 require_once 'db_wfm_config.php';
+require_once 'session_access.php';
 require_once 'sync_desktime_core.php';
 
 session_start();
-$isRestricted = isset($_SESSION['allowed_teams']) && !empty($_SESSION['allowed_teams']) && $_SESSION['role_name'] !== 'Admin';
-$allowedTeams = $isRestricted ? $_SESSION['allowed_teams'] : [];
 
 /**
  * Endpoint to get total hours worked per employee in a date range.
@@ -58,9 +57,7 @@ try {
             FROM desktime_employee_data 
             WHERE log_date BETWEEN :from AND :to";
     
-    if ($isRestricted) {
-        $sql .= " AND employee_id IN (SELECT employee_id FROM org_team_assignments WHERE team_id IN (" . implode(',', array_map('intval', $allowedTeams)) . "))";
-    }
+    $sql .= team_filter_employee_sql('employee_id');
 
     $sql .= " GROUP BY `name`, `group_name`, `log_date`
             ORDER BY `name` ASC, `log_date` ASC";

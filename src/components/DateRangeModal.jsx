@@ -78,6 +78,16 @@ const DateRangeModal = ({ isOpen, onClose, onConfirm }) => {
             const lastOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
             setFromDate(formatDate(firstOfLastMonth));
             setToDate(formatDate(lastOfLastMonth));
+        } else if (val === 'current_month') {
+            const firstOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            const lastOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            setFromDate(formatDate(firstOfCurrentMonth));
+            setToDate(formatDate(lastOfCurrentMonth));
+        } else if (val === 'next_month') {
+            const firstOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+            const lastOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+            setFromDate(formatDate(firstOfNextMonth));
+            setToDate(formatDate(lastOfNextMonth));
         } else if (val === 'last_7_days') {
             const last7 = new Date();
             last7.setDate(now.getDate() - 7);
@@ -130,6 +140,8 @@ const DateRangeModal = ({ isOpen, onClose, onConfirm }) => {
                                 <option value="last_30_days">Last 30 Days</option>
                                 <option value="last_week">Last Week (Mon-Sun)</option>
                                 <option value="last_month">Last Month</option>
+                                <option value="current_month">Current Month</option>
+                                <option value="next_month">Next Month</option>
                                 <option value="mtd">Month to date (MTD)</option>
                                 <option value="this_year">This Year</option>
                             </optgroup>

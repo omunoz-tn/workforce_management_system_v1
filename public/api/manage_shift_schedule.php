@@ -16,6 +16,7 @@
 header('Content-Type: application/json');
 require_once 'db_wfm_config.php';
 require_once 'ShiftSchedulePatterns.php';
+require_once 'EmployeeLunchTimes.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 $today = date('Y-m-d');
@@ -60,6 +61,12 @@ if ($method === 'GET') {
             echo json_encode(['success' => false, 'error' => 'Employee not found.']);
             exit;
         }
+
+        // ISO weekday => minutes, holding only the days Employee Lunch Time gave this
+        // person a lunch of their own. `lunch_time` above stays the team's, and the editor
+        // falls back to it for every weekday absent here — so each day of the week can
+        // deduct a different amount from its card.
+        $employee['lunch_times'] = (object) (fetchEmployeeLunchTimes($pdo, [$employeeId])[$employeeId] ?? []);
 
         $versions = fetchShiftPatternVersions($pdo, $employeeId);
 
@@ -119,6 +126,9 @@ if ($method === 'POST') {
     $effectiveStart = $data['effective_start'] ?? null;
     $effectiveEnd = $data['effective_end'] ?? null;
     $pattern = $data['pattern'] ?? null;
+    // Optional: the week the seven cards were read from. Absent on any client that has not
+    // been updated, which stays valid — the column is nullable.
+    $sourceWeekStart = $data['source_week_start'] ?? null;
 
     if (!in_array($action, ['preview', 'apply'], true)) {
         http_response_code(400);
@@ -142,6 +152,16 @@ if ($method === 'POST') {
         }
         if ($effectiveEnd < $effectiveStart) {
             throw new InvalidArgumentException('Apply Until cannot be earlier than Effective Start.');
+        }
+        // Normalised to its Monday rather than trusted: the column names a week, so a
+        // mid-week date from any caller would otherwise be stored as if it were one.
+        if ($sourceWeekStart !== null && $sourceWeekStart !== '') {
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $sourceWeekStart)) {
+                throw new InvalidArgumentException('source_week_start must be a YYYY-MM-DD date.');
+            }
+            $sourceWeekStart = shiftWeekMondayOf($sourceWeekStart);
+        } else {
+            $sourceWeekStart = null;
         }
 
         $cleanPattern = validateShiftPattern($pattern);
@@ -189,15 +209,16 @@ if ($method === 'POST') {
         try {
             $stmt = $pdo->prepare(
                 "INSERT INTO org_shift_schedule_patterns
-                    (employee_id, employee_name, effective_start, effective_end, pattern)
-                 VALUES (?, ?, ?, ?, ?)"
+                    (employee_id, employee_name, effective_start, effective_end, pattern, source_week_start)
+                 VALUES (?, ?, ?, ?, ?, ?)"
             );
             $stmt->execute([
                 $employeeId,
                 $employeeName,
                 $effectiveStart,
                 $effectiveEnd,
-                json_encode($cleanPattern)
+                json_encode($cleanPattern),
+                $sourceWeekStart
             ]);
             $versionId = (int) $pdo->lastInsertId();
 

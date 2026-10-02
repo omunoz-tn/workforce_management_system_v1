@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import './ReportSettings.css';
 import './ScheduleBoard.css';
 import RunRateDayExceptionsModal from './RunRateDayExceptionsModal';
 import RunRateBillablePercentageModal from './RunRateBillablePercentageModal';
+import AbsenteeismExceptionsModal from './AbsenteeismExceptionsModal';
+import { loadVisibleReports, saveVisibleReports } from '../reportPreferences';
 
 const REPORTS = [
     { id: 'sync-history', label: 'Sync History Log', icon: '📜' },
@@ -11,6 +13,7 @@ const REPORTS = [
     { id: 'productivity', label: 'Productivity Report', icon: '⚡' },
     { id: 'punctuality', label: 'Punctuality Report', icon: '⏰' },
     { id: 'absenteeism', label: 'Absenteeism Report', icon: '📉' },
+    { id: 'attendance', label: 'Attendance Report', icon: '🗓️' },
     { id: 'adherence', label: 'Adherence Report', icon: '✅' },
     { id: 'overtime', label: 'Overtime Report', icon: '🕒' },
     { id: 'total-hours', label: 'Total Hours Report', icon: '🕐' },
@@ -20,7 +23,7 @@ const REPORTS = [
 ];
 
 // Reports that currently expose advanced, per-team configuration options.
-const ADVANCED_REPORTS = ['run-rate'];
+const ADVANCED_REPORTS = ['run-rate', 'absenteeism'];
 
 const TIME_SOURCE_OPTIONS = [
     { value: 'desktime_time', label: 'Desktime Time' },
@@ -51,10 +54,19 @@ const RUN_RATE_CONTROLS_INFO = [
     }
 ];
 
+// Shown in the "i" info popover next to each team's Absenteeism controls.
+const ABSENTEEISM_CONTROLS_INFO = [
+    {
+        label: 'Exceptions',
+        desc: "Excuse specific days for the whole team, specific days for one employee only, or an employee entirely. Kept separate from the Run Rate exceptions — nothing set here changes a Run Rate figure.",
+        affects: "Affects: the Absenteeism Report only (the excused row stops counting both as an absence and as a scheduled shift)."
+    }
+];
+
 const BLANK_RANGE_DRAFT = { id: null, start: '', color: '#99C24D', blink: false };
 
 const ReportSettings = () => {
-    const [visibleReports, setVisibleReports] = useState(REPORTS.map(r => r.id));
+    const [visibleReports, setVisibleReports] = useState(() => loadVisibleReports(REPORTS.map(r => r.id)));
     const [advancedReportId, setAdvancedReportId] = useState('');
     const [teams, setTeams] = useState([]);
     const [pendingChanges, setPendingChanges] = useState({});
@@ -68,18 +80,10 @@ const ReportSettings = () => {
     const [rangeError, setRangeError] = useState(null);
 
     const [exceptionsTeam, setExceptionsTeam] = useState(null);
+    const [absenteeismExceptionsTeam, setAbsenteeismExceptionsTeam] = useState(null);
     const [billablePctTeam, setBillablePctTeam] = useState(null);
     const [infoOpenTeamId, setInfoOpenTeamId] = useState(null);
 
-    useEffect(() => {
-        const saved = localStorage.getItem('report_preferences');
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            if (parsed.visibleReports) {
-                setVisibleReports(parsed.visibleReports);
-            }
-        }
-    }, []);
 
     const toggleReport = (reportId) => {
         const newVisible = visibleReports.includes(reportId)
@@ -87,7 +91,7 @@ const ReportSettings = () => {
             : [...visibleReports, reportId];
 
         setVisibleReports(newVisible);
-        localStorage.setItem('report_preferences', JSON.stringify({ visibleReports: newVisible }));
+        saveVisibleReports(REPORTS.map(r => r.id), newVisible);
     };
 
     const loadTeams = async () => {
@@ -131,6 +135,8 @@ const ReportSettings = () => {
             loadTeams();
             loadColorRanges();
             setRangeDraft(BLANK_RANGE_DRAFT);
+        } else if (reportId === 'absenteeism') {
+            loadTeams();
         }
     };
 
@@ -517,6 +523,67 @@ const ReportSettings = () => {
                         </div>
                     </div>
                 )}
+
+                {advancedReportId === 'absenteeism' && (
+                    <div className="advance-config-panel">
+                        <p className="section-desc">
+                            Configure which days and which employees each team's Absenteeism Report counts.
+                        </p>
+
+                        {loadingTeams ? (
+                            <p className="advance-config-empty">Loading teams...</p>
+                        ) : (
+                            Object.entries(groupedTeams).map(([groupName, groupTeams]) => (
+                                <div key={groupName} className="advance-config-group">
+                                    <h3 className="advance-config-group-title">{groupName}</h3>
+                                    <div className="advance-config-team-list">
+                                        {groupTeams.map(team => (
+                                            <div key={team.id} className="advance-config-team-row">
+                                                <span className="advance-config-team-name">{team.name}</span>
+                                                <div className="advance-config-team-controls">
+                                                    <div className="advance-config-team-actions">
+                                                        <button
+                                                            type="button"
+                                                            className="advance-config-drilldown-btn"
+                                                            onClick={() => setAbsenteeismExceptionsTeam(team)}
+                                                        >
+                                                            ⚠️ Exceptions
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="run-rate-info-wrapper">
+                                                        <button
+                                                            type="button"
+                                                            className="run-rate-info-trigger"
+                                                            onClick={() => setInfoOpenTeamId(infoOpenTeamId === team.id ? null : team.id)}
+                                                            aria-label="What do these controls affect?"
+                                                        >
+                                                            i
+                                                        </button>
+                                                        {infoOpenTeamId === team.id && (
+                                                            <>
+                                                                <div className="run-rate-info-overlay" onClick={() => setInfoOpenTeamId(null)} />
+                                                                <div className="run-rate-info-popover">
+                                                                    {ABSENTEEISM_CONTROLS_INFO.map(item => (
+                                                                        <div key={item.label} className="run-rate-info-item">
+                                                                            <strong>{item.label}</strong>
+                                                                            <p>{item.desc}</p>
+                                                                            <span className="run-rate-info-affects">{item.affects}</span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                )}
             </section>
 
             {exceptionsTeam && (
@@ -530,6 +597,13 @@ const ReportSettings = () => {
                 <RunRateBillablePercentageModal
                     team={billablePctTeam}
                     onClose={() => setBillablePctTeam(null)}
+                />
+            )}
+
+            {absenteeismExceptionsTeam && (
+                <AbsenteeismExceptionsModal
+                    team={absenteeismExceptionsTeam}
+                    onClose={() => setAbsenteeismExceptionsTeam(null)}
                 />
             )}
         </div>

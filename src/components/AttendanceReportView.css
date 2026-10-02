@@ -1,0 +1,177 @@
+/* Attendance Report — a flat exceptions list, so it reuses the report shell from
+   StatReportView.css (container, header, table) and only adds the toolbar, the
+   view switcher, and the group separator rows the grouped views need. */
+
+.attendance-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.attendance-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.attendance-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.attendance-search {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-size: 0.9rem;
+    min-width: 220px;
+}
+
+.attendance-search:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+/* Segmented control: one visible group so the four views read as alternatives
+   rather than four independent buttons. */
+.attendance-view-tabs {
+    display: inline-flex;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--card-bg);
+}
+
+.attendance-view-tab {
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.attendance-view-tab + .attendance-view-tab {
+    border-left: 1px solid var(--border-color);
+}
+
+.attendance-view-tab:hover {
+    background: rgba(100, 108, 255, 0.08);
+    color: var(--text-color);
+}
+
+.attendance-view-tab.is-active {
+    background: var(--accent-color);
+    color: #fff;
+}
+
+/* Group separators in Date View and Team View. They live inside <tbody> as a full
+   width row so the columns underneath stay aligned with the header. */
+.attendance-group-row td {
+    background: var(--surface-alt);
+    padding: 10px 16px !important;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.attendance-group-title {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text-color);
+    margin-right: 10px;
+}
+
+.attendance-group-meta {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.attendance-name-cell {
+    font-weight: 600;
+}
+
+.attendance-hours-cell {
+    font-weight: 600;
+    color: #e53e3e;
+    white-space: nowrap;
+}
+
+.attendance-count-badge {
+    display: inline-block;
+    min-width: 26px;
+    text-align: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(229, 62, 62, 0.12);
+    color: #e53e3e;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+/* Employee View can carry a long tail of dates for a repeat offender, so the chips
+   wrap inside the cell instead of stretching the table. */
+.attendance-date-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: 520px;
+}
+
+.attendance-date-chip {
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border-color);
+    font-size: 0.8rem;
+    color: var(--text-color);
+    white-space: nowrap;
+}
+
+.dark .attendance-group-row td {
+    background: #1a202c;
+}
+
+.dark .attendance-group-title,
+.dark .attendance-date-chip {
+    color: #e2e8f0;
+}
+
+.dark .attendance-date-chip {
+    background: #2d3748;
+}
+
+.dark .attendance-search {
+    background: #2d3748;
+    color: #e2e8f0;
+}
+
+/* Per-date lost hours inside an Employee View chip: same chip, secondary weight, so
+   the date still reads first. */
+.attendance-date-chip-hours {
+    margin-left: 6px;
+    padding-left: 6px;
+    border-left: 1px solid var(--border-color);
+    color: #e53e3e;
+    font-weight: 700;
+}
+
+.dark .attendance-date-chip-hours {
+    border-left-color: rgba(255, 255, 255, 0.15);
+    color: #fc8181;
+}
+
+/* .date-range-badge itself comes from EmployeeProjectsReport.css (one bundled
+   stylesheet), which never got a dark variant -- its pale blue fill goes muddy on a
+   dark background, so define one here. */
+.dark .date-range-badge {
+    background: rgba(99, 179, 237, 0.15);
+    color: #90cdf4;
+}

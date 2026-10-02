@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import './DailyDetailsModal.css';
 
-const DailyDetailsModal = ({ isOpen, onClose, fromDate, toDate, team }) => {
+// `withProjection` (Run Rate Report, range reaching past today): days from today on come
+// from the projection instead of DeskTime, each marked Projected so it is never mistaken
+// for tracked time.
+const DailyDetailsModal = ({ isOpen, onClose, fromDate, toDate, team, withProjection = false }) => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -18,13 +21,30 @@ const DailyDetailsModal = ({ isOpen, onClose, fromDate, toDate, team }) => {
                 let url = `./api/get_daily_run_rate.php?from=${fromDate}&to=${toDate}`;
                 if (team) url += `&team=${encodeURIComponent(team)}`;
 
-                const response = await fetch(url);
-                const result = await response.json();
+                let projectionUrl = null;
+                if (withProjection) {
+                    projectionUrl = `./api/get_run_rate_projection.php?from=${fromDate}&to=${toDate}&daily=1`;
+                    if (team) projectionUrl += `&team=${encodeURIComponent(team)}`;
+                }
 
-                if (result.success) {
-                    setData(result.data);
-                } else {
+                const [result, projection] = await Promise.all([
+                    fetch(url).then(res => res.json()),
+                    projectionUrl ? fetch(projectionUrl).then(res => res.json()) : Promise.resolve(null)
+                ]);
+
+                if (!result.success) {
                     setError(result.error);
+                } else if (projection && !projection.success) {
+                    setError(projection.error);
+                } else if (projection && projection.projected_from) {
+                    // Today onward is projected; the real rows for those dates (today's
+                    // half-finished total) would double-count them.
+                    const real = result.data.filter(item => item.log_date < projection.projected_from);
+                    const projected = (projection.daily || []).filter(item => !Number(item.is_excluded));
+                    setData([...real, ...projected].sort((a, b) =>
+                        a.log_date.localeCompare(b.log_date) || (a.name || '').localeCompare(b.name || '')));
+                } else {
+                    setData(result.data);
                 }
             } catch (err) {
                 setError('Failed to fetch daily data');
@@ -34,7 +54,7 @@ const DailyDetailsModal = ({ isOpen, onClose, fromDate, toDate, team }) => {
         };
 
         fetchData();
-    }, [isOpen, fromDate, toDate, team]);
+    }, [isOpen, fromDate, toDate, team, withProjection]);
 
     // Filtering
     const filteredData = useMemo(() => {
@@ -59,7 +79,7 @@ const DailyDetailsModal = ({ isOpen, onClose, fromDate, toDate, team }) => {
     const exportToCSV = () => {
         if (!filteredData || filteredData.length === 0) return;
 
-        const headers = ['Date', 'Name', 'Team', 'Actual Hours', 'Scheduled Hours', 'Lunch Deduction', 'Run Rate %', 'Missing'];
+        const headers = ['Date', 'Type', 'Name', 'Team', 'Actual Hours', 'Scheduled Hours', 'Lunch Deduction', 'Run Rate %', 'Missing'];
         const csvContent = [
             headers.join(','),
             ...filteredData.map(item => {
@@ -70,6 +90,7 @@ const DailyDetailsModal = ({ isOpen, onClose, fromDate, toDate, team }) => {
                 
                 const row = [
                     item.log_date,
+                    item.projected ? 'Projected' : 'Actual',
                     item.name,
                     item.team_name,
                     actual.toFixed(2),
@@ -137,6 +158,7 @@ const DailyDetailsModal = ({ isOpen, onClose, fromDate, toDate, team }) => {
                                     <thead>
                                         <tr>
                                             <th>Date</th>
+                                            {withProjection && <th>Type</th>}
                                             <th>Name</th>
                                             <th>Team</th>
                                             <th>Actual</th>
@@ -153,8 +175,20 @@ const DailyDetailsModal = ({ isOpen, onClose, fromDate, toDate, team }) => {
                                             const missing = Math.max(0, adjScheduled - actual).toFixed(2);
 
                                             return (
-                                                <tr key={index}>
+                                                <tr key={index} className={item.projected ? 'daily-row-projected' : undefined}>
                                                     <td>{item.log_date}</td>
+                                                    {withProjection && (
+                                                        <td>
+                                                            <span
+                                                                className={`daily-type-badge ${item.projected ? 'is-projected' : 'is-actual'}`}
+                                                                title={item.projected
+                                                                    ? `Estimated: ${item.shift_start?.slice(0, 5)}–${item.shift_end?.slice(0, 5)} shift at a ${(Number(item.compliance_rate || 0) * 100).toFixed(0)}% historical compliance rate`
+                                                                    : 'Tracked by DeskTime'}
+                                                            >
+                                                                {item.projected ? 'Projected' : 'Actual'}
+                                                            </span>
+                                                        </td>
+                                                    )}
                                                     <td>{item.name}</td>
                                                     <td>{item.team_name}</td>
                                                     <td>{actual.toFixed(2)}h</td>
@@ -181,7 +215,7 @@ const DailyDetailsModal = ({ isOpen, onClose, fromDate, toDate, team }) => {
                                         })}
                                         {currentData.length === 0 && (
                                             <tr>
-                                                <td colSpan="7" className="text-center">No records found</td>
+                                                <td colSpan={withProjection ? 8 : 7} className="text-center">No records found</td>
                                             </tr>
                                         )}
                                     </tbody>

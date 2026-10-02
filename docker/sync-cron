@@ -1,8 +1,17 @@
 SHELL=/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-# Daily sync of DeskTime Core Hours ("Save Hours") + Employee Project Report for
-# yesterday. The environment file is written at container start by entrypoint.sh and
+# Daily sync of DeskTime Core Hours ("Save Hours") + Employee Project Report. The CLI
+# runner walks every day still missing from desktime_project_data up to yesterday, not
+# just yesterday itself, so a run the container slept through is caught up the next
+# morning instead of leaving a permanent hole.
+#
+# The environment file is written at container start by entrypoint.sh and
 # sourced here because cron scrubs the environment; database and API credentials come
 # from the mounted .env, which db_wfm_config.php reads on its own.
-0 6 * * * root . /etc/container-env.sh && php /var/www/html/api/sync_auto_background.php >> /var/log/cron.log 2>&1
+0 6 * * * root . /etc/container-env.sh && php /var/www/html/api/sync_auto_cli.php >> /var/log/cron.log 2>&1
+
+# Tuesday snapshot of the projected Run Rate for the current month (Run Rate Report >
+# Projection accuracy). The container clock is UTC: 13:00 UTC is 9:00 AM in Santo Domingo,
+# after the morning sync has had time to land yesterday's hours.
+0 13 * * 2 root . /etc/container-env.sh && php /var/www/html/api/save_run_rate_projection_snapshot.php >> /var/log/cron.log 2>&1

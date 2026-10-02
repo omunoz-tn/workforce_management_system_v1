@@ -493,6 +493,12 @@
    Run Rate exception modals, which must keep their current sizing. */
 .header-controls {
   flex-wrap: wrap;
+  /* Grows into the room the header is not using. Without it the container is sized by its
+     intrinsic width, which for a wrappable flex box comes out narrower than the row it has
+     to hold — so Export wrapped onto a second line with 380px of empty header beside it,
+     and the calendar paid for that line in height. justify-content keeps everything right-
+     aligned, so growing changes nothing else. */
+  flex: 1 1 auto;
   justify-content: flex-end;
   /* Wider than the 16px the shared rule sets: the search box and the week picker are
      two separate controls and were reading as one attached unit. Scoped here so the
@@ -525,6 +531,15 @@
   border: none;
   border-radius: 0;
   box-shadow: none;
+}
+
+/* width:100% + 50px of horizontal padding + a 1px border, and this app has no global
+   border-box reset — so the input rendered ~62px wider than the wrapper meant to bound
+   it and drew over the control to its right (the week picker before the Month toggle
+   existed, the toggle after). The wrapper's own sizing was already fixed above; this is
+   the other half of it. */
+.header-controls .search-box input {
+  box-sizing: border-box;
 }
 
 .header-controls .navigation-controls {
@@ -727,4 +742,426 @@
   outline: none;
   color: var(--accent-color);
   border-color: var(--accent-color);
+}
+
+/* ── Type filter ────────────────────────────────────────────────────────────
+   Same surface as .holiday-filter-select in Holidays.css rather than a shared class:
+   that file is not imported here, and the two headers size their controls differently
+   (this one sits between a 280px search box and the week picker). */
+.board-type-select {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-color);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+}
+
+.board-type-select:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+/* A day hidden by the filter. It keeps the cell — the week has to stay aligned across
+   rows — but drops the card, so the eye reads down a column and finds only the days that
+   match. Deliberately faint: it is an absence of interest, not a state worth announcing. */
+.schedule-cell-filtered {
+  text-align: center;
+}
+
+.shift-filtered-out {
+  color: var(--text-muted, #94a3b8);
+  opacity: 0.4;
+  font-size: 0.9rem;
+  user-select: none;
+}
+
+/* ── Week / Month view toggle ───────────────────────────────────────────────
+   The shared .nav-btn.today (thin side borders only) is what the prev/today/next
+   bars use; it is too quiet for a two-way tab, where the whole point is to say
+   which of the two you are looking at. Same solid fill the Run Rate exception
+   modal gives its toggle. */
+.board-view-toggle .nav-btn {
+  white-space: nowrap;
+}
+
+.board-view-toggle .nav-btn.is-active,
+.board-view-toggle .nav-btn.is-active:hover {
+  background: var(--accent-color);
+  color: #fff;
+}
+
+/* ── Month navigation ───────────────────────────────────────────────────────
+   MonthPicker renders the markup WeekPicker renders and wears the same
+   week-picker-* classes, so it needs no styling of its own — only the three
+   rules below, which are about where it sits rather than what it is. */
+.sb-month-notice .week-nav-wrapper {
+  flex-shrink: 0;
+}
+
+/* Shorter than a header-row nav button: this bar is pure chrome above the calendar, and
+   every pixel it keeps is a pixel the month grid does not get. */
+.sb-month-notice .nav-btn {
+  padding: 6px 13px;
+  font-size: 0.84rem;
+}
+
+/* Twelve rows fit the menu whole. The 300px cap exists for the week menu's 52. */
+.month-picker-menu .week-picker-list {
+  max-height: none;
+}
+
+/* ── "What the calendar is showing" bar ─────────────────────────────────────
+   Month view is the one screen here whose content depends on how narrow the
+   search is, so it says so out loud rather than leaving an empty-looking
+   calendar to be read as "this employee has no shifts". */
+.sb-month-notice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: -10px 0 12px;
+  padding: 8px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--card-bg);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.sb-month-hint {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+/* Reuses the employee cell's two type styles so a name reads the same here as it
+   does in the Week view's sticky column. */
+.sb-month-emp {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.sb-month-hours {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sb-month-hours strong {
+  color: var(--text-color);
+  font-weight: 800;
+}
+
+.sb-month-status {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Pushed to the right end of the bar: it is the way out of the current
+   selection, not a peer of the facts to its left. */
+.sb-month-clear,
+.sb-month-picker {
+  margin-left: auto;
+}
+
+.sb-month-clear {
+  padding: 7px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-color);
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.sb-month-clear:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+/* Carries .board-type-select in the markup rather than restating its rules, so
+   the picker keeps matching the Type filter it sits under. */
+.sb-month-picker {
+  max-width: 280px;
+  font-size: 0.8rem;
+  padding: 7px 12px;
+}
+
+/* ── Month calendar ─────────────────────────────────────────────────────────
+   The grid fits the area it is given when it can (--week-count is set inline per
+   render, so 4-, 5- and 6-week months each share the height evenly) and scrolls
+   when it cannot — which is what a month of shift cards on a short viewport
+   does. The row floor is what decides between the two, so it is larger when
+   cards are being drawn than when the cells hold holiday chips alone. */
+.sb-month-wrapper {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  /* The whole month is on screen, always: no scrollbar in either direction. The grid
+     below has no row floor, and the cells shrink their card to whatever height the month
+     leaves them — see the container query further down. The padding here is deliberately
+     mean; the difference between fitting and not is a handful of pixels. */
+  overflow: hidden;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.sb-month-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  /* No row floor: every week takes an equal share of the height there actually is, so a
+     four-, five- or six-week month each fills the area exactly and none of them scrolls.
+     --week-count is set inline per render, and it is what makes a six-week month's rows
+     ~20px shorter than a five-week month's on the same screen. The cells answer that with
+     the container query below rather than by clipping. */
+  grid-template-rows: auto repeat(var(--week-count, 6), minmax(0, 1fr));
+  gap: 1px;
+  background: var(--border-color);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* The day number is 14px of the cell's height and earns it by being the only thing that
+   says which day this is; nothing else here gets a line of its own. */
+.sb-month-day-number {
+  line-height: 1;
+}
+
+/* Month changed, or an employee was just picked: the holidays already on screen
+   stay put and dim rather than being replaced by a spinner, so the calendar does
+   not flash empty between two months. */
+.sb-month-grid.is-loading {
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}
+
+.sb-month-weekday {
+  background: var(--surface-alt);
+  padding: 4px 10px;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.sb-month-cell {
+  /* A size container, so the card inside can ask how tall its day actually is — which is
+     what a five-week month and a six-week month differ by. */
+  container-type: size;
+  display: flex;
+  flex-direction: column;
+  /* Trimmed to the bone: every pixel the cell spends on its own chrome is a pixel the
+     card cannot have, and the card is drawn at full Week-view size now. */
+  gap: 2px;
+  min-height: 0;
+  padding: 4px;
+  background: var(--card-bg);
+  overflow: hidden;
+}
+
+/* Padding days from the neighbouring months. Kept as cells so the seven columns
+   stay square, but visibly not part of the month being read. */
+.sb-month-cell.is-outside {
+  background: var(--bg-color);
+}
+
+.sb-month-cell.is-today {
+  box-shadow: inset 0 0 0 2px var(--accent-color);
+}
+
+.sb-month-day-number {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text-color);
+}
+
+.sb-month-cell.is-today .sb-month-day-number {
+  color: var(--accent-color);
+}
+
+/* Holiday chips. The background is the COUNTRY's color and the small square on
+   the right is the HOLIDAY TYPE's — the same two-signal split the Holidays
+   screen uses, drawn from the same configured colors.
+
+   flex-shrink: 0 sits here rather than on the shift below it, which is where it
+   was: the card is several times taller, so letting it hold its full height in a
+   short cell squeezed the chip out of existence and the day read as an ordinary
+   working day. A chip costs ~16px; whatever has to give, it is not that. */
+.sb-month-chips {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 2px;
+  min-height: 0;
+}
+
+.sb-month-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: var(--chip-bg);
+  color: var(--chip-text);
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.sb-month-chip-flag {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.sb-month-chip-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sb-month-chip-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--dot-color);
+}
+
+/* ── The shift card ─────────────────────────────────────────────────────────
+   The Week view's card, at the Week view's size: same component, same markup,
+   same 108px width, same type scale, same badge hanging off the top edge, and
+   the holiday reading as a tag INSIDE the card rather than as a chip above it.
+   A day in the Month grid and the same day in the Week grid are the same object,
+   so they are drawn by the same rules and nothing here rescales them.
+
+   What that costs is height — a cell has to be tall enough for a whole card —
+   and the row floor on the grid above is where that is paid. */
+.sb-month-shift {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+/* The one thing that does not carry over from the Week view: the card there is capped at
+   108px because that is what a board column allows it. A month cell is wider, and the cap
+   made the holiday tag inside wrap "Non-Working Holiday" onto three lines, which is 40px
+   of height for no information. Letting the card follow its cell is what the Week view
+   card does in its own column — the type scale, padding, badges and structure are
+   untouched. */
+.sb-month-shift .shift-card {
+  max-width: 100%;
+}
+
+/* ── …and the same card in a six-week month ─────────────────────────────────
+   A six-week month has to fit the same screen a five-week one does, so its rows
+   come out roughly 20px shorter — and a card at full size no longer clears the
+   cell. Rather than let the last week fall below the fold or cut cards in half,
+   the cell measures itself and hands the card a tighter version of the same
+   layout: same three rows, same badge, same holiday tag, all still there, just
+   drawn a size down.
+
+   The query is on the cell's own height rather than on a "six weeks" class, so
+   it answers the real question — is there room? — and covers a five-week month
+   on a short window with the same rule. 108px is a content-box height: what is
+   left of a cell after its 4px padding, at the point where a full-size card
+   with a Forecast badge and a holiday tag stops fitting. */
+@container (max-height: 108px) {
+  .sb-month-shift .shift-card {
+    padding: 3px 6px;
+    gap: 1px;
+  }
+
+  .sb-month-shift .shift-card.shift-predicted {
+    padding-top: 12px;
+  }
+
+  .sb-month-shift .predicted-badge {
+    top: -7px;
+    font-size: 0.55rem;
+    padding: 0 5px;
+  }
+
+  .sb-month-shift .shift-label {
+    font-size: 0.6rem;
+    line-height: 1.15;
+  }
+
+  .sb-month-shift .shift-time {
+    font-size: 0.64rem;
+    line-height: 1.15;
+  }
+
+  .sb-month-shift .shift-holiday-tag {
+    margin-top: 2px;
+    padding: 0 5px;
+    font-size: 0.5rem;
+  }
+}
+
+/* One step further down, for the combination that runs out of room even then: six weeks
+   on a short laptop window. Both queries match here and this one wins by coming second,
+   so it only has to restate what it changes. Still the same card — nothing is dropped,
+   the month simply gets small before it gets cut. */
+@container (max-height: 84px) {
+  .sb-month-shift .shift-card {
+    padding: 2px 5px;
+    gap: 0;
+  }
+
+  .sb-month-shift .shift-card.shift-predicted {
+    padding-top: 10px;
+  }
+
+  .sb-month-shift .predicted-badge {
+    top: -6px;
+    font-size: 0.5rem;
+  }
+
+  .sb-month-shift .shift-label {
+    font-size: 0.55rem;
+    line-height: 1.05;
+  }
+
+  .sb-month-shift .shift-time {
+    font-size: 0.58rem;
+    line-height: 1.05;
+  }
+
+  .sb-month-shift .shift-holiday-tag {
+    margin-top: 1px;
+    font-size: 0.46rem;
+  }
+}
+
+.sb-month-error {
+
+  padding: 40px 0 !important;
+  margin: auto;
 }

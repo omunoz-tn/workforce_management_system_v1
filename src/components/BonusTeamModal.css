@@ -1,0 +1,122 @@
+/* Team detail (BonusTeamModal.jsx) — the shell comes from BonusModal.css; this is the
+   summary strip and the read-only table inside it. */
+
+.bonus-team-modal {
+    max-width: 860px;
+    display: flex;
+    flex-direction: column;
+    /* The table scrolls inside the panel rather than the panel growing past the viewport,
+       so the Edit button stays reachable on a 40-person team. */
+    max-height: 86vh;
+}
+
+.bonus-team-period {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.bonus-team-totals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 1rem 0 1.25rem;
+}
+
+.bonus-team-total {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 14px;
+    min-width: 140px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--surface-alt);
+}
+
+.bonus-team-total-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
+
+.bonus-team-total-value {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--text-color);
+    font-variant-numeric: tabular-nums;
+}
+
+/* The cap the earned figure is working towards, kept subordinate to it. */
+.bonus-team-total-sub {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.bonus-team-table-wrapper {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+}
+
+.bonus-team-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+}
+
+.bonus-team-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--surface-alt);
+    border-bottom: 1px solid var(--border-color);
+    padding: 9px 12px;
+    text-align: left;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.bonus-team-table tbody td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-color);
+}
+
+.bonus-team-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.bonus-team-table .is-numeric {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.bonus-team-table .is-strong {
+    font-weight: 800;
+}
+
+.bonus-team-comment {
+    color: var(--text-muted);
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bonus-team-empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-muted);
+}

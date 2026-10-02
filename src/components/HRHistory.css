@@ -1,0 +1,166 @@
+/* HR > History. The screen shell (.schedule-board-container, .board-header) comes from
+   ScheduleBoard.css, the search box and .bonus-select from the screens that already define
+   them; only the log table itself lives here. */
+
+.hr-history-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+
+.hr-history-search {
+    min-width: 240px;
+}
+
+.hr-history-count {
+    margin-left: auto;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.hr-history-table-wrapper {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--card-bg);
+}
+
+.hr-history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+}
+
+.hr-history-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--surface-alt);
+    border-bottom: 1px solid var(--border-color);
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.hr-history-table tbody td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-color);
+    vertical-align: middle;
+}
+
+.hr-history-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.hr-history-table tbody tr:hover td {
+    background: var(--surface-alt);
+}
+
+/* The four identity columns hold their size so the Detail column, the only one with no
+   natural length, takes whatever is left. */
+.hr-history-col-when { width: 160px; }
+.hr-history-col-user { width: 150px; }
+.hr-history-col-emp { width: 170px; }
+.hr-history-col-period { width: 90px; }
+.hr-history-col-action { width: 100px; }
+
+.hr-history-when,
+.hr-history-period {
+    white-space: nowrap;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.hr-history-user {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.hr-history-muted {
+    color: var(--text-muted);
+    opacity: 0.6;
+}
+
+.hr-history-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 20px;
+    font-size: 0.64rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+}
+
+/* Added, edited, removed and settings each get their own colour — scanning a long log is
+   mostly looking for one kind of change. */
+.hr-history-badge.is-create { background: rgba(22, 163, 74, 0.12); color: #16a34a; }
+.hr-history-badge.is-update { background: rgba(37, 99, 235, 0.12); color: #2563eb; }
+.hr-history-badge.is-delete { background: rgba(220, 38, 38, 0.12); color: #dc2626; }
+.hr-history-badge.is-setting { background: rgba(217, 119, 6, 0.14); color: #b45309; }
+
+.hr-history-detail {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px;
+    line-height: 1.5;
+}
+
+.hr-history-field {
+    font-weight: 700;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-muted);
+}
+
+/* The old value is struck through and the new one is not: the pair reads as a replacement
+   at a glance, without having to parse which side of the arrow is which. */
+.hr-history-from {
+    color: var(--text-muted);
+    text-decoration: line-through;
+}
+
+.hr-history-arrow {
+    color: var(--text-muted);
+}
+
+.hr-history-to {
+    font-weight: 700;
+}
+
+.hr-history-summary {
+    color: var(--text-muted);
+}
+
+.hr-history-empty {
+    padding: 28px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+.hr-history-more {
+    display: flex;
+    justify-content: center;
+    padding: 14px 0 4px;
+}
+
+/* ── Dark mode ───────────────────────────────────────────────────────────── */
+
+.dark .hr-history-badge.is-create { background: rgba(74, 222, 128, 0.16); color: #4ade80; }
+.dark .hr-history-badge.is-update { background: rgba(96, 165, 250, 0.16); color: #93c5fd; }
+.dark .hr-history-badge.is-delete { background: rgba(248, 113, 113, 0.16); color: #f87171; }
+.dark .hr-history-badge.is-setting { background: rgba(251, 191, 36, 0.16); color: #fcd34d; }

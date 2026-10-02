@@ -67,6 +67,23 @@ export const shiftHours = (schedule, lunchHours) => {
     return Math.max(workedSec / 3600 - lunchHours, 0);
 };
 
+/**
+ * Lunch hours to take off one day, resolved the way every report resolves it: the
+ * employee's own lunch for that weekday when Employee Lunch Time gave them one, the team's
+ * lunch otherwise. The SQL side of the same rule is elLunchMinutes() in
+ * EmployeeLunchTimes.php — the two have to agree, or a card and the Run Rate would show
+ * different hours for the same day.
+ *
+ * @param overrides   ISO weekday (1 = Monday ... 7 = Sunday) => minutes; only the weekdays
+ *                    that differ from the team are present
+ * @param teamMinutes the team's lunch, in minutes
+ * @param iso         ISO weekday of the day being drawn
+ */
+export const lunchHoursFor = (overrides, teamMinutes, iso) => {
+    const minutes = overrides?.[iso] ?? overrides?.[String(iso)] ?? teamMinutes;
+    return (Number(minutes) || 0) / 60;
+};
+
 /** '09:00' <-> '09:00:00' — <input type="time"> speaks the short form. */
 export const toInputTime = (t) => (t && t !== '00:00:00' ? t.slice(0, 5) : '');
 export const fromInputTime = (t) => (t ? `${t}:00` : '00:00:00');

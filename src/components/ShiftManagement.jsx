@@ -1,23 +1,57 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import './ScheduleBoard.css';
 import './ShiftManagement.css';
-import ShiftCard, { shiftHours, formatTime, toInputTime, fromInputTime } from './ShiftCard';
-import WeekPicker from './WeekPicker';
-import { todayStr, addDays, formatDate, mondayOf } from '../utils/dates';
-
-const WEEKDAYS = [
-    { iso: 1, label: 'Monday', short: 'Mon' },
-    { iso: 2, label: 'Tuesday', short: 'Tue' },
-    { iso: 3, label: 'Wednesday', short: 'Wed' },
-    { iso: 4, label: 'Thursday', short: 'Thu' },
-    { iso: 5, label: 'Friday', short: 'Fri' },
-    { iso: 6, label: 'Saturday', short: 'Sat' },
-    { iso: 7, label: 'Sunday', short: 'Sun' }
-];
+import ShiftCard, { shiftHours, formatTime, toInputTime, fromInputTime, lunchHoursFor } from './ShiftCard';
+import WeekPicker, { isoWeekOf, weekRangeLabel } from './WeekPicker';
+import { todayStr, addDays, formatDate, mondayOf, ISO_WEEKDAYS as WEEKDAYS } from '../utils/dates';
+import { normalizeForSearch } from '../utils/search';
 
 const OFF = 'OFF';
 const formatDateLabel = (dateStr) =>
     dateStr ? new Date(dateStr + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+
+/** 'YYYY-MM-DD HH:MM:SS' (the MySQL created_at) as a local date + time, for the history log. */
+const formatSavedLabel = (timestamp) => {
+    if (!timestamp) return '—';
+    const parsed = new Date(String(timestamp).replace(' ', 'T'));
+    if (Number.isNaN(parsed.getTime())) return '—';
+    return parsed.toLocaleString(undefined, {
+        month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'
+    });
+};
+
+/**
+ * A stored source week as the picker writes it — "Week 35 · Aug 24 – 30". Rows saved before
+ * the week was recorded carry null and say so rather than showing a guessed week.
+ */
+const formatSourceWeekLabel = (mondayStr) => {
+    if (!mondayStr) return null;
+    const monday = new Date(mondayStr + 'T12:00:00');
+    if (Number.isNaN(monday.getTime())) return null;
+    // WeekPicker's own helpers, not a second implementation of them — that file warns that
+    // a private copy is how two slightly different week pickers come about, and its ISO
+    // week math is UTC-anchored where a hand-rolled one drifts at the year boundary.
+    return `Week ${isoWeekOf(monday).week} · ${weekRangeLabel(monday)}`;
+};
+
+/** A stored signature as a readable shift, for the read-only history views. */
+const signatureLabel = (signature) => {
+    if (!signature || signature === OFF) return 'Off';
+    const { start, end } = signatureToShift(signature);
+    return `${formatTime(start)} – ${formatTime(end)}`;
+};
+
+/**
+ * ISO weekdays whose shift differs between two versions — what the later save actually
+ * changed. Returns null when there is no earlier version to compare against, which is not
+ * the same as "nothing changed" and is rendered differently.
+ */
+const changedWeekdays = (version, previous) => {
+    if (!previous) return null;
+    return WEEKDAYS
+        .filter(d => (version.pattern[d.iso] || OFF) !== (previous.pattern[d.iso] || OFF))
+        .map(d => d.iso);
+};
 
 /** '09:00:00|18:00:00' <-> the {start,end} shape ShiftCard renders. */
 const signatureToShift = (signature) =>
@@ -98,6 +132,8 @@ const ShiftManagement = ({ initialEmployee = null }) => {
     const [preview, setPreview] = useState(null);
     const [previewing, setPreviewing] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
+    // Which Schedule History row is open in the read-only viewer, by version id.
+    const [openVersionId, setOpenVersionId] = useState(null);
     const [applying, setApplying] = useState(false);
     const [toast, setToast] = useState(null);
 
@@ -127,13 +163,13 @@ const ShiftManagement = ({ initialEmployee = null }) => {
     }, []);
 
     const matches = useMemo(() => {
-        const term = searchTerm.trim().toLowerCase();
+        const term = normalizeForSearch(searchTerm.trim());
         if (!term) return [];
         return roster
             .filter(emp =>
-                (emp.name || '').toLowerCase().includes(term) ||
+                normalizeForSearch(emp.name).includes(term) ||
                 String(emp.id).includes(term) ||
-                (emp.team || '').toLowerCase().includes(term)
+                normalizeForSearch(emp.team).includes(term)
             )
             .slice(0, 12);
     }, [roster, searchTerm]);
@@ -226,7 +262,11 @@ const ShiftManagement = ({ initialEmployee = null }) => {
         setSourceWeek(monday);
     };
 
-    const lunchHours = (detail?.employee?.lunch_time || 0) / 60;
+    // Per weekday, not per employee: Employee Lunch Time (Employees > Teams > Assign
+    // Members > Lunch Time) can give this person a different lunch on each day, and the
+    // week's hours have to reflect the one that actually applies to each column.
+    const lunchHoursOn = (iso) =>
+        lunchHoursFor(detail?.employee?.lunch_times, detail?.employee?.lunch_time, iso);
 
     const setDay = (iso, signature) => {
         setPattern(prev => ({ ...prev, [iso]: signature }));
@@ -235,9 +275,34 @@ const ShiftManagement = ({ initialEmployee = null }) => {
     };
 
     const weeklyHours = useMemo(
-        () => WEEKDAYS.reduce((sum, d) => sum + shiftHours(signatureToShift(pattern[d.iso]), lunchHours), 0),
-        [pattern, lunchHours]
+        () => WEEKDAYS.reduce((sum, d) => sum + shiftHours(signatureToShift(pattern[d.iso]), lunchHoursOn(d.iso)), 0),
+    // lunchHoursOn is a fresh closure each render; the lunch it reads only changes when
+    // the loaded employee does, which is what the detail reference stands in for here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+        [pattern, detail]
     );
+
+    /* The history reads newest-saved first. Sorted here rather than in the query because the
+       API orders versions by effective_start so the first one covering a date wins — that
+       order is what resolves the board, and reordering it there would change which version
+       applies. */
+    const versionLog = useMemo(() => {
+        if (!detail?.versions) return [];
+        return [...detail.versions].sort(
+            (a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')) || (b.id - a.id)
+        );
+    }, [detail]);
+
+    /* The row open in the viewer, paired with the version saved immediately before it —
+       the log is in save order, so that is simply the next row down, and it is what the
+       open version's changes are measured against. */
+    const openVersion = useMemo(() => {
+        const i = versionLog.findIndex(v => v.id === openVersionId);
+        if (i === -1) return null;
+        const version = versionLog[i];
+        const previous = versionLog[i + 1] || null;
+        return { version, previous, changed: changedWeekdays(version, previous) };
+    }, [openVersionId, versionLog]);
 
     const confirmDuplicate = () => {
         const source = pattern[duplicateFrom];
@@ -279,7 +344,10 @@ const ShiftManagement = ({ initialEmployee = null }) => {
         employee_name: employee.name,
         effective_start: effectiveStart,
         effective_end: effectiveEnd,
-        pattern
+        pattern,
+        // Recorded with the version so Schedule History can say which week the seven cards
+        // were taken from. Ignored by the preview branch, which stores nothing.
+        source_week_start: sourceWeekStart
     });
 
     const runPreview = async () => {
@@ -332,6 +400,31 @@ const ShiftManagement = ({ initialEmployee = null }) => {
         return () => clearTimeout(timer);
     }, [toast]);
 
+    /**
+     * Loads a stored version back into the Weekly Schedule cards, together with the effective
+     * period it was saved with. Nothing is written: this only fills the editor, so the change
+     * still has to go through Preview / Apply Schedule like any other edit.
+     */
+    const loadVersionIntoEditor = () => {
+        if (!openVersion) return;
+        const { version } = openVersion;
+        const loaded = {};
+        WEEKDAYS.forEach(d => { loaded[d.iso] = version.pattern[d.iso] || OFF; });
+
+        setPattern(loaded);
+        setEffectiveStart(version.effective_start);
+        setEffectiveEnd(version.effective_end);
+        // Marked dirty so switching source week warns before replacing what was just loaded.
+        setPatternDirty(true);
+        setEditingDay(null);
+        setPreview(null);
+        setOpenVersionId(null);
+        setToast(
+            `Loaded the schedule saved ${formatSavedLabel(version.created_at)} into the editor — ` +
+            'nothing is applied until you press Apply Schedule.'
+        );
+    };
+
     const resetAll = () => {
         setEmployee(null);
         setDetail(null);
@@ -353,44 +446,38 @@ const ShiftManagement = ({ initialEmployee = null }) => {
             </header>
 
             <div className="board-main-area shift-mgmt-main">
-                {/* ── Employee search ── */}
-                <div className="shift-mgmt-search" ref={searchRef}>
-                    <div className="search-box">
-                        <span className="search-icon">🔍</span>
-                        <input
-                            type="text"
-                            placeholder="Search by name, employee ID, or team..."
-                            value={searchTerm}
-                            onChange={(e) => { setSearchTerm(e.target.value); setDropdownOpen(true); }}
-                            onFocus={() => setDropdownOpen(true)}
-                            disabled={rosterLoading}
-                        />
-                    </div>
-                    {dropdownOpen && searchTerm.trim() && (
-                        <div className="shift-mgmt-dropdown">
-                            {matches.length === 0 ? (
-                                <div className="shift-mgmt-dropdown-empty">No employees match "{searchTerm}"</div>
-                            ) : matches.map(emp => (
-                                <button key={emp.id} type="button" className="shift-mgmt-dropdown-item" onClick={() => selectEmployee(emp)}>
-                                    <span className="shift-mgmt-dd-name">{emp.name}</span>
-                                    <span className="shift-mgmt-dd-meta">#{emp.id} · {emp.team || 'Unassigned'}</span>
-                                </button>
-                            ))}
+                {/* ── Employee search, with the selected employee alongside it ──
+                    Both sit on one row so the summary costs no vertical space of its own;
+                    the search box doubles as the "change employee" control, which is why
+                    there is no separate button for it. */}
+                <div className="shift-mgmt-topbar">
+                    <div className="shift-mgmt-search" ref={searchRef}>
+                        <div className="search-box">
+                            <span className="search-icon">🔍</span>
+                            <input
+                                type="text"
+                                placeholder="Search by name, employee ID, or team..."
+                                value={searchTerm}
+                                onChange={(e) => { setSearchTerm(e.target.value); setDropdownOpen(true); }}
+                                onFocus={() => setDropdownOpen(true)}
+                                disabled={rosterLoading}
+                            />
                         </div>
-                    )}
-                </div>
-
-                {error && <div className="shift-mgmt-error">⚠️ {error}</div>}
-
-                {!employee ? (
-                    <div className="shift-mgmt-placeholder">
-                        {rosterLoading ? 'Loading employees...' : 'Search for an employee to view and edit their weekly schedule.'}
+                        {dropdownOpen && searchTerm.trim() && (
+                            <div className="shift-mgmt-dropdown">
+                                {matches.length === 0 ? (
+                                    <div className="shift-mgmt-dropdown-empty">No employees match "{searchTerm}"</div>
+                                ) : matches.map(emp => (
+                                    <button key={emp.id} type="button" className="shift-mgmt-dropdown-item" onClick={() => selectEmployee(emp)}>
+                                        <span className="shift-mgmt-dd-name">{emp.name}</span>
+                                        <span className="shift-mgmt-dd-meta">#{emp.id} · {emp.team || 'Unassigned'}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
-                ) : detailLoading ? (
-                    <div className="shift-mgmt-placeholder">Loading schedule...</div>
-                ) : detail && (
-                    <>
-                        {/* ── Selected employee summary ── */}
+
+                    {employee && !detailLoading && detail && (
                         <div className="shift-mgmt-summary">
                             <div className="shift-mgmt-summary-main">
                                 <span className="shift-mgmt-emp-name">{detail.employee.name}</span>
@@ -406,9 +493,20 @@ const ShiftManagement = ({ initialEmployee = null }) => {
                                             : 'No template and no shift history yet'}
                                 </span>
                             </div>
-                            <button type="button" className="shift-mgmt-clear" onClick={resetAll}>Change employee</button>
                         </div>
+                    )}
+                </div>
 
+                {error && <div className="shift-mgmt-error">⚠️ {error}</div>}
+
+                {!employee ? (
+                    <div className="shift-mgmt-placeholder">
+                        {rosterLoading ? 'Loading employees...' : 'Search for an employee to view and edit their weekly schedule.'}
+                    </div>
+                ) : detailLoading ? (
+                    <div className="shift-mgmt-placeholder">Loading schedule...</div>
+                ) : detail && (
+                    <>
                         {/* ── Weekly editor ──
                             The weekly total sits here rather than in the page header so it
                             stays in view next to the cards while days are being adjusted.
@@ -435,13 +533,13 @@ const ShiftManagement = ({ initialEmployee = null }) => {
                                     <div key={day.iso} className={`shift-mgmt-day ${isEditing ? 'is-editing' : ''}`}>
                                         <div className="shift-mgmt-day-header">
                                             <span className="day-name">{day.short}</span>
-                                            <span className="shift-mgmt-day-hours">{shiftHours(shift, lunchHours).toFixed(2)}h</span>
+                                            <span className="shift-mgmt-day-hours">{shiftHours(shift, lunchHoursOn(day.iso)).toFixed(2)}h</span>
                                         </div>
 
                                         <div className="shift-mgmt-card-slot">
                                             <ShiftCard
                                                 schedule={isOff ? null : shift}
-                                                lunchHours={lunchHours}
+                                                lunchHours={lunchHoursOn(day.iso)}
                                                 editing={isEditing && !isOff}
                                                 onChange={(next) => setDay(day.iso, shiftToSignature(next))}
                                             />
@@ -509,7 +607,14 @@ const ShiftManagement = ({ initialEmployee = null }) => {
 
                         {/* ── Effective period ── */}
                         <div className="shift-mgmt-period">
-                            <h2>Schedule Effective Period</h2>
+                            <div className="shift-mgmt-period-head">
+                                <h2>Schedule Effective Period</h2>
+                                <p className="shift-mgmt-note">
+                                    Effective Start can be in the past. On days already recorded, this schedule replaces the
+                                    shift DeskTime reported — which also changes the Scheduled Hours those days contribute to
+                                    the Run Rate. The hours actually tracked are never modified.
+                                </p>
+                            </div>
                             <div className="shift-mgmt-period-fields">
                                 <label>
                                     {/* The caption is one element on purpose: the label is a
@@ -535,11 +640,6 @@ const ShiftManagement = ({ initialEmployee = null }) => {
                                     />
                                 </label>
                             </div>
-                            <p className="shift-mgmt-note">
-                                Effective Start can be in the past. On days already recorded, this schedule replaces the
-                                shift DeskTime reported — which also changes the Scheduled Hours those days contribute to
-                                the Run Rate. The hours actually tracked are never modified.
-                            </p>
                         </div>
 
                         {/* ── Preview ── */}
@@ -587,39 +687,69 @@ const ShiftManagement = ({ initialEmployee = null }) => {
                         )}
 
                         {/* ── Version history ── */}
-                        {detail.versions.length > 0 && (
+                        {versionLog.length > 0 && (
                             <div className="shift-mgmt-versions">
                                 <h2>Schedule History</h2>
-                                {detail.versions.map(v => (
-                                    <div key={v.id} className="shift-mgmt-version">
-                                        <span>{formatDateLabel(v.effective_start)} → {formatDateLabel(v.effective_end)}</span>
-                                        <span className="shift-mgmt-version-days">
-                                            {WEEKDAYS.filter(d => (v.pattern[d.iso] || OFF) !== OFF).map(d => d.short).join(' ') || 'All off'}
-                                        </span>
+                                <div className="shift-mgmt-version-list">
+                                    <div className="shift-mgmt-version shift-mgmt-version-head">
+                                        <span>Creation Date</span>
+                                        <span>Effective Period</span>
+                                        <span>Source Week</span>
+                                        <span>Days</span>
                                     </div>
-                                ))}
+                                    {versionLog.map(v => (
+                                        <button
+                                            key={v.id}
+                                            type="button"
+                                            className="shift-mgmt-version shift-mgmt-version-row"
+                                            onClick={() => setOpenVersionId(v.id)}
+                                            title="View the week saved in this version"
+                                        >
+                                            <span className="shift-mgmt-version-created">{formatSavedLabel(v.created_at)}</span>
+                                            <span className="shift-mgmt-version-period">
+                                                {formatDateLabel(v.effective_start)} → {formatDateLabel(v.effective_end)}
+                                                {detail.current_version?.id === v.id && (
+                                                    <span className="shift-mgmt-version-current">Current template</span>
+                                                )}
+                                            </span>
+                                            <span className="shift-mgmt-version-source">
+                                                {formatSourceWeekLabel(v.source_week_start)
+                                                    || <span className="shift-mgmt-version-source-none">Not recorded</span>}
+                                            </span>
+                                            <span className="shift-mgmt-version-days">
+                                                {WEEKDAYS.filter(d => (v.pattern[d.iso] || OFF) !== OFF).map(d => d.short).join(' ') || 'All off'}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         )}
 
-                        {/* ── Actions ── */}
-                        <div className="shift-mgmt-actions">
-                            {validationError && <span className="shift-mgmt-validation">{validationError}</span>}
-                            <button type="button" onClick={resetAll}>Cancel</button>
-                            <button type="button" onClick={runPreview} disabled={!!validationError || previewing}>
-                                {previewing ? 'Checking...' : 'Preview Changes'}
-                            </button>
-                            <button
-                                type="button"
-                                className="btn-primary"
-                                onClick={() => setConfirmOpen(true)}
-                                disabled={!!validationError || applying}
-                            >
-                                Apply Schedule
-                            </button>
-                        </div>
                     </>
                 )}
             </div>
+
+            {/* ── Actions ──
+                Outside .shift-mgmt-main on purpose: as a direct child of the 100vh
+                container the bar is anchored to the bottom of the screen and can never be
+                pushed off by the content above it, however long the history grows. */}
+            {employee && !detailLoading && detail && (
+                <div className="shift-mgmt-actions">
+                    {validationError && <span className="shift-mgmt-validation">{validationError}</span>}
+                    <button type="button" onClick={resetAll}>Cancel</button>
+                    <button type="button" onClick={runPreview} disabled={!!validationError || previewing}>
+                        {previewing ? 'Checking...' : 'Preview Changes'}
+                    </button>
+                    <button
+                        type="button"
+                        className="btn-primary"
+                        onClick={() => setConfirmOpen(true)}
+                        disabled={!!validationError || applying}
+                    >
+                        Apply Schedule
+                    </button>
+                </div>
+            )}
 
             {/* ── Duplicate day picker ── */}
             {duplicateFrom && (
@@ -699,6 +829,76 @@ const ShiftManagement = ({ initialEmployee = null }) => {
                             <button type="button" onClick={() => setConfirmOpen(false)}>Cancel</button>
                             <button type="button" className="btn-primary" onClick={applySchedule} disabled={applying}>
                                 {applying ? 'Applying...' : 'Replace and apply'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Saved version viewer ──
+                Read-only: this is what was stored, not something to edit. Days the save
+                actually changed are called out against the version it superseded, since
+                that is the question a history row raises. */}
+            {openVersion && (
+                <div className="modal-overlay" onClick={() => setOpenVersionId(null)}>
+                    <div className="modal-content shift-mgmt-version-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Schedule saved {formatSavedLabel(openVersion.version.created_at)}</h2>
+                            <button className="icon-btn" onClick={() => setOpenVersionId(null)}>✕</button>
+                        </div>
+                        <div className="modal-body">
+                            <p className="shift-mgmt-version-modal-range">
+                                Effective {formatDateLabel(openVersion.version.effective_start)} →{' '}
+                                {formatDateLabel(openVersion.version.effective_end)}
+                                {detail?.current_version?.id === openVersion.version.id && (
+                                    <span className="shift-mgmt-version-current">Current template</span>
+                                )}
+                            </p>
+
+                            <p className="shift-mgmt-note">
+                                {openVersion.changed === null
+                                    ? 'First schedule on record for this employee — there is no earlier version to compare it with.'
+                                    : openVersion.changed.length === 0
+                                        ? 'Saved with the same seven days as the version before it; only the effective period changed.'
+                                        : `Changed ${openVersion.changed.length === 1 ? 'this day' : 'these days'} versus the previous version: ` +
+                                          WEEKDAYS.filter(d => openVersion.changed.includes(d.iso)).map(d => d.label).join(', ') + '.'}
+                            </p>
+
+                            <div className="shift-mgmt-version-week">
+                                {WEEKDAYS.map(d => {
+                                    const signature = openVersion.version.pattern[d.iso] || OFF;
+                                    const isChanged = !!openVersion.changed?.includes(d.iso);
+                                    const before = openVersion.previous?.pattern[d.iso] || OFF;
+                                    return (
+                                        <div
+                                            key={d.iso}
+                                            className={`shift-mgmt-version-day ${isChanged ? 'is-changed' : ''} ${signature === OFF ? 'is-off' : ''}`}
+                                        >
+                                            <span className="shift-mgmt-version-day-name">{d.label}</span>
+                                            <span className="shift-mgmt-version-day-shift">
+                                                {signatureLabel(signature)}
+                                                {isChanged && (
+                                                    <span className="shift-mgmt-version-day-before">
+                                                        was {signatureLabel(before)}
+                                                    </span>
+                                                )}
+                                            </span>
+                                            {isChanged && <span className="shift-mgmt-version-day-tag">Changed</span>}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <p className="shift-mgmt-note">
+                                Upload Schedule puts these seven days back into the Weekly Schedule cards,
+                                along with this version's effective period. It changes nothing on its own —
+                                the schedule is only written when you press Apply Schedule.
+                            </p>
+                        </div>
+                        <div className="modal-footer">
+                            <button type="button" onClick={() => setOpenVersionId(null)}>Close</button>
+                            <button type="button" className="btn-primary" onClick={loadVersionIntoEditor}>
+                                Upload Schedule
                             </button>
                         </div>
                     </div>

@@ -1,0 +1,855 @@
+/**
+ * HR > Milestones > Design PDF.
+ *
+ * Two jobs in one file. On screen it is a settings panel beside a scaled preview; on paper
+ * it is the page and nothing else. The print block at the bottom is what turns one into the
+ * other: it hides the application, unscales the preview and lets the page sit at its true
+ * size at the top-left of the sheet. Because the printed page is the same element the user
+ * was just looking at, "the PDF matches the preview" needs no second implementation.
+ *
+ * The page is measured in inches on purpose. A preview in pixels would have to be converted
+ * for printing, and every conversion is a chance for the print to drift from the screen.
+ */
+
+.pdfd-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-color, #f1f5f9);
+}
+
+/* Top bar */
+.pdfd-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--card-bg);
+}
+
+.pdfd-topbar-title {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+}
+
+.pdfd-topbar-title strong {
+    font-size: 1.05rem;
+    color: var(--text-color);
+}
+
+.pdfd-topbar-title span {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.pdfd-topbar-content {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 8px 16px;
+}
+
+.pdfd-topbar-month {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.pdfd-topbar-month .pdfd-input {
+    flex: 0 0 auto;
+    width: 130px;
+}
+
+.pdfd-topbar-content .pdfd-segmented button {
+    padding: 7px 14px;
+    white-space: nowrap;
+}
+
+/* The checkbox is laid out for the panel, where it closes a group with a bottom margin. */
+.pdfd-topbar-content .pdfd-check {
+    margin-bottom: 0;
+    white-space: nowrap;
+}
+
+.pdfd-topbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.pdfd-btn {
+    padding: 8px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.pdfd-btn:hover {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+.pdfd-btn.is-primary {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: #fff;
+}
+
+.pdfd-btn.is-primary:hover {
+    filter: brightness(0.94);
+    color: #fff;
+}
+
+.pdfd-btn.is-ghost {
+    background: none;
+}
+
+.pdfd-btn.is-block {
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+/* Body: the preview stage, which is the whole editor now -- every setting opens from
+   the part of the page it belongs to, or sits in the top bar. */
+.pdfd-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+}
+
+.pdfd-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.pdfd-row > span {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-color);
+    white-space: nowrap;
+}
+
+.pdfd-input {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-size: 0.82rem;
+    font-family: inherit;
+}
+
+.pdfd-input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+.pdfd-file {
+    width: 100%;
+    margin-bottom: 10px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.pdfd-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: var(--text-color);
+    cursor: pointer;
+    margin-bottom: 10px;
+}
+
+.pdfd-segmented,
+.pdfd-grid3 {
+    display: flex;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.pdfd-grid3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    width: 108px;
+}
+
+.pdfd-segmented button,
+.pdfd-grid3 button {
+    flex: 1;
+    padding: 6px 9px;
+    border: none;
+    border-right: 1px solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.pdfd-grid3 button {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.pdfd-segmented button:last-child,
+.pdfd-grid3 button:nth-child(3n) {
+    border-right: none;
+}
+
+.pdfd-grid3 button:nth-child(n + 7) {
+    border-bottom: none;
+}
+
+.pdfd-segmented button.is-on,
+.pdfd-grid3 button.is-on {
+    background: var(--accent-color);
+    color: #fff;
+}
+
+.pdfd-slider {
+    display: block;
+    margin-bottom: 12px;
+}
+
+.pdfd-slider > span {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.pdfd-slider em {
+    font-style: normal;
+    color: var(--text-muted);
+}
+
+.pdfd-slider input {
+    width: 100%;
+    accent-color: var(--accent-color);
+}
+
+/* Pressed-in rather than ticked: the weight it sets is visible on the page, so the control
+   reads better as a button that is currently down. The label carries its own effect. */
+/* Whether a piece of text reaches the sheet. Sits to the left of the “i”, same height as
+   it, so the two read as one pair of affordances on the row rather than two controls. */
+.pdfd-eye {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--card-bg);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.pdfd-eye:hover {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+/* Off is the state worth spotting from across the panel: a field that looks filled in but
+   prints nothing is otherwise indistinguishable from one that prints. */
+.pdfd-eye.is-off {
+    border-color: rgba(239, 68, 68, 0.35);
+    background: rgba(239, 68, 68, 0.08);
+    color: #ef4444;
+}
+
+/* The “i” and its note. The tooltip opens downwards and is pinned to the right edge of the
+   row, so it grows inwards: the settings panel scrolls, and anything reaching past its
+   right-hand side would simply be clipped. */
+.pdfd-info {
+    position: relative;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 17px;
+    height: 17px;
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    font-weight: 700;
+    font-style: italic;
+    cursor: help;
+}
+
+.pdfd-info:hover {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+.pdfd-tooltip {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: -4px;
+    z-index: 5;
+    width: 240px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: #0f2942;
+    color: #f8fafc;
+    font-size: 0.74rem;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 1.5;
+    text-align: left;
+    /* The panel's row labels are nowrap, and the icon is one of those direct-child spans,
+       so the tooltip inherited it and ran straight off the edge of the panel instead of
+       wrapping inside its own box. */
+    white-space: normal;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease;
+}
+
+.pdfd-info:hover .pdfd-tooltip,
+.pdfd-info:focus-visible .pdfd-tooltip {
+    opacity: 1;
+    visibility: visible;
+}
+
+.pdfd-toggle-btn {
+    padding: 6px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.pdfd-toggle-btn:hover {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+.pdfd-toggle-btn.is-on {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: #fff;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.pdfd-color {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pdfd-color input[type="color"] {
+    width: 30px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: none;
+    cursor: pointer;
+}
+
+.pdfd-color-hex {
+    width: 82px;
+    flex: 0 0 auto;
+    font-family: ui-monospace, monospace;
+    text-transform: lowercase;
+}
+
+.pdfd-hint {
+    margin: 6px 0 0;
+    font-size: 0.74rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+
+/* Stage */
+.pdfd-stage {
+    flex: 1;
+    min-width: 0;
+    overflow: auto;
+    padding: 6px 16px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.pdfd-warning {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-radius: 8px;
+    background: rgba(245, 158, 11, 0.12);
+    color: #b45309;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.pdfd-notice {
+    width: 100%;
+    padding: 10px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
+/* The scaler reserves the scaled footprint; the inner box does the scaling. Without the
+   outer box the transformed page would keep its unscaled size in the layout and leave a
+   large empty area beside it. */
+.pdfd-scaler {
+    flex-shrink: 0;
+}
+
+.pdfd-scaled {
+    transform-origin: top left;
+}
+
+.pdfd-stage-hint {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+/* The preview is for editing, not reading: a double-click there opens the part's editor,
+   and without this it would also select the word under the pointer. The printed sheet is
+   a separate copy of the page and keeps its text selectable in the PDF. */
+.pdfd-scaled .pdfd-page {
+    user-select: none;
+}
+
+/* What a double-click will open, shown on hover. An outline, so nothing on the page moves
+   and the overflow measurement is unaffected. */
+.pdfd-scaled :is(.pdfd-title, .pdfd-subtitle, .pdfd-section-title, .pdfd-entry-day, .pdfd-entry-name, .pdfd-entry-meta):hover {
+    outline: 1px dashed rgba(253, 100, 28, 0.55);
+    outline-offset: 1px;
+    border-radius: 3px;
+}
+
+/* ── Floating editor ─────────────────────────────────────────────────────── */
+.pdfd-floating {
+    position: fixed;
+    z-index: 20;
+    width: 290px;
+    max-height: calc(100vh - 16px);
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--card-bg);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+}
+
+.pdfd-floating-head {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px 8px 14px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--card-bg);
+}
+
+.pdfd-floating-head strong {
+    font-size: 0.85rem;
+    color: var(--text-color);
+}
+
+.pdfd-floating-close {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.pdfd-floating-close:hover {
+    background: var(--border-color);
+    color: var(--text-color);
+}
+
+.pdfd-floating-body {
+    padding: 12px 14px;
+}
+
+/* Too narrow to hold a label and four or seven buttons on one line, so the buttons take
+   the line below their label. */
+.pdfd-floating-body .pdfd-row {
+    flex-wrap: wrap;
+}
+
+.pdfd-floating-body .pdfd-segmented {
+    flex: 1 1 100%;
+}
+
+.pdfd-floating-body .pdfd-segmented button {
+    padding-left: 6px;
+    padding-right: 6px;
+}
+
+/* ── The page ───────────────────────────────────────────────────────────── */
+.pdfd-page {
+    position: relative;
+    overflow: hidden;
+    background: #ffffff;
+    color: #0f2942;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16);
+}
+
+.pdfd-page-bg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.pdfd-page-inner {
+    position: relative;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 48px 56px 44px;
+    display: flex;
+    flex-direction: column;
+}
+
+.pdfd-title {
+    margin: 0;
+    text-align: center;
+    font-size: var(--pdfd-title-size, 30px);
+    font-weight: var(--pdfd-title-weight, 800);
+    letter-spacing: -0.4px;
+    color: var(--pdfd-title-color, #0f2942);
+}
+
+.pdfd-subtitle {
+    margin: 6px 0 0;
+    text-align: center;
+    font-size: var(--pdfd-subtitle-size, 12px);
+    font-weight: var(--pdfd-subtitle-weight, 600);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--pdfd-subtitle-color, #64748b);
+}
+
+.pdfd-sections {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    margin-top: 26px;
+}
+
+.pdfd-sections.is-single {
+    flex-direction: column;
+}
+
+/* The list block is centred in the space under the title rather than stretched to fill it.
+   Stretching left a mostly empty tinted card on a short month; centring keeps the block
+   compact and leaves clear page around it, which is where an uploaded background is meant
+   to show. The vertical position slider shifts it from there. */
+.pdfd-sections.is-single {
+    justify-content: center;
+}
+
+.pdfd-sections.is-split {
+    align-items: center;
+}
+
+/* Both kinds on one sheet: side by side, each with its own columns, so the two lists read
+   as two lists rather than one long one. */
+.pdfd-sections.is-split > .pdfd-section {
+    flex: 1;
+    min-width: 0;
+}
+
+/* border-box, or the 18px padding and the 1px border are added *on top of* the declared
+   width: a box set to 92% came out 38px wider than the page allowed, pushing its right
+   edge -- and the resize handle sitting in that corner -- off the sheet, where overflow
+   clipped it and it could no longer be grabbed. Two boxes side by side overlapped for the
+   same reason. */
+.pdfd-section {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 18px;
+    border-radius: 12px;
+}
+
+/* No frame on either box. The tinted fill underneath is what tells the two kinds apart,
+   and an outline around it only added a second edge to an already busy sheet. The fill is
+   its own layer, so its color and opacity stay the user's and cannot fade the names
+   sitting on top of it. */
+
+.pdfd-section-bg {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+}
+
+/* Everything except the fill sits above it. The grips are excluded too: they are
+   absolutely positioned on the box's edges, and `position: relative` would drop them back
+   into the flow, under the last column. */
+.pdfd-section > *:not(.pdfd-section-bg):not(.pdfd-grip) {
+    position: relative;
+}
+
+/* Free placement: the box is positioned on the sheet and clips what it cannot hold — the
+   overflow counter reports exactly those entries. */
+/* The layer spans the whole sheet, so it sits over the title and subtitle too. It lets
+   the pointer through and only the boxes on it take it back -- otherwise a double-click
+   on the title landed on this empty layer and opened the Page editor instead. */
+.pdfd-free-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.pdfd-section.is-free {
+    position: absolute;
+    overflow: hidden;
+    pointer-events: auto;
+}
+
+.pdfd-section.is-draggable {
+    cursor: move;
+    touch-action: none;
+}
+
+.pdfd-section.is-draggable:hover {
+    outline: 1px dashed var(--accent-color, #fd641c);
+    outline-offset: 2px;
+}
+
+/* Invisible grips along every side and corner, like a window's. Only the cursor says
+   they are there. --pdfd-grip is set on the scaled preview so they stay about 8px on
+   screen; corners are a little larger, so they are easy to catch. */
+.pdfd-grip {
+    --g: var(--pdfd-grip, 8px);
+    --c: calc(var(--g) * 1.5);
+    position: absolute;
+    z-index: 2;
+    touch-action: none;
+}
+
+.pdfd-grip.is-n,
+.pdfd-grip.is-s {
+    left: var(--c);
+    right: var(--c);
+    height: var(--g);
+    cursor: ns-resize;
+}
+
+.pdfd-grip.is-e,
+.pdfd-grip.is-w {
+    top: var(--c);
+    bottom: var(--c);
+    width: var(--g);
+    cursor: ew-resize;
+}
+
+.pdfd-grip.is-ne,
+.pdfd-grip.is-nw,
+.pdfd-grip.is-se,
+.pdfd-grip.is-sw {
+    width: var(--c);
+    height: var(--c);
+}
+
+.pdfd-grip.is-n { top: 0; }
+.pdfd-grip.is-s { bottom: 0; }
+.pdfd-grip.is-e { right: 0; }
+.pdfd-grip.is-w { left: 0; }
+.pdfd-grip.is-nw { top: 0; left: 0; cursor: nwse-resize; }
+.pdfd-grip.is-se { bottom: 0; right: 0; cursor: nwse-resize; }
+.pdfd-grip.is-ne { top: 0; right: 0; cursor: nesw-resize; }
+.pdfd-grip.is-sw { bottom: 0; left: 0; cursor: nesw-resize; }
+
+.pdfd-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 12px;
+    font-size: var(--pdfd-heading-size, 17px);
+    font-weight: var(--pdfd-heading-weight, 800);
+    color: var(--pdfd-heading-color, #0f2942);
+}
+
+.pdfd-section-icon {
+    font-size: 16px;
+}
+
+.pdfd-section-empty {
+    margin: 0;
+    font-size: 12px;
+    font-style: italic;
+    color: #94a3b8;
+}
+
+.pdfd-columns {
+    display: flex;
+    align-items: flex-start;
+}
+
+.pdfd-column {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ── Entries ────────────────────────────────────────────────────────────── */
+/* Wrapping, and every child allowed to shrink. A narrow column -- two sections at three
+   columns each leaves about an inch and a half -- otherwise pushed the age past the column
+   edge and over its neighbour, because the meta never wraps on its own. Now it drops to a
+   line of its own instead of bleeding sideways. */
+.pdfd-entry {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 8px;
+    min-width: 0;
+    font-size: var(--pdfd-font-size);
+    line-height: var(--pdfd-line-spacing);
+    justify-content: flex-start;
+}
+
+/* The fallback in each rule is the per-kind colour, so leaving the picker alone keeps the
+   pink and the blue; setting --pdfd-day-color overrides both at once, which is the only
+   thing a single control can honestly do. */
+.pdfd-entry-day {
+    flex-shrink: 0;
+    font-weight: var(--pdfd-day-weight, 800);
+    font-variant-numeric: tabular-nums;
+    color: var(--pdfd-day-color, #be185d);
+}
+
+.pdfd-entry.is-anniversary .pdfd-entry-day {
+    color: var(--pdfd-day-color, #1d4ed8);
+}
+
+.pdfd-entry-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    color: var(--pdfd-name-color, #1e293b);
+    font-weight: var(--pdfd-name-weight, 400);
+}
+
+.pdfd-entry-meta {
+    margin-left: auto;
+    flex-shrink: 0;
+    padding-left: 10px;
+    font-size: 0.82em;
+    color: var(--pdfd-meta-color, #94a3b8);
+    white-space: nowrap;
+}
+
+/* Date styles */
+.pdfd-entry.is-badge .pdfd-entry-day {
+    min-width: 2.1em;
+    padding: 0.1em 0.45em;
+    border-radius: 6px;
+    background: rgba(244, 114, 182, 0.16);
+    text-align: center;
+}
+
+.pdfd-entry.is-badge.is-anniversary .pdfd-entry-day {
+    background: rgba(59, 130, 246, 0.14);
+}
+
+.pdfd-entry.is-inline .pdfd-entry-day::after {
+    content: ' —';
+    font-weight: 600;
+}
+
+.pdfd-entry.is-large {
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.pdfd-entry.is-large .pdfd-entry-day {
+    width: 100%;
+    font-size: 1.5em;
+    line-height: 1.1;
+}
+
+.pdfd-entry.is-large .pdfd-entry-name {
+    width: 100%;
+}
+
+/* The printed sheet. Hidden on screen; in print it is the only thing left. */
+.pdfd-print-portal {
+    display: none;
+}
+
+/* ── Print: the page, alone, at true size ───────────────────────────────── */
+@media print {
+    /* The sheet is the page box exactly: no body margin to push it off-centre, and nothing
+       else left in the document to spill onto a second sheet. */
+    html,
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+    }
+
+    /* The whole application steps aside. display, not visibility -- a hidden box still
+       occupies space, and that space was printing as an extra page. */
+    #root {
+        display: none !important;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+
+    .pdfd-print-portal {
+        display: block !important;
+    }
+
+    .pdfd-grip {
+        display: none !important;
+    }
+
+    .pdfd-print-portal .pdfd-page {
+        margin: 0;
+        box-shadow: none;
+        /* Keeps the background image and the section tints on the sheet; without it the
+           browser drops them and prints a white page. */
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}

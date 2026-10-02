@@ -4,6 +4,8 @@ import LoadingScreen from './LoadingScreen';
 // Same source of truth the Holidays module uses, so the type labels and country flags
 // can't drift between the two screens.
 import { HOLIDAY_TYPES, COUNTRIES, FlagIcon } from './Holidays';
+import { ISO_WEEKDAYS } from '../utils/dates';
+import { normalizeForSearch } from '../utils/search';
 
 // ── SVG Icon Components ─────────────────────────────────────────────────────
 const IconEdit = () => (
@@ -48,6 +50,21 @@ const IconChevronLeft = () => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
     </svg>
 );
+const IconUsers = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+    </svg>
+);
+const IconClock = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+);
+const IconUser = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+    </svg>
+);
 
 // A holiday date is shown as-is from the DB; parsing at noon avoids the UTC shift that
 // makes `new Date('2026-01-01')` render as Dec 31 in western timezones.
@@ -56,15 +73,23 @@ const formatHolidayDate = (dateStr) =>
         weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
     });
 
+// Widest lunch a cell accepts, matching MAX_EMPLOYEE_LUNCH_MINUTES in
+// EmployeeLunchTimes.php — the value the API rejects past.
+const MAX_LUNCH_MINUTES = 600;
+
+// Titles of the Assign Members modal's pages, keyed by assignPage.
+const ASSIGN_PAGE_TITLES = {
+    members: 'Assign Members',
+    holidays: 'Holidays',
+    lunch: 'Lunch Time'
+};
+
 const getHolidayCountry = (code) =>
     COUNTRIES.find(c => c.code === code) || { code, name: code, flag: '🏳️' };
 
 // ── Search Helpers ──────────────────────────────────────────────────────────
-// Decompose to NFD and drop the combining marks so any diacritic is ignored
-// ("josias" finds "Josías", "munoz" finds "Muñoz") without listing characters.
-const normalizeForSearch = (value) =>
-    (value || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
-
+// normalizeForSearch lives in utils/search so every employee search box in the
+// app ignores diacritics the same way this one does.
 const matchesSearch = (emp, term) => {
     const query = normalizeForSearch(term);
     if (!query) return true;
@@ -94,10 +119,22 @@ const Teams = ({ onUnsavedChanges }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [managerSearchTerm, setManagerSearchTerm] = useState('');
     const [lunchTime, setLunchTime] = useState(60);
+    // Page search: narrows the group/team cards on screen, never the data being saved.
+    const [orgSearchTerm, setOrgSearchTerm] = useState('');
 
     // Assign Members modal paging: 'members' is the default page, 'holidays' is the
-    // per-team holiday calendar reached through the Holidays row.
+    // per-team holiday calendar and 'lunch' the lunch settings, each reached through its
+    // own row on the member page.
     const [assignPage, setAssignPage] = useState('members');
+    // employee_id -> { ISO weekday -> minutes as typed }. Only the weekdays an employee
+    // differs from the team on; a blank cell means "follow Team Lunch Time".
+    const [employeeLunchDraft, setEmployeeLunchDraft] = useState({});
+    const [lunchSearchTerm, setLunchSearchTerm] = useState('');
+    const [lunchLoading, setLunchLoading] = useState(false);
+    const [lunchError, setLunchError] = useState(null);
+    // Same guard as holidaysLoaded below: saving replaces the override set of every member
+    // in the payload, so a draft that never loaded must not be allowed to write.
+    const [lunchLoaded, setLunchLoaded] = useState(false);
     const [teamHolidays, setTeamHolidays] = useState([]);
     // holiday_id -> type currently chosen in the modal (always the effective type, never
     // null, so the <select> stays controlled).
@@ -379,6 +416,44 @@ const Teams = ({ onUnsavedChanges }) => {
         }
     };
 
+    // Loads every employee's per-weekday lunch override, unscoped by team on purpose: the
+    // modal can be showing members that were only just ticked and are not assigned yet, and
+    // a team-scoped fetch would show those people as having no overrides and then wipe the
+    // ones they do have on Save.
+    // `seedOverrides` re-applies unsaved edits when the modal is reopened before Save All.
+    const loadEmployeeLunchTimes = async (seedOverrides) => {
+        setLunchLoading(true);
+        setLunchError(null);
+        setLunchLoaded(false);
+        try {
+            const res = await fetch('./api/manage_employee_lunch_times.php');
+            const json = await res.json();
+            if (!json.success) throw new Error(json.error || 'Failed to load lunch times.');
+
+            // Minutes arrive as numbers and are edited as text, so they are normalized to
+            // strings here — otherwise clearing a cell would swap its type mid-edit and the
+            // input would flip between controlled and uncontrolled.
+            const draft = {};
+            Object.entries(json.lunch_times || {}).forEach(([empId, days]) => {
+                draft[empId] = Object.fromEntries(
+                    Object.entries(days || {}).map(([iso, minutes]) => [iso, String(minutes)])
+                );
+            });
+            // Merged, not replaced: the pending change only carries the members that were
+            // selected when it was made, so overlaying it keeps the stored overrides of
+            // anyone ticked since — who would otherwise show blank cells and be wiped on
+            // Save. An employee cleared in the pending change arrives as {} and correctly
+            // replaces their stored entry.
+            setEmployeeLunchDraft({ ...draft, ...(seedOverrides || {}) });
+            setLunchLoaded(true);
+        } catch (err) {
+            setLunchError(err.message || 'Failed to load lunch times.');
+            setEmployeeLunchDraft({});
+        } finally {
+            setLunchLoading(false);
+        }
+    };
+
     const handleOpenAssign = async (team) => {
         setSelectedTeam(team);
         setSearchTerm(''); // Clear search when opening
@@ -391,6 +466,8 @@ const Teams = ({ onUnsavedChanges }) => {
         // Holidays are fetched either way — the pending change only carries the chosen
         // types, not the holiday names and dates needed to render the list.
         loadTeamHolidays(team, pending?.holiday_types);
+        loadEmployeeLunchTimes(pending?.employee_lunch_times);
+        setLunchSearchTerm('');
 
         if (pending) {
             setSelectedMembers(pending.employee_ids || []);
@@ -419,6 +496,12 @@ const Teams = ({ onUnsavedChanges }) => {
             setAssignPage('holidays');
             return;
         }
+        // Same for a lunch outside the accepted range — the backend answers 400 and the
+        // whole batch, member assignments included, would be lost.
+        if (invalidLunchCells.length > 0) {
+            setAssignPage('lunch');
+            return;
+        }
 
         const teamId = selectedTeam.id;
         const isTemp = String(teamId).startsWith('temp_');
@@ -438,6 +521,16 @@ const Teams = ({ onUnsavedChanges }) => {
         // existing overrides alone instead of clearing them.
         if (holidaysLoaded) {
             actionObj.holiday_types = holidayTypeDraft;
+        }
+
+        // One entry per selected member, empty ones included: the backend replaces the
+        // override set of exactly the employees it is given, so an employee whose cells were
+        // all cleared has to be named for their old rows to go. Members are the only people
+        // the page could have edited, so nobody else is touched.
+        if (lunchLoaded) {
+            actionObj.employee_lunch_times = Object.fromEntries(
+                selectedMembers.map(id => [id, employeeLunchDraft[id] || {}])
+            );
         }
 
         // Update pending changes: remove any previous assignment for this team and add new
@@ -539,8 +632,8 @@ const Teams = ({ onUnsavedChanges }) => {
         !(editingItem?.managers || []).includes(emp.name)
     );
 
-    // Shared by Team Lunch Time and the Holidays row so the two boxes stay visually
-    // identical instead of being two copies of the same literal.
+    // Shared by the Lunch Time and Holidays rows so the two boxes stay visually identical
+    // instead of being two copies of the same literal.
     const assignConfigBoxStyle = {
         marginBottom: '20px',
         padding: '15px',
@@ -585,80 +678,157 @@ const Teams = ({ onUnsavedChanges }) => {
         return isTeamChoice && !bothSet;
     });
 
+    // The people the Employee Lunch Time grid can edit: whoever is ticked on the member
+    // page right now, including selections not saved yet. Reading selectedMembers rather
+    // than the team's stored roster is what lets a lunch be set in the same visit that adds
+    // the employee.
+    const lunchMembers = allEmployees
+        .filter(emp => selectedMembers.includes(emp.employee_id))
+        .filter(emp => matchesSearch(emp, lunchSearchTerm));
+
+    const lunchEntriesOf = (empId) => Object.entries(employeeLunchDraft[empId] || {})
+        .filter(([, minutes]) => String(minutes).trim() !== '');
+
+    // Counted over the selected members only, so the row's summary matches what the grid
+    // would show — an override left behind by someone since removed from the team is not
+    // this team's business.
+    const customizedLunchCount = selectedMembers
+        .filter(id => lunchEntriesOf(id).length > 0).length;
+
+    // Anything the backend would reject: a non-integer, a negative, or more minutes than a
+    // lunch can sensibly be. Blank is always valid — it means "follow the team".
+    const invalidLunchCells = selectedMembers.flatMap(id =>
+        lunchEntriesOf(id)
+            .filter(([, minutes]) => {
+                const value = Number(minutes);
+                return !Number.isInteger(value) || value < 0 || value > MAX_LUNCH_MINUTES;
+            })
+            .map(([iso]) => ({ employeeId: id, iso }))
+    );
+
+    const isLunchCellInvalid = (empId, iso) =>
+        invalidLunchCells.some(cell => cell.employeeId === empId && String(cell.iso) === String(iso));
+
+    const setLunchCell = (empId, iso, value) => setEmployeeLunchDraft(prev => {
+        const days = { ...(prev[empId] || {}) };
+        if (value === '') {
+            delete days[iso]; // back to inheriting Team Lunch Time
+        } else {
+            days[iso] = value;
+        }
+        return { ...prev, [empId]: days };
+    });
+
+    // A group whose own name or managers match keeps all its teams; otherwise it stays on
+    // screen only for the teams that match, by team name or manager.
+    const orgQuery = normalizeForSearch(orgSearchTerm);
+    const matchesOrg = (item) => normalizeForSearch(item.name).includes(orgQuery) ||
+        (item.managers || []).some(m => normalizeForSearch(m.manager_name).includes(orgQuery));
+    const visibleHierarchy = !orgQuery ? hierarchy : hierarchy
+        .map(group => matchesOrg(group) ? group : { ...group, teams: group.teams.filter(matchesOrg) })
+        .filter(group => matchesOrg(group) || group.teams.length > 0);
+
+    const totalTeams = hierarchy.reduce((sum, g) => sum + g.teams.length, 0);
+    const totalMembers = hierarchy.reduce((sum, g) =>
+        sum + g.teams.reduce((s, t) => s + (Number(t.member_count) || 0), 0), 0);
+
+    const openNewTeam = (groupId) => {
+        setEditingItem({ type: 'team', name: '', group_id: groupId, managers: [] });
+        setShowOrgModal(true);
+    };
+
     return (
-        <div className="teams-container">
+        <div className="schedule-board-container teams-page">
             <LoadingScreen loading={loading} message="Loading Organization..." />
 
-            <header className="teams-header">
-                <div>
-                    <h1>Organization &amp; Teams</h1>
-                    <p className="text-muted">Manage your hierarchical groups, teams, and member assignments.</p>
+            <header className="board-header">
+                <div className="header-left">
+                    <div className="title-row">
+                        <h1>Employees</h1>
+                        <span className="badge">Teams</span>
+                    </div>
+                    <div className="week-range-label">
+                        Manage your hierarchical groups, teams, and member assignments.
+                    </div>
                 </div>
-                <div className="header-actions">
+                <div className="teams-header-actions">
                     {pendingChanges.length > 0 && (
                         <button
-                            className="btn-primary"
-                            style={{ background: '#10b981', display: 'flex', alignItems: 'center', gap: '8px' }}
+                            className="teams-action-btn teams-action-save"
                             onClick={handleSaveAllChanges}
                             disabled={savingBatch}
                         >
-                            {savingBatch ? 'Saving...' : `💾 Save All Changes`}
+                            {savingBatch ? 'Saving...' : 'Save All Changes'}
+                            {!savingBatch && <span className="teams-action-count">{pendingChanges.length}</span>}
                         </button>
                     )}
-                    <button className="btn-primary" onClick={() => {
+                    <button className="teams-action-btn teams-action-secondary" onClick={() => {
                         setEditingItem({ type: 'group', name: '', managers: [] });
                         setShowOrgModal(true);
                     }}>+ New Group</button>
-                    <button className="btn-primary" style={{ background: '#4f46e5' }} onClick={() => {
-                        setEditingItem({ type: 'team', name: '', group_id: hierarchy[0]?.id, managers: [] });
-                        setShowOrgModal(true);
-                    }}>+ New Team</button>
+                    <button className="teams-action-btn" onClick={() => openNewTeam(hierarchy[0]?.id)}>+ New Team</button>
                 </div>
             </header>
 
+            <div className="teams-toolbar">
+                <div className="search-box teams-search-box">
+                    <span className="search-icon">🔍</span>
+                    <input
+                        type="text"
+                        placeholder="Search group, team or manager..."
+                        value={orgSearchTerm}
+                        onChange={e => setOrgSearchTerm(e.target.value)}
+                    />
+                </div>
+                <div className="teams-summary">
+                    <span className="teams-summary-item"><strong>{hierarchy.length}</strong> {hierarchy.length === 1 ? 'Group' : 'Groups'}</span>
+                    <span className="teams-summary-item"><strong>{totalTeams}</strong> {totalTeams === 1 ? 'Team' : 'Teams'}</span>
+                    <span className="teams-summary-item"><strong>{totalMembers}</strong> {totalMembers === 1 ? 'Member' : 'Members'}</span>
+                    {pendingChanges.length > 0 && (
+                        <span className="teams-pending-tag" title="Changes are queued until Save All Changes">
+                            {pendingChanges.length} unsaved {pendingChanges.length === 1 ? 'change' : 'changes'}
+                        </span>
+                    )}
+                </div>
+            </div>
+
             {/* ── Hierarchy Tree ── */}
-            <div className="org-tree">
+            <div className="teams-results">
                 {hierarchy.length === 0 && !loading && (
-                    <div className="empty-state">
-                        <p>No groups yet. Click <strong>"Import from DeskTime"</strong> to get started, or create a new Group manually.</p>
+                    <div className="teams-empty">
+                        No groups yet. Create a new Group to get started.
                     </div>
                 )}
-                {hierarchy.map(group => (
-                    <div key={group.id} className="group-card">
-                        <div className="group-header">
-                            <div className="group-info">
-                                <h2>
-                                    <span className="tag-group">Group</span>
-                                    {group.name}
-                                    <span style={{
-                                        fontSize: '0.65rem',
-                                        fontWeight: 600,
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.04em',
-                                        background: 'rgba(100, 108, 255, 0.08)',
-                                        color: 'var(--text-muted)',
-                                        padding: '2px 8px',
-                                        borderRadius: '4px',
-                                        border: '1px solid var(--border-color)'
-                                    }}>
+                {hierarchy.length > 0 && visibleHierarchy.length === 0 && (
+                    <div className="teams-empty">No groups or teams match "{orgSearchTerm}".</div>
+                )}
+                {visibleHierarchy.map(group => (
+                    <section key={group.id} className={`teams-group${group.is_visible ? '' : ' is-hidden'}`}>
+                        <div className="teams-group-header">
+                            <div className="teams-group-info">
+                                <span className="teams-group-label">Group</span>
+                                <div className="teams-group-title">
+                                    <h2>{group.name}</h2>
+                                    <span className="teams-count-pill">
                                         {group.teams.length} {group.teams.length === 1 ? 'Team' : 'Teams'}
                                     </span>
                                     <span
-                                        className={`visibility-dot ${group.is_visible ? 'visible' : 'hidden'}`}
+                                        className={`teams-status-pill ${group.is_visible ? 'is-visible' : 'is-hidden'}`}
                                         title={group.is_visible ? 'Visible in Dashboard' : 'Hidden from Dashboard'}
-                                    />
-                                </h2>
-                                <div className="managers-list">
-                                    {group.managers.map((m, i) => (
-                                        <span key={i} className="manager-badge">👤 {m.manager_name}</span>
-                                    ))}
+                                    >
+                                        {group.is_visible ? 'Visible' : 'Hidden'}
+                                    </span>
                                 </div>
+                                {group.managers.length > 0 && (
+                                    <div className="teams-managers">
+                                        {group.managers.map((m, i) => (
+                                            <span key={i} className="teams-manager-chip"><IconUser /> {m.manager_name}</span>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
-                            <div className="icon-actions">
-                                <button className="icon-btn add-team" onClick={() => {
-                                    setEditingItem({ type: 'team', name: '', group_id: group.id, managers: [] });
-                                    setShowOrgModal(true);
-                                }} title="Add Team to this Group">
+                            <div className="teams-icon-actions">
+                                <button className="icon-btn add-team" onClick={() => openNewTeam(group.id)} title="Add Team to this Group">
                                     <IconPlus />
                                 </button>
                                 <button className="icon-btn history" onClick={() => fetchHistory('group', group.id)} title="History">
@@ -683,23 +853,35 @@ const Teams = ({ onUnsavedChanges }) => {
                             </div>
                         </div>
 
-                        <div className="teams-grid">
+                        <div className="teams-card-grid">
                             {group.teams.map(team => (
-                                <div key={team.id} className="team-card" onClick={() => handleOpenAssign({ ...team, group_id: group.id })}>
-                                    <div className="team-card-header">
+                                <div
+                                    key={team.id}
+                                    className={`teams-card${team.is_visible ? '' : ' is-hidden'}`}
+                                    onClick={() => handleOpenAssign({ ...team, group_id: group.id })}
+                                    title="Assign members, lunch time and holidays"
+                                >
+                                    <div className="teams-card-head">
                                         <h3>{team.name}</h3>
+                                        <span
+                                            className={`teams-status-dot ${team.is_visible ? 'is-visible' : 'is-hidden'}`}
+                                            title={team.is_visible ? 'Visible in Dashboard' : 'Hidden from Dashboard'}
+                                        />
                                     </div>
-                                    <div className="team-stats">
-                                        <span>👥 {team.member_count} Members</span>
-                                        {team.lunch_time > 0 && <span className="lunch-stat" title="Team Lunch Time">🕒 {team.lunch_time}m</span>}
-                                        <span className={`visibility-dot ${team.is_visible ? 'visible' : 'hidden'}`} />
+                                    <div className="teams-card-stats">
+                                        <span className="teams-stat"><IconUsers /> {team.member_count} {Number(team.member_count) === 1 ? 'Member' : 'Members'}</span>
+                                        {team.lunch_time > 0 && (
+                                            <span className="teams-stat" title="Team Lunch Time"><IconClock /> {team.lunch_time}m lunch</span>
+                                        )}
                                     </div>
-                                    <div className="managers-list">
-                                        {team.managers.map((m, i) => (
-                                            <span key={i} className="manager-badge">👤 {m.manager_name}</span>
-                                        ))}
-                                    </div>
-                                    <div className="team-card-actions" onClick={e => e.stopPropagation()}>
+                                    {team.managers.length > 0 && (
+                                        <div className="teams-managers">
+                                            {team.managers.map((m, i) => (
+                                                <span key={i} className="teams-manager-chip"><IconUser /> {m.manager_name}</span>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <div className="teams-card-actions" onClick={e => e.stopPropagation()}>
                                         <button className="icon-btn history" onClick={() => fetchHistory('team', team.id)} title="History">
                                             <IconHistory />
                                         </button>
@@ -723,52 +905,23 @@ const Teams = ({ onUnsavedChanges }) => {
                                 </div>
                             ))}
                             {group.teams.length === 0 && (
-                                <div className="empty-teams-state" style={{ 
-                                    padding: '24px', 
-                                    textAlign: 'center', 
-                                    display: 'flex', 
-                                    flexDirection: 'column', 
-                                    alignItems: 'center', 
-                                    gap: '12px',
-                                    background: 'var(--surface-alt)',
-                                    borderRadius: '12px',
-                                    border: '1px dashed var(--border-color)',
-                                    gridColumn: '1 / -1'
-                                }}>
-                                    <p className="text-muted" style={{ fontSize: '0.9rem', margin: 0 }}>
-                                        No teams in this group yet.
-                                    </p>
-                                    <button 
-                                        className="btn-primary" 
-                                        style={{ 
-                                            background: '#4f46e5', 
-                                            fontSize: '0.85rem', 
-                                            padding: '8px 16px',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '6px'
-                                        }} 
-                                        onClick={() => {
-                                            setEditingItem({ type: 'team', name: '', group_id: group.id, managers: [] });
-                                            setShowOrgModal(true);
-                                        }}
-                                    >
-                                        <span>+</span> New Team
-                                    </button>
-                                </div>
+                                <button type="button" className="teams-card-add" onClick={() => openNewTeam(group.id)}>
+                                    <IconPlus />
+                                    <span>No teams in this group yet — add one</span>
+                                </button>
                             )}
                         </div>
-                    </div>
+                    </section>
                 ))}
             </div>
 
             {/* ── MODAL: Create / Edit Group or Team ── */}
             {showOrgModal && editingItem && (
                 <div className="modal-overlay">
-                    <form className="modal-content" onSubmit={handleSaveOrg}>
+                    <form className="modal-content teams-modal" onSubmit={handleSaveOrg}>
                         <div className="modal-header">
                             <h2>{editingItem.id ? 'Edit' : 'Create'} {editingItem.type === 'group' ? 'Group' : 'Team'}</h2>
-                            <button type="button" className="icon-btn" onClick={() => setShowOrgModal(false)}>✕</button>
+                            <button type="button" className="teams-modal-close" onClick={() => setShowOrgModal(false)} title="Close">&times;</button>
                         </div>
                         <div className="modal-body">
                             <div className="form-group">
@@ -809,7 +962,7 @@ const Teams = ({ onUnsavedChanges }) => {
                                 <div className="selected-managers">
                                     {editingItem.managers.map((m, i) => (
                                         <span key={i} className="manager-token">
-                                            👤 {m}
+                                            <IconUser /> {m}
                                             <span 
                                                 className="remove-manager" 
                                                 onClick={() => {
@@ -876,10 +1029,10 @@ const Teams = ({ onUnsavedChanges }) => {
             {/* ── MODAL: Member Assignment ── */}
             {showAssignModal && (
                 <div className="modal-overlay">
-                    <div className="modal-content">
+                    <div className="modal-content teams-modal">
                         <div className="modal-header">
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                {assignPage === 'holidays' && (
+                                {assignPage !== 'members' && (
                                     <button
                                         className="icon-btn"
                                         onClick={() => setAssignPage('members')}
@@ -889,7 +1042,7 @@ const Teams = ({ onUnsavedChanges }) => {
                                     </button>
                                 )}
                                 <div>
-                                    <h2>{assignPage === 'holidays' ? 'Holidays' : 'Assign Members'}</h2>
+                                    <h2>{ASSIGN_PAGE_TITLES[assignPage]}</h2>
                                     <p className="text-muted" style={{ margin: 0 }}>Team: {selectedTeam?.name}</p>
                                 </div>
                             </div>
@@ -901,39 +1054,35 @@ const Teams = ({ onUnsavedChanges }) => {
                                         <span className="selection-link" onClick={handleDeselectAll}>Deselect All</span>
                                     </div>
                                 )}
-                                <button className="icon-btn" onClick={() => setShowAssignModal(false)} title="Close">✕</button>
+                                <button className="teams-modal-close" onClick={() => setShowAssignModal(false)} title="Close">&times;</button>
                             </div>
                         </div>
 
-                        {assignPage === 'members' ? (
+                        {assignPage === 'members' && (
                             <div className="modal-body">
-                                <div className="team-lunch-config" style={assignConfigBoxStyle}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        <label style={{ fontWeight: '600', fontSize: '0.95rem' }}>Team Lunch Time</label>
-                                        <span className="text-muted" style={{ fontSize: '0.85rem' }}>Set daily lunch duration for the entire team</span>
+                                {/* Both rows below are the same box (shared style object) turned into
+                                    the control itself: the whole row opens one of this modal's pages. */}
+                                <button
+                                    type="button"
+                                    className="team-holidays-row"
+                                    style={assignConfigBoxStyle}
+                                    onClick={() => setAssignPage('lunch')}
+                                >
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left' }}>
+                                        <label style={{ fontWeight: '600', fontSize: '0.95rem', cursor: 'inherit' }}>Lunch Time</label>
+                                        <span className="text-muted" style={{ fontSize: '0.85rem' }}>
+                                            {lunchLoading
+                                                ? 'Loading lunch times...'
+                                                : lunchError
+                                                    ? lunchError
+                                                    : `Team: ${lunchTime} mins` + (customizedLunchCount > 0
+                                                        ? ` · ${customizedLunchCount} employee${customizedLunchCount === 1 ? '' : 's'} with their own`
+                                                        : '')}
+                                        </span>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            max="120"
-                                            value={lunchTime}
-                                            onChange={e => setLunchTime(parseInt(e.target.value) || 0)}
-                                            style={{
-                                                width: '80px',
-                                                padding: '8px',
-                                                textAlign: 'center',
-                                                borderRadius: '6px',
-                                                border: '1px solid var(--border-color)',
-                                                fontWeight: 'bold'
-                                            }}
-                                        />
-                                        <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>mins</span>
-                                    </div>
-                                </div>
+                                    <span className="team-holidays-chevron"><IconChevronRight /></span>
+                                </button>
 
-                                {/* Same box as Team Lunch Time above (shared style object), but the
-                                    whole row is the control: it opens this modal's Holidays page. */}
                                 <button
                                     type="button"
                                     className="team-holidays-row"
@@ -983,7 +1132,9 @@ const Teams = ({ onUnsavedChanges }) => {
                                         ))}
                                 </div>
                             </div>
-                        ) : (
+                        )}
+
+                        {assignPage === 'holidays' && (
                             <div className="modal-body">
                                 <p className="text-muted" style={{ marginTop: 0, fontSize: '0.85rem' }}>
                                     The type chosen here applies to <strong>{selectedTeam?.name}</strong> only. Holidays left
@@ -1101,6 +1252,151 @@ const Teams = ({ onUnsavedChanges }) => {
                             </div>
                         )}
 
+                        {assignPage === 'lunch' && (
+                            <div className="modal-body">
+                                <p className="text-muted" style={{ marginTop: 0, fontSize: '0.85rem' }}>
+                                    Lunch is subtracted from the hours <strong>{selectedTeam?.name}</strong> is
+                                    scheduled for &mdash; on the Run Rate, on each Schedule Board card and in the
+                                    absenteeism reports. The hours DeskTime tracked are never altered. Team Lunch Time
+                                    covers everybody; give someone a lunch of their own below when their week does not
+                                    follow it.
+                                </p>
+
+                                <div className="team-lunch-config" style={assignConfigBoxStyle}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <label style={{ fontWeight: '600', fontSize: '0.95rem' }}>Team Lunch Time</label>
+                                        <span className="text-muted" style={{ fontSize: '0.85rem' }}>
+                                            Applies every day, to every member left on it
+                                        </span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="120"
+                                            value={lunchTime}
+                                            onChange={e => setLunchTime(parseInt(e.target.value) || 0)}
+                                            style={{
+                                                width: '80px',
+                                                padding: '8px',
+                                                textAlign: 'center',
+                                                borderRadius: '6px',
+                                                border: '1px solid var(--border-color)',
+                                                fontWeight: 'bold'
+                                            }}
+                                        />
+                                        <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>mins</span>
+                                    </div>
+                                </div>
+
+                                <div className="team-lunch-section">
+                                    <div className="team-lunch-section-head">
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <label style={{ fontWeight: '600', fontSize: '0.95rem' }}>Employee Lunch Time</label>
+                                            <span className="text-muted" style={{ fontSize: '0.85rem' }}>
+                                                One lunch per weekday, per person. A blank day follows the
+                                                team&rsquo;s {lunchTime} mins &mdash; clear a day to hand it back.
+                                            </span>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            className="team-lunch-search"
+                                            placeholder="Search members..."
+                                            value={lunchSearchTerm}
+                                            onChange={e => setLunchSearchTerm(e.target.value)}
+                                        />
+                                    </div>
+
+                                    {lunchLoading ? (
+                                        <div className="team-holidays-empty">Loading lunch times...</div>
+                                    ) : lunchError ? (
+                                        <div className="team-holidays-empty">&#9888;&#65039; {lunchError}</div>
+                                    ) : selectedMembers.length === 0 ? (
+                                        <div className="team-holidays-empty">
+                                            No members selected yet. Add them on the Assign Members page first.
+                                        </div>
+                                    ) : lunchMembers.length === 0 ? (
+                                        <div className="team-holidays-empty">No members match this search.</div>
+                                    ) : (
+                                        <div className="team-lunch-grid">
+                                            <div className="team-lunch-grid-head">
+                                                <span>Employee</span>
+                                                {ISO_WEEKDAYS.map(day => (
+                                                    <span key={day.iso} className="team-lunch-day" title={day.label}>
+                                                        {day.short}
+                                                    </span>
+                                                ))}
+                                                <span />
+                                            </div>
+
+                                            {lunchMembers.map(emp => {
+                                                const days = employeeLunchDraft[emp.employee_id] || {};
+                                                const customized = lunchEntriesOf(emp.employee_id).length > 0;
+                                                return (
+                                                    <div key={emp.employee_id} className="team-lunch-row">
+                                                        <div className="team-lunch-emp">
+                                                            <span className="team-lunch-emp-name">
+                                                                {emp.name}
+                                                                {customized && <span className="team-holiday-custom">Custom</span>}
+                                                            </span>
+                                                            {emp.group_name && (
+                                                                <span className="text-muted team-lunch-emp-meta">{emp.group_name}</span>
+                                                            )}
+                                                        </div>
+
+                                                        {ISO_WEEKDAYS.map(day => {
+                                                            const value = days[day.iso] ?? '';
+                                                            const invalid = isLunchCellInvalid(emp.employee_id, day.iso);
+                                                            return (
+                                                                <input
+                                                                    key={day.iso}
+                                                                    type="number"
+                                                                    min="0"
+                                                                    max={MAX_LUNCH_MINUTES}
+                                                                    className={`team-lunch-cell${value !== '' ? ' is-custom' : ''}${invalid ? ' is-invalid' : ''}`}
+                                                                    /* The team's value as the placeholder, so an inherited
+                                                                       day shows what it is inheriting instead of reading
+                                                                       as zero minutes. */
+                                                                    placeholder={String(lunchTime)}
+                                                                    aria-label={`${emp.name} - ${day.label} lunch, minutes`}
+                                                                    title={value === ''
+                                                                        ? `Following Team Lunch Time (${lunchTime} mins)`
+                                                                        : `${value} mins on ${day.label}`}
+                                                                    value={value}
+                                                                    onChange={e => setLunchCell(emp.employee_id, day.iso, e.target.value)}
+                                                                />
+                                                            );
+                                                        })}
+
+                                                        <button
+                                                            type="button"
+                                                            className="team-holiday-reset"
+                                                            disabled={!customized}
+                                                            onClick={() => setEmployeeLunchDraft(prev => ({
+                                                                ...prev,
+                                                                [emp.employee_id]: {}
+                                                            }))}
+                                                            title={customized
+                                                                ? 'Put every day back on Team Lunch Time'
+                                                                : 'Already following Team Lunch Time'}
+                                                        >
+                                                            Reset
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+
+                                    {invalidLunchCells.length > 0 && (
+                                        <div className="team-lunch-hint is-invalid">
+                                            A lunch must be a whole number of minutes between 0 and {MAX_LUNCH_MINUTES}.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="modal-footer">
                             {assignPage === 'members' ? (
                                 <button
@@ -1125,10 +1421,12 @@ const Teams = ({ onUnsavedChanges }) => {
                             <button
                                 className="btn-primary"
                                 onClick={handleSaveAssignments}
-                                disabled={invalidHolidayRanges.length > 0}
+                                disabled={invalidHolidayRanges.length > 0 || invalidLunchCells.length > 0}
                                 title={invalidHolidayRanges.length > 0
                                     ? 'Fix the Campaign Defined time window before saving'
-                                    : undefined}
+                                    : invalidLunchCells.length > 0
+                                        ? 'Fix the employee lunch time before saving'
+                                        : undefined}
                             >
                                 Update Team
                             </button>
@@ -1140,10 +1438,10 @@ const Teams = ({ onUnsavedChanges }) => {
             {/* ── MODAL: History ── */}
             {showHistoryModal && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ maxWidth: '500px' }}>
+                    <div className="modal-content teams-modal" style={{ maxWidth: '500px' }}>
                         <div className="modal-header">
                             <h2>Update History</h2>
-                            <button className="icon-btn" onClick={() => setShowHistoryModal(false)}>✕</button>
+                            <button className="teams-modal-close" onClick={() => setShowHistoryModal(false)} title="Close">&times;</button>
                         </div>
                         <div className="modal-body">
                             {history.map(item => (
@@ -1164,7 +1462,7 @@ const Teams = ({ onUnsavedChanges }) => {
             {/* ── MODAL: Import from DeskTime ── */}
             {showImportModal && (
                 <div className="modal-overlay">
-                    <div className="modal-content" style={{ maxWidth: '560px' }}>
+                    <div className="modal-content teams-modal" style={{ maxWidth: '560px' }}>
                         <div className="modal-header">
                             <div>
                                 <h2>Import from DeskTime</h2>
@@ -1172,7 +1470,7 @@ const Teams = ({ onUnsavedChanges }) => {
                                     Select DeskTime groups to import as Groups in your organization.
                                 </p>
                             </div>
-                            <button className="icon-btn" onClick={() => setShowImportModal(false)}>✕</button>
+                            <button className="teams-modal-close" onClick={() => setShowImportModal(false)} title="Close">&times;</button>
                         </div>
                         <div className="modal-body">
                             {importResult ? (

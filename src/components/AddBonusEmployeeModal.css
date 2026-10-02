@@ -1,0 +1,214 @@
+/* Add Employee (HR > Bonus) — the form fields only. The overlay, header and footer come
+   from BonusModal.css, which every Bonus modal shares. */
+
+.bonus-employee-modal {
+    max-width: 480px;
+}
+
+.bonus-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 1.25rem;
+    position: relative;
+}
+
+.bonus-form-group > label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-color);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.bonus-input {
+    padding: 0.6rem 0.9rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    color: var(--text-color);
+    background: var(--card-bg);
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+}
+
+.bonus-input:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(253, 100, 28, 0.1);
+}
+
+.bonus-input:read-only,
+.bonus-input:disabled {
+    background: var(--surface-alt);
+    color: var(--text-muted);
+    cursor: default;
+}
+
+/* The native select borrows .bonus-input's box so it lines up with the text fields above
+   it; only the arrow and the pointer differ. */
+.bonus-select-field {
+    cursor: pointer;
+    appearance: auto;
+}
+
+.bonus-select-field:disabled {
+    cursor: not-allowed;
+}
+
+.bonus-field-hint {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+/* ── Employee search ─────────────────────────────────────────────────────── */
+
+.bonus-search-wrapper {
+    position: relative;
+}
+
+/* Sits inside the input's right edge, so the source of the name is visible without
+   a second line of chrome under the field. */
+.bonus-source-chip {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.62rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    pointer-events: none;
+}
+
+.bonus-source-chip.is-linked {
+    background: rgba(37, 99, 235, 0.12);
+    color: #2563eb;
+}
+
+.bonus-source-chip.is-manual {
+    background: rgba(217, 119, 6, 0.14);
+    color: #b45309;
+}
+
+.bonus-suggestions {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    max-height: 240px;
+    overflow-y: auto;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: 0 12px 28px rgba(27, 45, 70, 0.18);
+    z-index: 30;
+    padding: 4px;
+}
+
+.bonus-suggestion {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: var(--text-color);
+    text-align: left;
+    cursor: pointer;
+}
+
+.bonus-suggestion:hover {
+    background: var(--surface-alt);
+}
+
+.bonus-suggestion-name {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bonus-suggestion-team {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* The escape hatch reads as an action, not as another search result. */
+.bonus-suggestion-manual {
+    border-top: 1px solid var(--border-color);
+    border-radius: 0 0 7px 7px;
+    margin-top: 4px;
+    color: var(--accent-color);
+}
+
+.bonus-suggestions-empty {
+    padding: 12px 10px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+/* Not an empty result — a refusal. Coloured so it reads as "you cannot", not "keep typing". */
+.bonus-suggestions-empty.is-blocked {
+    color: #b45309;
+    font-weight: 600;
+}
+
+.dark .bonus-suggestions-empty.is-blocked {
+    color: #fcd34d;
+}
+
+/* ── Bonus amount + currency ─────────────────────────────────────────────── */
+
+.bonus-amount-row {
+    display: grid;
+    grid-template-columns: minmax(120px, 0.8fr) 1.2fr;
+    gap: 10px;
+}
+
+.bonus-amount-field {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.bonus-amount-symbol {
+    position: absolute;
+    left: 12px;
+    font-size: 0.85rem;
+    font-weight: 800;
+    pointer-events: none;
+}
+
+.bonus-amount-input {
+    padding-left: 3.1rem;
+    font-weight: 700;
+}
+
+/* ── Dark mode ──────────────────────────────────────────────────────── */
+
+.dark .bonus-suggestions {
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+
+.dark .bonus-source-chip.is-linked {
+    background: rgba(96, 165, 250, 0.16);
+    color: #93c5fd;
+}
+
+.dark .bonus-source-chip.is-manual {
+    background: rgba(251, 191, 36, 0.16);
+    color: #fcd34d;
+}

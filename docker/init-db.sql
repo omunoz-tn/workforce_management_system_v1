@@ -275,6 +275,28 @@ CREATE TABLE IF NOT EXISTS `org_run_rate_billable_percentage` (
   PRIMARY KEY (`employee_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- Tuesday snapshots of the projected Run Rate for the current month, one row per team
+-- plus an '__ALL__' organization row (save_run_rate_projection_snapshot.php, via cron).
+-- Hours are net of lunch; excluded employees are left out, as in the report.
+CREATE TABLE IF NOT EXISTS `org_run_rate_projection_snapshots` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `snapshot_date` date NOT NULL,
+  `period_from` date NOT NULL,
+  `period_to` date NOT NULL,
+  `team_name` varchar(255) NOT NULL,
+  `employees` int(11) NOT NULL DEFAULT 0,
+  `actual_to_date` decimal(10,2) NOT NULL DEFAULT 0,
+  `scheduled_to_date` decimal(10,2) NOT NULL DEFAULT 0,
+  `projected_actual` decimal(10,2) NOT NULL DEFAULT 0,
+  `projected_scheduled` decimal(10,2) NOT NULL DEFAULT 0,
+  `projected_pct` decimal(6,2) DEFAULT NULL,
+  `high_confidence_share` decimal(5,2) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_snapshot_team` (`snapshot_date`, `period_from`, `period_to`, `team_name`),
+  KEY `idx_period` (`period_from`, `period_to`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE IF NOT EXISTS `org_audit_log` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `target_type` enum('group','team') NOT NULL,

@@ -50,14 +50,16 @@ const Login = ({ onLoginSuccess }) => {
                     <p>Welcome back! Please enter your details.</p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="login-form">
+                <form onSubmit={handleSubmit} className="login-form" autoComplete="off">
                     <div className="form-group">
                         <label>Username</label>
                         <input 
                             type="text" 
-                            placeholder="Enter your username" 
+                            name="login-username"
+                            placeholder="Insert username" 
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
+                            autoComplete="off"
                             required
                         />
                     </div>
@@ -66,9 +68,11 @@ const Login = ({ onLoginSuccess }) => {
                         <label>Password</label>
                         <input 
                             type="password" 
-                            placeholder="••••••••" 
+                            name="login-password"
+                            placeholder="Insert password" 
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
+                            autoComplete="new-password"
                             required
                         />
                     </div>

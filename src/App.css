@@ -91,6 +91,16 @@ body {
   flex-shrink: 0;
 }
 
+/* The FOCUS wordmark beside the TN mark. Height-driven: the asset's viewBox is cropped to
+   the artwork, so the width follows its own proportions. Only rendered while the sidebar
+   is expanded — the conditional in App.jsx, not CSS, handles the collapse. */
+.sidebar-focus-logo {
+  height: 26px;
+  width: auto;
+  flex-shrink: 0;
+  display: block;
+}
+
 .backend-indicator {
   width: 8px;
   height: 8px;
@@ -315,6 +325,11 @@ body {
 
 .sync-toast.error .toast-content {
   border-left-color: #f56565;
+}
+
+/* Progress variant: shown while the automatic backfill walks its pending days. */
+.sync-toast.info .toast-content {
+  border-left-color: #4299e1;
 }
 
 .toast-header {

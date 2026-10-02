@@ -1,17 +1,23 @@
 <?php
 header('Content-Type: application/json');
 require_once 'db_wfm_config.php';
+require_once 'session_access.php';
 require_once 'sync_desktime_core.php';
+require_once 'AbsenteeismExceptionsSql.php';
+require_once 'EmployeeLunchTimes.php';
 
 session_start();
-$isRestricted = isset($_SESSION['allowed_teams']) && !empty($_SESSION['allowed_teams']) && $_SESSION['role_name'] !== 'Admin';
-$allowedTeams = $isRestricted ? $_SESSION['allowed_teams'] : [];
 
 try {
     $status = isset($_GET['status']) ? $_GET['status'] : 'all';
     $team = isset($_GET['team']) ? $_GET['team'] : null;
     $type = isset($_GET['type']) ? $_GET['type'] : null;
     $targetTeamId = isset($_GET['team_id']) ? (int) $_GET['team_id'] : null;
+    // Opt-in, and only meaningful with type=absenteeism: the Absenteeism Report's
+    // drill-down has to list the same rows the report counted, so it asks for the
+    // configured exceptions to be applied. The Dashboard's Absenteeism card does not
+    // ask, because its own figure is computed without them.
+    $applyAbsenteeismExceptions = isset($_GET['apply_exceptions']) && $_GET['apply_exceptions'] === '1';
 
     $fromDate = isset($_GET['from']) ? $_GET['from'] : date('Y-m-d');
     $toDate = isset($_GET['to']) ? $_GET['to'] : date('Y-m-d');
@@ -19,6 +25,14 @@ try {
     $absenteeismCondition = "d.is_online = 0 AND d.arrived IS NULL AND d.work_starts != '00:00:00' AND d.work_ends > d.work_starts AND (
         (d.log_date < CURDATE()) OR (d.log_date = CURDATE() AND CURTIME() > d.work_starts)
     )";
+
+    $absExceptionJoins = '';
+    $absExceptionFilter = '';
+    if ($type === 'absenteeism' && $applyAbsenteeismExceptions) {
+        ensureAbsenteeismExceptionTables($pdo);
+        $absExceptionJoins = absExceptionJoins();
+        $absExceptionFilter = absExceptionFilter();
+    }
 
     // Smart refresh for today's detail views so active employees don't appear absent from stale snapshots.
     if ($fromDate <= $today && $toDate >= $today) {
@@ -49,18 +63,18 @@ try {
                      (SELECT GROUP_CONCAT(DISTINCT x.api_account ORDER BY x.api_account SEPARATOR '/')
                         FROM desktime_employee_data x
                        WHERE x.employee_id = d.employee_id) as api_accounts,
-                     COALESCE(ot.lunch_time, 0) / 60.0 as lunch_deduction_hours
+                     " . elLunchMinutes() . " / 60.0 as lunch_deduction_hours
               FROM desktime_employee_data d
               LEFT JOIN org_team_assignments ota ON d.employee_id = ota.employee_id
               LEFT JOIN org_teams ot ON ota.team_id = ot.id
               LEFT JOIN org_groups og ON ot.group_id = og.id
+              " . elLunchJoin() . "
+              $absExceptionJoins
               WHERE d.log_date BETWEEN ? AND ?
               AND (ot.is_visible IS NULL OR ot.is_visible = 1)
               AND (og.is_visible IS NULL OR og.is_visible = 1)";
     
-    if ($isRestricted) {
-        $query .= " AND ota.team_id IN (" . implode(',', array_map('intval', $allowedTeams)) . ")";
-    }
+    $query .= team_filter_sql('ota.team_id');
     $params = [$fromDate, $toDate];
 
     if ($status === 'online') {
@@ -70,7 +84,7 @@ try {
     }
 
     if ($type === 'absenteeism') {
-        $query .= " AND $absenteeismCondition";
+        $query .= " AND $absenteeismCondition" . $absExceptionFilter;
     }
 
     if ($team) {

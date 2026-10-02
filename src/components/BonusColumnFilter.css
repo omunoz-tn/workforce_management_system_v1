@@ -1,0 +1,258 @@
+/* Column funnel and its panel (BonusColumnFilter.jsx). */
+
+.bonus-col-filter {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+}
+
+/* Present at all times but nearly invisible until it matters — a control that only appears
+   on hover cannot be found, and one at full contrast in nine headers is a row of noise. */
+.bonus-col-filter-btn {
+    padding: 3px;
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-muted);
+    opacity: 0.35;
+    cursor: pointer;
+    transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.bonus-col-filter-btn:hover,
+.bonus-col-filter-btn.is-open {
+    opacity: 1;
+    background: rgba(253, 100, 28, 0.1);
+    color: var(--accent-color);
+}
+
+/* A filtered column has to be readable across the whole header row without opening
+   anything — this is what answers "why am I seeing so few rows". */
+.bonus-col-filter-btn.is-active {
+    opacity: 1;
+    color: var(--accent-color);
+    background: rgba(253, 100, 28, 0.14);
+}
+
+.bonus-col-filter-panel {
+    position: fixed;
+    z-index: 1200;
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+    gap: 8px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: 0 15px 35px rgba(27, 45, 70, 0.18);
+    /* The header row sets these; the panel is its own context. */
+    text-transform: none;
+    letter-spacing: normal;
+    color: var(--text-color);
+    font-weight: 400;
+}
+
+.bonus-col-filter-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.bonus-col-filter-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-color);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bonus-col-filter-clear {
+    padding: 2px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--accent-color);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.bonus-col-filter-clear:hover:not(:disabled) {
+    background: rgba(253, 100, 28, 0.08);
+}
+
+.bonus-col-filter-clear:disabled {
+    color: var(--text-muted);
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.bonus-col-filter-input {
+    width: 100%;
+    padding: 6px 9px;
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 0.82rem;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.bonus-col-filter-input:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(253, 100, 28, 0.1);
+}
+
+.bonus-col-filter-range {
+    display: flex;
+    gap: 8px;
+}
+
+.bonus-col-filter-range label {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.bonus-col-filter-range span {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
+
+/* ── Auto / Manual, on the columns whose descriptor carries a `flag` ─────── */
+
+.bonus-col-filter-flag {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* Matches the Min/Max captions below it, so the two questions read as one panel. */
+.bonus-col-filter-sublabel {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
+
+/* One track with hairline dividers instead of three separate buttons: the choices are
+   mutually exclusive, and a segmented control says that before anything is clicked. */
+.bonus-col-filter-segmented {
+    display: flex;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.bonus-col-filter-segmented button {
+    flex: 1;
+    padding: 4px 6px;
+    border: none;
+    border-left: 1px solid var(--border-color);
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background-color 0.15s, color 0.15s;
+}
+
+.bonus-col-filter-segmented button:first-child {
+    border-left: none;
+}
+
+.bonus-col-filter-segmented button:hover {
+    background: var(--surface-alt);
+    color: var(--text-color);
+}
+
+.bonus-col-filter-segmented button.is-on {
+    background: var(--accent-color);
+    color: #ffffff;
+}
+
+.bonus-col-filter-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.bonus-col-filter-actions button {
+    flex: 1;
+    padding: 4px 6px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+.bonus-col-filter-actions button:hover {
+    background: var(--surface-alt);
+    border-color: var(--accent-color);
+}
+
+.bonus-col-filter-options {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.bonus-col-filter-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+.bonus-col-filter-option:hover {
+    background: var(--surface-alt);
+}
+
+.bonus-col-filter-option input {
+    accent-color: var(--accent-color);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.bonus-col-filter-option span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bonus-col-filter-empty {
+    padding: 10px;
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.dark .bonus-col-filter-panel {
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.45);
+}

@@ -57,3 +57,50 @@ export const mondayOf = (dateStr = todayStr()) => {
     d.setDate(d.getDate() - weekday + (weekday === 0 ? -6 : 1));
     return d;
 };
+
+/** First day of the month containing `dateStr`, as a noon-anchored Date. */
+export const firstOfMonth = (dateStr = todayStr()) => {
+    const d = parseDate(dateStr);
+    d.setDate(1);
+    return d;
+};
+
+/**
+ * Last day of that same month, as a noon-anchored Date. Sets the month and the day in one
+ * call — day 0 of the next month — because setMonth() alone overflows: stepping from the
+ * 31st into a 30-day month lands in the month after.
+ */
+export const lastOfMonth = (dateStr = todayStr()) => {
+    const d = parseDate(dateStr);
+    d.setMonth(d.getMonth() + 1, 0);
+    return d;
+};
+
+/**
+ * ISO weekday of a YYYY-MM-DD date: 1 = Monday ... 7 = Sunday.
+ *
+ * The numbering matches org_shift_schedule_patterns.pattern and the `weekday` column of
+ * org_employee_lunch_times, so a per-weekday setting saved by the API can be looked up
+ * here with the same key. Reads a noon-anchored Date for the reason at the top of this
+ * file — getDay() on a bare YYYY-MM-DD parses as UTC midnight and lands on the previous
+ * day west of Greenwich.
+ */
+export const isoWeekdayOf = (dateStr) => {
+    const weekday = parseDate(dateStr).getDay();
+    return weekday === 0 ? 7 : weekday;
+};
+
+/**
+ * The week in ISO order, keyed the way isoWeekdayOf() numbers it. Shared so the screens
+ * that lay a week out in columns — Shift Management's editor, the per-employee lunch grid
+ * in Employees > Teams — cannot end up starting their week on different days.
+ */
+export const ISO_WEEKDAYS = [
+    { iso: 1, label: 'Monday', short: 'Mon' },
+    { iso: 2, label: 'Tuesday', short: 'Tue' },
+    { iso: 3, label: 'Wednesday', short: 'Wed' },
+    { iso: 4, label: 'Thursday', short: 'Thu' },
+    { iso: 5, label: 'Friday', short: 'Fri' },
+    { iso: 6, label: 'Saturday', short: 'Sat' },
+    { iso: 7, label: 'Sunday', short: 'Sun' }
+];

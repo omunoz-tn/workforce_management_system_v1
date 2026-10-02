@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './HoursReportView.css';
 import LoadingScreen from './LoadingScreen';
+import { normalizeForSearch } from '../utils/search';
 
 const ReportPeriodEditor = ({ initialFrom, initialTo, onApply }) => {
     const [localFrom, setLocalFrom] = useState(initialFrom || '');
@@ -418,10 +419,11 @@ const HoursReportView = ({ fromDate: propFrom, toDate: propTo, onBack }) => {
             employees = getAdjustedEmployees(employees);
         }
 
+        const term = normalizeForSearch(searchTerm);
         return employees
             .filter(emp =>
-                (emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    emp.team.toLowerCase().includes(searchTerm.toLowerCase())) &&
+                (normalizeForSearch(emp.name).includes(term) ||
+                    normalizeForSearch(emp.team).includes(term)) &&
                 (!showOnlyActive || emp.total >= 0.01)
             )
             .sort((a, b) => a.name.localeCompare(b.name));

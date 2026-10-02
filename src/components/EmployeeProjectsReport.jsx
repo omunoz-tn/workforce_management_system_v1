@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import './EmployeeProjectsReport.css';
 import LoadingScreen from './LoadingScreen';
+import { normalizeForSearch } from '../utils/search';
 
 const EmployeeProjectsReport = ({ fromDate, toDate, onBack }) => {
     const [data, setData] = useState([]);
@@ -49,11 +50,12 @@ const EmployeeProjectsReport = ({ fromDate, toDate, onBack }) => {
 
     // Filtering logic
     const filteredData = useMemo(() => {
-        return data.filter(row => 
-            row.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            row.team.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            row.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            row.taskName.toLowerCase().includes(searchTerm.toLowerCase())
+        const term = normalizeForSearch(searchTerm);
+        return data.filter(row =>
+            normalizeForSearch(row.userName).includes(term) ||
+            normalizeForSearch(row.team).includes(term) ||
+            normalizeForSearch(row.projectName).includes(term) ||
+            normalizeForSearch(row.taskName).includes(term)
         );
     }, [data, searchTerm]);
     

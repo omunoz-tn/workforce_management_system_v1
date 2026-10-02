@@ -27,9 +27,10 @@ if (file_exists($envFile)) {
 
 // 2. Override with system environment variables (Docker/Server configuration)
 $envVars = [
-    'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS', 
+    'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS', 'DB_PORT',
     'DESKTIME_API_KEY_TN', 'DESKTIME_API_KEY_BAY',
-    'ODOO_DB_HOST', 'ODOO_DB_USER', 'ODOO_DB_PASS', 'ODOO_DB_NAME', 'ODOO_DB_PORT'
+    'ODOO_DB_HOST', 'ODOO_DB_USER', 'ODOO_DB_PASS', 'ODOO_DB_NAME', 'ODOO_DB_PORT',
+    'TELECOM_DB_HOST', 'TELECOM_DB_PORT', 'TELECOM_DB_NAME', 'TELECOM_DB_USER', 'TELECOM_DB_PASS'
 ];
 foreach ($envVars as $var) {
     $val = getenv($var);

@@ -493,10 +493,6 @@
     justify-content: center;
 }
 
-.view-toggle-menu {
-    width: 160px;
-}
-
 .view-toggle-option {
     display: flex;
     align-items: center;
@@ -541,11 +537,6 @@
 
 .sort-dropdown-menu {
     width: 230px;
-}
-
-.view-toggle-icon {
-    display: flex;
-    opacity: 0.6;
 }
 
 /* Team Cards (Grid view) */
@@ -644,6 +635,18 @@
 .team-card-stat-dates .team-card-stat-value {
     font-weight: 500;
     font-size: 0.8rem;
+}
+
+/* Summary lines on the global card (e.g. the absenteeism totals) run long and
+   would otherwise spill past the card edge, since stat values are nowrap. */
+.team-card-summary-line {
+    align-items: flex-start;
+}
+
+.team-card-summary-line .team-card-stat-value {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
 }
 
 .dark .team-card:hover {

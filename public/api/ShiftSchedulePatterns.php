@@ -66,7 +66,8 @@ function validateShiftPattern($pattern): array
 function fetchShiftPatternVersions(PDO $pdo, int $employeeId): array
 {
     $stmt = $pdo->prepare(
-        "SELECT id, employee_id, employee_name, effective_start, effective_end, pattern, created_at, updated_at
+        "SELECT id, employee_id, employee_name, effective_start, effective_end, pattern,
+                source_week_start, created_at, updated_at
          FROM org_shift_schedule_patterns
          WHERE employee_id = ?
          ORDER BY effective_start DESC, id DESC"

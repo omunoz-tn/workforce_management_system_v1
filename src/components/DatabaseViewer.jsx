@@ -17,6 +17,11 @@ const DbTableIcon = () => (
 );
 
 const DatabaseViewer = ({ onBack }) => {
+    // Which server is being browsed. The list comes from the API (db_sources.php), so a
+    // source nobody configured in .env never shows up as a broken option; 'wfm' is the
+    // platform database the viewer has always opened.
+    const [sources, setSources] = useState([]);
+    const [sourceId, setSourceId] = useState('wfm');
     const [tables, setTables] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -50,7 +55,7 @@ const DatabaseViewer = ({ onBack }) => {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch('./api/get_database_info.php?action=list');
+            const response = await fetch(`./api/get_database_info.php?action=list&source=${sourceId}`);
             const result = await response.json();
             if (result.success) {
                 const fetchedTables = result.tables || [];
@@ -82,7 +87,7 @@ const DatabaseViewer = ({ onBack }) => {
         setModalState(initialModalState);
 
         try {
-            const response = await fetch(`./api/get_database_info.php?action=details&table=${encodeURIComponent(tableName)}`);
+            const response = await fetch(`./api/get_database_info.php?action=details&table=${encodeURIComponent(tableName)}&source=${sourceId}`);
             const result = await response.json();
             if (result.success) {
                 setDetails(result);
@@ -117,6 +122,7 @@ const DatabaseViewer = ({ onBack }) => {
             try {
                 const params = new URLSearchParams({
                     action: 'count',
+                    source: sourceId,
                     table: selectedTable,
                     start_date: hasDateCol ? modalState.fromDate : '',
                     end_date: hasDateCol ? modalState.toDate : '',
@@ -138,7 +144,7 @@ const DatabaseViewer = ({ onBack }) => {
         }, 350);
 
         return () => clearTimeout(delayDebounceFn);
-    }, [modalState.isOpen, selectedTable, modalState.fromDate, modalState.toDate, modalState.employeeName, modalState.team, hasDateCol, hasNameCol, hasTeamCol]);
+    }, [modalState.isOpen, selectedTable, sourceId, modalState.fromDate, modalState.toDate, modalState.employeeName, modalState.team, hasDateCol, hasNameCol, hasTeamCol]);
 
     // Load Filtered Data from Modal selections
     const handleLoadFilteredData = async () => {
@@ -150,6 +156,7 @@ const DatabaseViewer = ({ onBack }) => {
         try {
             const params = new URLSearchParams({
                 action: 'details',
+                source: sourceId,
                 table: selectedTable,
                 limit: 'all',
                 start_date: hasDateCol ? modalState.fromDate : '',
@@ -269,9 +276,59 @@ const DatabaseViewer = ({ onBack }) => {
         document.body.removeChild(link);
     };
 
+    // The picker is populated once; a failure here leaves it hidden and the default
+    // source still loads, so the viewer degrades to exactly what it did before.
+    useEffect(() => {
+        const loadSources = async () => {
+            try {
+                const response = await fetch('./api/get_database_info.php?action=sources');
+                const result = await response.json();
+                if (result.success && result.sources?.length > 0) {
+                    setSources(result.sources);
+                    if (!result.sources.some(s => s.id === sourceId)) {
+                        setSourceId(result.sources[0].id);
+                    }
+                }
+                // A server that refused to list its schemas is worth saying out loud --
+                // otherwise it just silently misses from the picker.
+                if (result.warnings?.length > 0) {
+                    setError(result.warnings.join(' | '));
+                }
+            } catch (err) {
+                // Non-fatal: keep the single-database behaviour.
+            }
+        };
+        loadSources();
+    }, []);
+
     useEffect(() => {
         fetchTables(true);
-    }, []);
+    }, [sourceId]);
+
+    // Switching servers invalidates everything on screen: table names, schema and rows all
+    // belong to the database that was open.
+    const handleSourceChange = (nextSource) => {
+        if (nextSource === sourceId) return;
+        setSelectedTable(null);
+        setDetails(null);
+        setSearchQuery('');
+        setError(null);
+        setModalState(initialModalState);
+        setSourceId(nextSource);
+    };
+
+    const activeSource = sources.find(s => s.id === sourceId) || null;
+
+    // Where the open table physically lives, shown in the Structure tab so the host is at
+    // hand without opening .env. Taken from the details response first, since that names
+    // the server that actually answered; the picker entry is the fallback for the
+    // single-source case, where the sources call never populates a list.
+    const connectionInfo = details?.connection || (activeSource ? {
+        label: activeSource.label,
+        host: activeSource.host,
+        port: activeSource.port,
+        database: activeSource.database
+    } : null);
 
     // Filter tables based on sidebar search
     const filteredTables = tables.filter(t => 
@@ -303,12 +360,30 @@ const DatabaseViewer = ({ onBack }) => {
                     <button className="back-btn" onClick={onBack}>← Back</button>
                     <div>
                         <h1>Database Viewer</h1>
-                        <p className="subtitle">Real-time database tables inspector</p>
+                        <p className="subtitle">
+                            {activeSource
+                                ? `${activeSource.database} · ${activeSource.host}:${activeSource.port}`
+                                : 'Real-time database tables inspector'}
+                        </p>
                     </div>
                 </div>
-                <button className="refresh-btn" onClick={() => fetchTables(false)}>
-                    🔄 Refresh Tables List
-                </button>
+                <div className="header-right">
+                    {sources.length > 1 && (
+                        <select
+                            className="db-source-select"
+                            value={sourceId}
+                            onChange={(e) => handleSourceChange(e.target.value)}
+                            title="Database server to browse"
+                        >
+                            {sources.map(s => (
+                                <option key={s.id} value={s.id}>{s.label}</option>
+                            ))}
+                        </select>
+                    )}
+                    <button className="refresh-btn" onClick={() => fetchTables(false)}>
+                        🔄 Refresh Tables List
+                    </button>
+                </div>
             </header>
 
             {error && (
@@ -351,7 +426,7 @@ const DatabaseViewer = ({ onBack }) => {
                                             <span className="db-table-name-sidebar" title={t.name}>{t.name}</span>
                                         </div>
                                         <span className="table-rows-badge">
-                                            {t.rows.toLocaleString()} rows
+                                            {t.rows === null ? '— rows' : `${t.rows.toLocaleString()} rows`}
                                         </span>
                                     </div>
                                 ))
@@ -377,7 +452,7 @@ const DatabaseViewer = ({ onBack }) => {
                                     <div className="details-header-title">
                                         <h2>{details.table}</h2>
                                         <span className="table-total-rows">
-                                            Total in DB: <strong>{details.rows.toLocaleString()}</strong> rows 
+                                            Total in DB: <strong>{details.rows === null ? '—' : details.rows.toLocaleString()}</strong> rows 
                                             {activeTab === 'data' && (
                                                 <span> | Loaded: <strong>{details.records.length.toLocaleString()}</strong> rows</span>
                                             )}
@@ -403,6 +478,22 @@ const DatabaseViewer = ({ onBack }) => {
                                 <div className="tab-content-panel">
                                     {activeTab === 'structure' ? (
                                         <div className="schema-tab-content">
+                                            {connectionInfo && (
+                                                <dl className="schema-connection">
+                                                    <div className="schema-connection-item">
+                                                        <dt>Host</dt>
+                                                        <dd className="font-mono">{connectionInfo.host}:{connectionInfo.port}</dd>
+                                                    </div>
+                                                    <div className="schema-connection-item">
+                                                        <dt>Database</dt>
+                                                        <dd className="font-mono">{connectionInfo.database}</dd>
+                                                    </div>
+                                                    <div className="schema-connection-item">
+                                                        <dt>Source</dt>
+                                                        <dd>{connectionInfo.label}</dd>
+                                                    </div>
+                                                </dl>
+                                            )}
                                             <table className="viewer-table">
                                                 <thead>
                                                     <tr>

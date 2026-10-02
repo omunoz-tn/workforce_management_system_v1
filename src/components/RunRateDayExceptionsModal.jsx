@@ -27,13 +27,14 @@ export const getCalendarCells = (anchorDate) => {
     return cells;
 };
 
-// The single "Exceptions" entry point for a team's Run Rate. Two top-level
+// The single "Exceptions" entry point for a team's Run Rate. Three top-level
 // tabs: "Days Exceptions" (calendar — excludes specific dates, team-wide or
-// for one employee only) and "Employees Exceptions" (excludes specific
-// employees entirely, every day). Both write to independent tables, so they
-// never conflict with each other.
+// for one employee only), "Employees Exceptions" (excludes specific employees
+// entirely, every day) and "Time Exceptions" (minutes swallowed at the start of
+// every shift). Each writes to its own table, so they never conflict with each
+// other.
 const RunRateDayExceptionsModal = ({ team, onClose }) => {
-    const [topTab, setTopTab] = useState('days'); // 'days' | 'employees'
+    const [topTab, setTopTab] = useState('days'); // 'days' | 'employees' | 'time'
 
     // --- Days Exceptions (calendar) ---
     const [excludedDates, setExcludedDates] = useState(new Set());
@@ -57,6 +58,22 @@ const RunRateDayExceptionsModal = ({ team, onClose }) => {
     const [loadingExcEmployees, setLoadingExcEmployees] = useState(true);
     const [excSaveStatus, setExcSaveStatus] = useState(null); // null | 'saving' | 'saved' | 'error'
     const [excEmployeesLoaded, setExcEmployeesLoaded] = useState(false);
+
+    // --- Time Exceptions (minutes discounted from the start of every shift) ---
+    // 'team' = the team's base value; 'byEmployee' = per-employee overrides of
+    // it. An empty box means "inherit the team", which is why the overrides are
+    // kept as strings rather than numbers — '' and '0' mean different things.
+    const [timeScope, setTimeScope] = useState('team');
+    const [teamMinutes, setTeamMinutes] = useState('0');
+    const [timeOverrides, setTimeOverrides] = useState({}); // { [employee_id]: string }
+    const [timeEmployees, setTimeEmployees] = useState([]);
+    const [timeSearchTerm, setTimeSearchTerm] = useState('');
+    const [loadingTime, setLoadingTime] = useState(true);
+    const [loadingTimeEmployees, setLoadingTimeEmployees] = useState(false);
+    const [timeLoaded, setTimeLoaded] = useState(false);
+    const [timeEmployeesLoaded, setTimeEmployeesLoaded] = useState(false);
+    const [timeSaveStatus, setTimeSaveStatus] = useState(null); // null | 'saving' | 'saved' | 'error'
+    const [timeError, setTimeError] = useState(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -105,6 +122,45 @@ const RunRateDayExceptionsModal = ({ team, onClose }) => {
             .finally(() => { if (!cancelled) setLoadingExcEmployees(false); });
         return () => { cancelled = true; };
     }, [topTab, team, excEmployeesLoaded]);
+
+    useEffect(() => {
+        if (topTab !== 'time' || timeLoaded) return;
+        let cancelled = false;
+        setLoadingTime(true);
+        fetch(`./api/manage_run_rate_time_exceptions.php?team_id=${team.id}`)
+            .then(res => res.json())
+            .then(json => {
+                if (cancelled) return;
+                if (!json.success) return;
+                setTeamMinutes(String(json.team_minutes ?? 0));
+                const initial = {};
+                (json.overrides || []).forEach(row => {
+                    initial[row.employee_id] = String(row.exception_minutes);
+                });
+                setTimeOverrides(initial);
+                setTimeLoaded(true);
+            })
+            .catch(err => console.error('Failed to load run rate time exceptions', err))
+            .finally(() => { if (!cancelled) setLoadingTime(false); });
+        return () => { cancelled = true; };
+    }, [topTab, team, timeLoaded]);
+
+    useEffect(() => {
+        if (topTab !== 'time' || timeScope !== 'byEmployee' || timeEmployeesLoaded) return;
+        let cancelled = false;
+        setLoadingTimeEmployees(true);
+        fetch('./api/get_dashboard_stats.php')
+            .then(res => res.json())
+            .then(json => {
+                if (cancelled) return;
+                const teamRows = (json.mtdEmployeeData || []).filter(row => row.team_name === team.name);
+                setTimeEmployees(teamRows.map(row => ({ employee_id: row.employee_id, name: row.name })));
+                setTimeEmployeesLoaded(true);
+            })
+            .catch(err => console.error('Failed to load team employees', err))
+            .finally(() => { if (!cancelled) setLoadingTimeEmployees(false); });
+        return () => { cancelled = true; };
+    }, [topTab, timeScope, team, timeEmployeesLoaded]);
 
     const toggleDate = (dateStr) => {
         setExcludedDates(prev => {
@@ -173,6 +229,82 @@ const RunRateDayExceptionsModal = ({ team, onClose }) => {
         }
     };
 
+    const handleTimeOverrideChange = (employeeId, value) => {
+        setTimeOverrides(prev => ({ ...prev, [employeeId]: value }));
+        setTimeSaveStatus(null);
+        setTimeError(null);
+    };
+
+    const filteredTimeEmployees = useMemo(() => {
+        const term = timeSearchTerm.toLowerCase();
+        return timeEmployees.filter(emp => emp.name.toLowerCase().includes(term));
+    }, [timeEmployees, timeSearchTerm]);
+
+    const isValidMinutes = (value) => {
+        const parsed = Number(value);
+        return value !== '' && Number.isInteger(parsed) && parsed >= 0 && parsed <= 1440;
+    };
+
+    const handleSaveTeamTime = async () => {
+        if (!isValidMinutes(teamMinutes)) {
+            setTimeSaveStatus('error');
+            setTimeError('Enter a whole number of minutes between 0 and 1440.');
+            return;
+        }
+
+        setTimeSaveStatus('saving');
+        setTimeError(null);
+        try {
+            const res = await fetch('./api/manage_run_rate_time_exceptions.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ team_id: team.id, team_minutes: Number(teamMinutes) })
+            });
+            const json = await res.json();
+            setTimeSaveStatus(json.success ? 'saved' : 'error');
+            if (!json.success) setTimeError(json.error || 'Failed to save.');
+        } catch (err) {
+            console.error('Failed to save run rate time exceptions', err);
+            setTimeSaveStatus('error');
+            setTimeError('Failed to save.');
+        }
+    };
+
+    const handleSaveEmployeeTime = async () => {
+        // Only employees with a value entered get a row; the rest inherit the team.
+        const overrides = timeEmployees
+            .filter(emp => (timeOverrides[emp.employee_id] ?? '') !== '')
+            .map(emp => ({ employee_id: emp.employee_id, exception_minutes: timeOverrides[emp.employee_id] }));
+
+        const invalid = overrides.find(entry => !isValidMinutes(entry.exception_minutes));
+        if (invalid) {
+            setTimeSaveStatus('error');
+            setTimeError('Every override must be a whole number of minutes between 0 and 1440.');
+            return;
+        }
+
+        setTimeSaveStatus('saving');
+        setTimeError(null);
+        try {
+            const res = await fetch('./api/manage_run_rate_time_exceptions.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    team_id: team.id,
+                    employee_ids: timeEmployees.map(emp => emp.employee_id),
+                    overrides: overrides.map(entry => ({ ...entry, exception_minutes: Number(entry.exception_minutes) }))
+                })
+            });
+            const json = await res.json();
+            setTimeSaveStatus(json.success ? 'saved' : 'error');
+            if (!json.success) setTimeError(json.error || 'Failed to save.');
+        } catch (err) {
+            console.error('Failed to save run rate time exceptions', err);
+            setTimeSaveStatus('error');
+            setTimeError('Failed to save.');
+        }
+    };
+
     const cells = getCalendarCells(anchorDate);
     const weekCount = cells.length / 7;
     const includedEmployeeCount = excEmployees.length - excludedEmployeeIds.size;
@@ -213,9 +345,16 @@ const RunRateDayExceptionsModal = ({ team, onClose }) => {
                         >
                             Employees Exceptions
                         </button>
+                        <button
+                            type="button"
+                            className={`nav-btn ${topTab === 'time' ? 'today' : ''}`}
+                            onClick={() => setTopTab('time')}
+                        >
+                            Time Exceptions
+                        </button>
                     </div>
 
-                    {topTab === 'days' ? (
+                    {topTab === 'days' && (
                         <>
                             <div className="day-exceptions-view-toggle navigation-controls">
                                 <button
@@ -302,7 +441,9 @@ const RunRateDayExceptionsModal = ({ team, onClose }) => {
                                 </>
                             )}
                         </>
-                    ) : (
+                    )}
+
+                    {topTab === 'employees' && (
                         <>
                             <p className="text-muted">
                                 Only selected employees count toward this team's Run Rate. Deselect an employee to
@@ -334,6 +475,107 @@ const RunRateDayExceptionsModal = ({ team, onClose }) => {
                             )}
                         </>
                     )}
+
+                    {topTab === 'time' && (
+                        <>
+                            <div className="day-exceptions-view-toggle navigation-controls">
+                                <button
+                                    type="button"
+                                    className={`nav-btn ${timeScope === 'team' ? 'today' : ''}`}
+                                    onClick={() => setTimeScope('team')}
+                                >
+                                    Team
+                                </button>
+                                <button
+                                    type="button"
+                                    className={`nav-btn ${timeScope === 'byEmployee' ? 'today' : ''}`}
+                                    onClick={() => setTimeScope('byEmployee')}
+                                >
+                                    Employee
+                                </button>
+                            </div>
+
+                            {timeScope === 'team' ? (
+                                <>
+                                    <p className="text-muted">
+                                        Minutes discounted from the START of every shift in this team before Run Rate
+                                        is calculated — e.g. 15 minutes bills an 08:15-17:00 shift as 08:30-17:00.
+                                        The scheduled hours drop by that much, and so does whatever DeskTime tracked
+                                        inside those minutes. 0 means no exception.
+                                    </p>
+
+                                    {loadingTime ? (
+                                        <p className="text-muted">Loading...</p>
+                                    ) : (
+                                        <div className="time-exceptions-team-field">
+                                            <label htmlFor="time-exception-team-minutes">Time Exception</label>
+                                            <div className="time-exceptions-input-group">
+                                                <input
+                                                    id="time-exception-team-minutes"
+                                                    type="number"
+                                                    min="0"
+                                                    max="1440"
+                                                    step="1"
+                                                    className="time-exceptions-input"
+                                                    value={teamMinutes}
+                                                    onChange={(e) => {
+                                                        setTeamMinutes(e.target.value);
+                                                        setTimeSaveStatus(null);
+                                                        setTimeError(null);
+                                                    }}
+                                                />
+                                                <span className="time-exceptions-suffix">min</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <>
+                                    <p className="text-muted">
+                                        Overrides the team's value for one employee only. Leave a box empty to inherit
+                                        the team's {teamMinutes || 0} min; type 0 to give an employee no exception at
+                                        all.
+                                    </p>
+                                    <input
+                                        type="text"
+                                        className="assignment-search"
+                                        placeholder="Search employees by name..."
+                                        value={timeSearchTerm}
+                                        onChange={(e) => setTimeSearchTerm(e.target.value)}
+                                    />
+
+                                    {loadingTimeEmployees ? (
+                                        <p className="text-muted">Loading employees...</p>
+                                    ) : timeEmployees.length === 0 ? (
+                                        <p className="text-muted">No employees found in this team.</p>
+                                    ) : (
+                                        <div className="time-exceptions-list">
+                                            {filteredTimeEmployees.map(emp => (
+                                                <div key={emp.employee_id} className="time-exceptions-row">
+                                                    <span className="time-exceptions-name">{emp.name}</span>
+                                                    <div className="time-exceptions-input-group">
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            max="1440"
+                                                            step="1"
+                                                            className="time-exceptions-input"
+                                                            placeholder={teamMinutes || '0'}
+                                                            value={timeOverrides[emp.employee_id] ?? ''}
+                                                            onChange={(e) => handleTimeOverrideChange(emp.employee_id, e.target.value)}
+                                                        />
+                                                        <span className="time-exceptions-suffix">min</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            {timeError && <p className="range-error">{timeError}</p>}
+                        </>
+                    )}
                 </div>
 
                 {topTab === 'days' && dayScope === 'team' && (
@@ -356,6 +598,21 @@ const RunRateDayExceptionsModal = ({ team, onClose }) => {
                         <button onClick={onClose}>Cancel</button>
                         <button className="btn-primary" onClick={handleSaveEmployees} disabled={loadingExcEmployees || excSaveStatus === 'saving'}>
                             {excSaveStatus === 'saving' ? 'Saving...' : 'Save Exceptions'}
+                        </button>
+                    </div>
+                )}
+
+                {topTab === 'time' && (
+                    <div className="modal-footer">
+                        {timeSaveStatus === 'saved' && <span className="advance-config-status success" style={{ marginRight: 'auto' }}>Saved.</span>}
+                        {timeSaveStatus === 'error' && <span className="advance-config-status error" style={{ marginRight: 'auto' }}>Failed to save. Try again.</span>}
+                        <button onClick={onClose}>Cancel</button>
+                        <button
+                            className="btn-primary"
+                            onClick={timeScope === 'team' ? handleSaveTeamTime : handleSaveEmployeeTime}
+                            disabled={loadingTime || timeSaveStatus === 'saving'}
+                        >
+                            {timeSaveStatus === 'saving' ? 'Saving...' : 'Save Time Exceptions'}
                         </button>
                     </div>
                 )}

@@ -2,11 +2,51 @@
    Layout only. The shift cards themselves come from ShiftCard and are styled by
    ScheduleBoard.css, so both screens render the identical card. */
 
+/* The page itself does not scroll: .schedule-board-container is a 100vh flex column, so
+   this area gets whatever the header leaves and keeps it. Every child below is pinned to
+   its natural height except Schedule History, which absorbs the slack and scrolls inside
+   itself — that way the action buttons stay parked at the bottom of the screen instead of
+   sitting under a long history. min-height:0 is required or a flex item's content floor
+   would push this box taller than its parent. */
 .shift-mgmt-main {
     display: flex;
     flex-direction: column;
     gap: 20px;
-    overflow-y: auto;
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* Fixed-height siblings — none of these may absorb or give up space. */
+.shift-mgmt-topbar,
+.shift-mgmt-error,
+.shift-mgmt-placeholder,
+.shift-mgmt-week-header,
+.shift-mgmt-week,
+.shift-mgmt-period,
+.shift-mgmt-preview {
+    flex: 0 0 auto;
+}
+
+/* Search on the left, the selected employee filling the rest of the row. align-items is
+   stretch so the summary card matches the search box height instead of floating. */
+.shift-mgmt-topbar {
+    display: flex;
+    align-items: stretch;
+    gap: 16px;
+}
+
+/* 0 0 rather than 0 1: allowed to shrink, this column narrows under a wide summary while
+   .search-box keeps its own fixed width, and the box spills over the card to its right.
+   (.search-box is declared in eight stylesheets — see the note in ScheduleBoard.css — so
+   its width is not this file's to rely on.) The summary's margin adds 20px on top of the
+   row gap, keeping clear air between the two even when the input is at its widest. */
+.shift-mgmt-topbar .shift-mgmt-search { flex: 0 0 460px; }
+.shift-mgmt-topbar .shift-mgmt-summary { flex: 1 1 auto; min-width: 0; margin-left: 20px; }
+
+@media (max-width: 900px) {
+    .shift-mgmt-topbar { flex-direction: column; }
+    .shift-mgmt-topbar .shift-mgmt-search { flex: 0 0 auto; }
+    .shift-mgmt-topbar .shift-mgmt-summary { margin-left: 0; }
 }
 
 /* ── Employee search ── */
@@ -73,20 +113,6 @@
 .shift-mgmt-emp-name { font-weight: 700; font-size: 1rem; }
 .shift-mgmt-emp-meta { font-size: 0.82rem; color: var(--text-muted); }
 .shift-mgmt-emp-template { font-size: 0.78rem; color: var(--accent-color); font-weight: 600; }
-
-.shift-mgmt-clear {
-    padding: 8px 14px;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    background: var(--card-bg);
-    color: var(--text-color);
-    font-weight: 600;
-    font-size: 0.82rem;
-    cursor: pointer;
-    white-space: nowrap;
-}
-
-.shift-mgmt-clear:hover { border-color: var(--accent-color); color: var(--accent-color); }
 
 /* Sits directly above the day cards, so the running weekly total is next to the
    shifts being edited instead of up in the page header. Negative bottom margin
@@ -220,6 +246,33 @@
     font-weight: 800;
 }
 
+/* The lone growing/shrinking child of .shift-mgmt-main. A column so its heading keeps its
+   height and .shift-mgmt-version-list takes the remainder. */
+.shift-mgmt-versions {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.shift-mgmt-versions h2 { flex: 0 0 auto; }
+
+/* Title and its explanation share one line, so the note costs no extra height. The note
+   is the flexible half — the title keeps its natural width. */
+.shift-mgmt-period-head {
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+    margin-bottom: 12px;
+}
+
+.shift-mgmt-period-head h2 { margin: 0; flex: 0 0 auto; }
+.shift-mgmt-period-head .shift-mgmt-note { margin: 0; flex: 1 1 auto; }
+
+@media (max-width: 1100px) {
+    .shift-mgmt-period-head { flex-direction: column; gap: 8px; }
+}
+
 .shift-mgmt-period-fields { display: flex; flex-wrap: wrap; gap: 18px; }
 
 .shift-mgmt-period-fields label {
@@ -262,26 +315,186 @@
    is given the accent treatment rather than the muted one. */
 .shift-mgmt-preview-retro { color: var(--accent-color); font-weight: 600; }
 
+/* Every row is its own grid container, so content-sized (`auto`) tracks would each resolve
+   against that row's own text — the header sizing to "Creation Date", a row to a much wider
+   timestamp — and the columns would not line up. Fixed tracks with one flexible middle
+   resolve identically in every row, which is what puts each value under its title.
+   align-items:stretch so the cell dividers run the full height of the row. */
 .shift-mgmt-version {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: 180px minmax(0, 1fr) 170px 190px;
+    align-items: stretch;
+    gap: 0;
     padding: 8px 0;
     border-bottom: 1px solid var(--border-color);
-    font-size: 0.82rem;
+    font-size: 11px;
 }
 
+/* Cells carry their own padding rather than the grid using a gap: the separator sits on the
+   cell edge, so a gap would leave the line floating off-centre between two columns. */
+.shift-mgmt-version > * {
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    min-width: 0;
+}
+
+.shift-mgmt-version > *:first-child { padding-left: 0; }
+.shift-mgmt-version > *:last-child { padding-right: 0; }
+.shift-mgmt-version > * + * { border-left: 1px solid var(--border-color); }
+
 .shift-mgmt-version:last-child { border-bottom: none; }
-.shift-mgmt-version-days { color: var(--text-muted); font-weight: 700; }
+
+/* Rows are buttons so the whole strip is the hit target and the keyboard reaches it; the
+   button defaults have to be stripped back to make one look like a table row again. */
+.shift-mgmt-version-row {
+    width: 100%;
+    /* Not `font: inherit`. The shorthand also resets font-size, and since this rule comes
+       after .shift-mgmt-version at equal specificity it silently overrode the row's own
+       size with the list's — so only the properties that genuinely need inheriting are
+       named here, leaving font-size to the rule above. */
+    font-family: inherit;
+    font-weight: inherit;
+    font-style: inherit;
+    line-height: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    text-align: left;
+    background: transparent;
+    border-left: none;
+    border-right: none;
+    border-top: none;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.shift-mgmt-version-row:hover { background: var(--surface-alt); }
+
+.shift-mgmt-version-row:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: -2px;
+}
+
+.shift-mgmt-version-period { gap: 8px; flex-wrap: wrap; }
+
+/* Marks the version actually in force today — the same fact the employee summary states,
+   put where the list would otherwise leave it ambiguous which row is live. */
+.shift-mgmt-version-current {
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: rgba(253, 100, 28, 0.12);
+    border: 1px solid rgba(253, 100, 28, 0.35);
+    color: var(--accent-color);
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+/* Wide enough for all seven days on one line ("Mon Tue Wed Thu Fri Sat Sun"); nowrap so a
+   full week can never fold onto a second line and make its row taller than the others. */
+.shift-mgmt-version-days {
+    color: var(--text-muted);
+    font-weight: 700;
+    justify-content: flex-end;
+    white-space: nowrap;
+}
+.shift-mgmt-version-created {
+    color: var(--text-muted);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* The week the seven cards were read from, worded as the picker words it. */
+.shift-mgmt-version-source {
+    color: var(--text-muted);
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Saved before the source week was recorded — stated plainly rather than left blank, which
+   would read as "no source week" instead of "not known". */
+.shift-mgmt-version-source-none { opacity: 0.6; font-style: italic; font-weight: 500; }
+
+/* The log scrolls inside itself, so a long history does not stretch the page below the
+   Apply buttons. The header sits inside the same scroll box (sticky) rather than above it,
+   which keeps it aligned with the rows whether or not a scrollbar is taking width. */
+/* The only element on the screen allowed to scroll. It takes the space left over after the
+   fixed siblings above and the action bar below, so a history of any length changes nothing
+   about where anything else sits. No max-height: the height is whatever the viewport spares,
+   and min-height keeps a couple of rows readable when the viewport is short. */
+.shift-mgmt-version-list {
+    flex: 1 1 auto;
+    /* La barra de scroll se dibuja contra el borde derecho, justo donde la columna Days
+       termina su texto (esa celda no lleva padding-right), y lo tapaba. El padding abre el
+       hueco, y scrollbar-gutter lo reserva siempre — así el ancho de las columnas no cambia
+       según haya barra o no, y la cabecera sigue alineada con las filas en ambos casos. */
+    scrollbar-gutter: stable;
+    padding-right: 10px;
+    /* Floor of roughly four rows under the sticky header (~33px each), so the section is
+       always worth reading; the space freed by the topbar and the period row above pays
+       for it. It grows past this whenever the viewport allows. */
+    min-height: 160px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.shift-mgmt-version-head {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding-top: 0;
+    background: var(--card-bg);
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
+
+.shift-mgmt-version-head span:last-child { justify-content: flex-end; }
+
+/* The three fixed tracks total 500px; below roughly 1000px the flexible middle no longer
+   has room for a full date range beside them, so the fixed ones give some back. */
+@media (max-width: 1000px) {
+    .shift-mgmt-version { grid-template-columns: 150px minmax(0, 1fr) 150px 190px; }
+    .shift-mgmt-version > * { padding: 0 10px; }
+}
+
+@media (max-width: 640px) {
+    .shift-mgmt-version { grid-template-columns: 1fr auto; }
+    .shift-mgmt-version-head { display: none; }
+    /* Stacked cells have no columns to divide, so the separators and their padding go. */
+    .shift-mgmt-version > * { padding: 0; border-left: none; }
+    .shift-mgmt-version-created,
+    .shift-mgmt-version-source { grid-column: 1 / -1; }
+}
+
+/* Escape hatch, not the intended layout. The fixed rows above the history need roughly
+   680px; below that the choice is between a scrollbar and silently clipping the Effective
+   Period fields, so the area is allowed to scroll again. The action bar is outside it and
+   stays pinned either way. Does not trigger on a 1080p screen. */
+@media (max-height: 820px) {
+    .shift-mgmt-main { overflow-y: auto; }
+}
 
 /* ── Actions, states, toast ── */
+/* A direct child of the 100vh .schedule-board-container, sitting after the flex:1 main
+   area — so it is always on the bottom edge of the screen and never scrolls. flex:0 0 auto
+   stops it collapsing when the content above wants more room than there is. */
 .shift-mgmt-actions {
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: 10px;
     flex-wrap: wrap;
-    padding-bottom: 8px;
+    flex: 0 0 auto;
+    padding-top: 16px;
+    padding-bottom: 0;
 }
 
 .shift-mgmt-validation { margin-right: auto; font-size: 0.8rem; color: #dc2626; font-weight: 600; }
@@ -333,6 +546,67 @@
 }
 
 .shift-mgmt-modal { max-width: 460px; }
+
+/* ── Saved version viewer ── */
+.shift-mgmt-version-modal { max-width: 520px; }
+
+.shift-mgmt-version-modal-range {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 0;
+    font-weight: 700;
+    font-size: 0.88rem;
+}
+
+.shift-mgmt-version-week {
+    display: flex;
+    flex-direction: column;
+    margin-top: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.shift-mgmt-version-day {
+    display: grid;
+    grid-template-columns: 110px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.83rem;
+}
+
+.shift-mgmt-version-day:last-child { border-bottom: none; }
+
+/* A changed day is the reason the viewer is open, so it gets the accent treatment while
+   the untouched days stay quiet. */
+.shift-mgmt-version-day.is-changed { background: rgba(253, 100, 28, 0.07); }
+.shift-mgmt-version-day.is-off .shift-mgmt-version-day-shift { color: var(--text-muted); }
+
+.shift-mgmt-version-day-name { font-weight: 700; }
+.shift-mgmt-version-day-shift { display: flex; flex-direction: column; gap: 2px; font-weight: 600; }
+
+/* What the day looked like before this save — the other half of "what changed". */
+.shift-mgmt-version-day-before {
+    font-size: 0.74rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-decoration: line-through;
+}
+
+.shift-mgmt-version-day-tag {
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: rgba(253, 100, 28, 0.14);
+    color: var(--accent-color);
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
 
 .shift-mgmt-confirm-warn {
     margin: 12px 0 0;

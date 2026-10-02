@@ -1,0 +1,443 @@
+/* Configuration > HR > Bonus Approval Email (BonusApprovalEmailSettings.jsx).
+   Section shell, inputs and buttons come from HRSettings.css / ScheduleForecastSettings.css;
+   this file is only what the recipient list, the editor and the preview add. */
+
+.bonus-email-subhead {
+    margin: 1.4rem 0 0.6rem 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
+
+.bonus-email-banner {
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    margin-bottom: 1rem;
+}
+
+.bonus-email-banner code {
+    padding: 1px 5px;
+    margin: 0 3px;
+    border-radius: 4px;
+    background: rgba(27, 45, 70, 0.08);
+    font-size: 0.78rem;
+}
+
+.bonus-email-banner.is-error {
+    background: rgba(220, 38, 38, 0.1);
+    border: 1px solid rgba(220, 38, 38, 0.25);
+    color: #dc2626;
+}
+
+.bonus-email-banner.is-ok {
+    background: rgba(22, 163, 74, 0.1);
+    border: 1px solid rgba(22, 163, 74, 0.25);
+    color: #15803d;
+}
+
+.bonus-email-banner.is-warning {
+    background: rgba(217, 119, 6, 0.09);
+    border: 1px solid rgba(217, 119, 6, 0.3);
+    color: #b45309;
+}
+
+/* ── Recipients ──────────────────────────────────────────────────────────── */
+
+.bonus-email-recipients {
+    list-style: none;
+    margin: 0 0 12px 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 560px;
+}
+
+.bonus-email-recipients li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--surface-alt);
+}
+
+.bonus-email-address {
+    font-size: 0.85rem;
+    color: var(--text-color);
+    word-break: break-all;
+}
+
+.bonus-email-remove {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.bonus-email-remove:hover {
+    border-color: #dc2626;
+    color: #dc2626;
+}
+
+.bonus-email-empty {
+    max-width: 560px;
+    margin: 0 0 12px 0;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+.bonus-email-add-row {
+    display: flex;
+    gap: 8px;
+    max-width: 560px;
+}
+
+.bonus-email-subject {
+    width: 100%;
+    max-width: 560px;
+}
+
+/* ── Body editor ─────────────────────────────────────────────────────────── */
+
+.bonus-email-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    max-width: 720px;
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    background: var(--surface-alt);
+}
+
+.bonus-email-toolbar > button {
+    min-width: 30px;
+    padding: 4px 8px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.78rem;
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+.bonus-email-toolbar > button:hover {
+    border-color: var(--border-color);
+    background: var(--card-bg);
+}
+
+.bonus-email-toolbar-sep {
+    width: 1px;
+    height: 18px;
+    background: var(--border-color);
+    margin: 0 2px;
+}
+
+.bonus-email-variable-menu {
+    position: relative;
+    margin-left: auto;
+}
+
+.bonus-email-variable-trigger {
+    padding: 5px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--card-bg);
+    font-family: inherit;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+.bonus-email-variable-trigger:hover {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+.bonus-email-variable-list {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 20;
+    width: 260px;
+    max-height: 300px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    padding: 4px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    box-shadow: 0 12px 28px rgba(27, 45, 70, 0.18);
+}
+
+.bonus-email-variable-list button {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    width: 100%;
+    padding: 6px 8px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.bonus-email-variable-list button:hover {
+    background: var(--surface-alt);
+}
+
+.bonus-email-variable-name {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+.bonus-email-variable-hint {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+}
+
+/* The editor proper. Min-height rather than a fixed one so a long template grows the box
+   instead of hiding its own end behind a scrollbar. */
+.bonus-email-editor {
+    max-width: 720px;
+    min-height: 260px;
+    padding: 14px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 0 0 8px 8px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-size: 0.88rem;
+    line-height: 1.55;
+    overflow-y: auto;
+}
+
+.bonus-email-editor:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(253, 100, 28, 0.12);
+}
+
+/* The template's own markup, so what is typed looks like what is sent. */
+.bonus-email-editor p {
+    margin: 0 0 0.7rem 0;
+}
+
+.bonus-email-editor ul,
+.bonus-email-editor ol {
+    margin: 0 0 0.7rem 0;
+    padding-left: 1.4rem;
+}
+
+.bonus-email-editor li {
+    margin-bottom: 0.2rem;
+}
+
+.bonus-email-variable-note {
+    max-width: 720px;
+    margin: 8px 0 0 0;
+    font-size: 0.74rem;
+    color: var(--text-muted);
+}
+
+.bonus-email-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+}
+
+/* Quieter than Save: it reads the configuration out rather than putting any in. */
+.company-add-btn.is-secondary {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+}
+
+.company-add-btn.is-secondary:hover {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+.bonus-email-reset {
+    padding: 8px 12px;
+    border: none;
+    background: none;
+    font-family: inherit;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.bonus-email-reset:hover {
+    color: #dc2626;
+}
+
+/* ── Preview ─────────────────────────────────────────────────────────────── */
+
+.bonus-email-preview {
+    max-width: 640px;
+    display: flex;
+    flex-direction: column;
+    max-height: 86vh;
+}
+
+.bonus-email-preview-field {
+    display: flex;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.82rem;
+}
+
+.bonus-email-preview-label {
+    flex-shrink: 0;
+    width: 64px;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.66rem;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    padding-top: 2px;
+}
+
+.bonus-email-preview-value {
+    color: var(--text-color);
+    word-break: break-word;
+}
+
+.bonus-email-preview-value.is-subject {
+    font-weight: 700;
+}
+
+/* The rendered message, scrolling inside the panel so the Close button stays reachable. */
+.bonus-email-preview-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    margin-top: 1rem;
+    padding: 16px 18px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--surface-alt);
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: var(--text-color);
+}
+
+.bonus-email-preview-body p {
+    margin: 0 0 0.7rem 0;
+}
+
+.bonus-email-preview-body ul,
+.bonus-email-preview-body ol {
+    margin: 0 0 0.7rem 0;
+    padding-left: 1.4rem;
+}
+
+/* ── Bonus Period Management (BonusPeriodSettings.jsx) ───────────────────── */
+
+.bonus-period-picker {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.bonus-period-select {
+    min-width: 130px;
+}
+
+/* One panel whose border says the state before the words do: green locked, amber reopened,
+   plain grey for a month nobody has signed off yet. */
+.bonus-period-state {
+    max-width: 560px;
+    padding: 14px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--surface-alt);
+}
+
+.bonus-period-state.is-approved {
+    border-color: rgba(22, 163, 74, 0.35);
+    background: rgba(22, 163, 74, 0.06);
+}
+
+.bonus-period-state.is-reopened {
+    border-color: rgba(217, 119, 6, 0.35);
+    background: rgba(217, 119, 6, 0.06);
+}
+
+.bonus-period-state-head {
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: var(--text-color);
+}
+
+.bonus-period-state.is-approved .bonus-period-state-head {
+    color: #15803d;
+}
+
+.bonus-period-state.is-reopened .bonus-period-state-head {
+    color: #b45309;
+}
+
+.bonus-period-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    margin: 12px 0;
+}
+
+.bonus-period-facts dt {
+    font-size: 0.64rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
+
+.bonus-period-facts dd {
+    margin: 2px 0 0 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+.bonus-period-reason {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--text-color);
+}
+
+.bonus-period-reason span {
+    display: block;
+    font-size: 0.64rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+}

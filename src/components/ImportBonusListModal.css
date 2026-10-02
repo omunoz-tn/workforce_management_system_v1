@@ -1,0 +1,231 @@
+/* Import List (ImportBonusListModal.jsx). Shell from BonusModal.css. */
+
+.bonus-import-modal {
+    max-width: 760px;
+    display: flex;
+    flex-direction: column;
+    /* The preview scrolls inside the panel, keeping Import reachable for a 400-row file. */
+    max-height: 88vh;
+}
+
+.bonus-import-period {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.bonus-import-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.bonus-import-template,
+.bonus-import-pick {
+    padding: 0.55rem 1rem;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+/* The template is the quiet path, the file the loud one: picking a file is the step that
+   moves the flow forward. */
+.bonus-import-template {
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-color);
+}
+
+.bonus-import-template:hover {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+.bonus-import-pick {
+    border: none;
+    background: var(--accent-color);
+    color: #fff;
+}
+
+.bonus-import-pick:hover:not(:disabled) {
+    background: #e05315;
+}
+
+.bonus-import-pick:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.bonus-import-filename {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 240px;
+    white-space: nowrap;
+}
+
+.bonus-import-summary {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.bonus-import-chip {
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.bonus-import-chip.is-ok { background: rgba(22, 163, 74, 0.12); color: #16a34a; }
+.bonus-import-chip.is-bad { background: rgba(220, 38, 38, 0.12); color: #dc2626; }
+.bonus-import-chip.is-warn { background: rgba(217, 119, 6, 0.14); color: #b45309; }
+.bonus-import-chip.is-muted { background: var(--surface-alt); color: var(--text-muted); }
+
+/* Every rejected line with its reason, scrolling on its own so twenty bad lines cannot
+   push the preview of the good ones off screen. */
+.bonus-import-errors {
+    max-height: 110px;
+    overflow-y: auto;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    border: 1px solid rgba(220, 38, 38, 0.25);
+    border-radius: 8px;
+    background: rgba(220, 38, 38, 0.06);
+    font-size: 0.78rem;
+    color: #b91c1c;
+    line-height: 1.6;
+}
+
+.bonus-import-errors-note {
+    margin-top: 4px;
+    color: var(--text-muted);
+}
+
+.bonus-import-table-wrapper {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+}
+
+.bonus-import-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+
+.bonus-import-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--surface-alt);
+    border-bottom: 1px solid var(--border-color);
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.bonus-import-table tbody td {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-color);
+    vertical-align: top;
+}
+
+.bonus-import-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.bonus-import-table .is-numeric {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    font-weight: 700;
+}
+
+.bonus-import-line {
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.bonus-import-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 0.62rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+}
+
+.bonus-import-badge.is-linked { background: rgba(37, 99, 235, 0.12); color: #2563eb; }
+.bonus-import-badge.is-manual { background: rgba(217, 119, 6, 0.14); color: #b45309; }
+
+.bonus-import-warning {
+    margin-top: 2px;
+    font-size: 0.72rem;
+    color: #b45309;
+}
+
+/* ── Dark mode ───────────────────────────────────────────────────────────── */
+
+.dark .bonus-import-chip.is-ok { background: rgba(74, 222, 128, 0.16); color: #4ade80; }
+.dark .bonus-import-chip.is-bad { background: rgba(248, 113, 113, 0.16); color: #f87171; }
+.dark .bonus-import-chip.is-warn { background: rgba(251, 191, 36, 0.16); color: #fcd34d; }
+.dark .bonus-import-errors { background: rgba(220, 38, 38, 0.14); color: #fca5a5; }
+.dark .bonus-import-badge.is-linked { background: rgba(96, 165, 250, 0.16); color: #93c5fd; }
+.dark .bonus-import-badge.is-manual { background: rgba(251, 191, 36, 0.16); color: #fcd34d; }
+.dark .bonus-import-warning { color: #fcd34d; }
+
+/* ── "Could not find the header row" — what the file actually held ───────── */
+
+/* Shown under the error, not instead of it: the sentence says what is wrong, this says
+   what was read, and between them the person can see whether they picked the wrong file
+   or the right file with the wrong columns. */
+.bonus-import-diagnostic {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--surface-alt);
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    overflow-x: auto;
+}
+
+.bonus-import-diagnostic-head {
+    font-weight: 700;
+}
+
+.bonus-import-diagnostic-row {
+    display: flex;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.bonus-import-diagnostic-row span {
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}

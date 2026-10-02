@@ -1,10 +1,9 @@
 <?php
 header('Content-Type: application/json');
 require_once 'db_wfm_config.php';
+require_once 'session_access.php';
 
 session_start();
-$isRestricted = isset($_SESSION['allowed_teams']) && !empty($_SESSION['allowed_teams']) && $_SESSION['role_name'] !== 'Admin';
-$allowedTeams = $isRestricted ? $_SESSION['allowed_teams'] : [];
 
 try {
     $query = "SELECT d.name, d.group_name, d.arrived, d.work_starts 
@@ -13,9 +12,7 @@ try {
               WHERE d.arrived IS NOT NULL 
               AND d.log_date = CURDATE()";
     
-    if ($isRestricted) {
-        $query .= " AND ota.team_id IN (" . implode(',', array_map('intval', $allowedTeams)) . ")";
-    }
+    $query .= team_filter_sql('ota.team_id');
 
     $query .= " ORDER BY d.group_name ASC, d.arrived DESC";
 

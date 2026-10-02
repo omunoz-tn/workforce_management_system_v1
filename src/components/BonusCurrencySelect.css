@@ -1,0 +1,141 @@
+/* Pesos / dollars picker (BonusCurrencySelect.jsx). Shared by the Add Employee modal and
+   the Bonus list, so the styles live here rather than in either consumer's stylesheet. */
+
+/* The currency colours, and the only place they are written down — every amount, symbol
+   and label across HR > Bonus reaches them through currencyClass() in utils/currency.js.
+   The dark variants are lighter rather than different: the same blue and green have to
+   survive an off-white background becoming a near-black one. */
+.bonus-money-dop {
+    color: #2563eb;
+}
+
+.bonus-money-usd {
+    color: #16a34a;
+}
+
+.dark .bonus-money-dop {
+    color: #60a5fa;
+}
+
+.dark .bonus-money-usd {
+    color: #4ade80;
+}
+
+.bonus-currency-dropdown {
+    position: relative;
+}
+
+.bonus-dropdown-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+}
+
+.bonus-currency-trigger,
+.bonus-currency-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 0.6rem 0.7rem;
+    border-radius: 8px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    font-family: inherit;
+    font-size: 0.82rem;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s ease;
+}
+
+.bonus-currency-trigger:hover:not(:disabled) {
+    border-color: var(--accent-color);
+}
+
+.bonus-currency-trigger:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Flag and caret only, so it sizes to those two rather than stretching to a label that is
+   no longer there. */
+.bonus-currency-dropdown.is-compact .bonus-currency-trigger {
+    width: auto;
+    padding: 4px 7px;
+    gap: 4px;
+    font-size: 0.75rem;
+    border-color: transparent;
+    background: var(--surface-alt);
+}
+
+.bonus-currency-dropdown.is-compact .bonus-currency-trigger:hover:not(:disabled) {
+    background: rgba(253, 100, 28, 0.1);
+    border-color: transparent;
+}
+
+.bonus-currency-label {
+    font-weight: 700;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Right-hand side of the row, per spec: label first, flag against the edge. */
+.bonus-currency-flag {
+    font-size: 1.05rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.bonus-currency-dropdown.is-compact .bonus-currency-flag {
+    font-size: 0.9rem;
+}
+
+.bonus-currency-caret {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.bonus-currency-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 30;
+    min-width: 100%;
+    /* The compact trigger is far narrower than "Dominican Pesos (RD$) 🇩🇴"; the menu keeps
+       the full label either way, so it sizes to its own content. */
+    width: max-content;
+    padding: 4px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: 0 12px 28px rgba(27, 45, 70, 0.18);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* Keeps the menu on screen for the rightmost table cells. */
+.bonus-currency-dropdown.is-compact .bonus-currency-menu {
+    left: auto;
+    right: 0;
+}
+
+.bonus-currency-menu .bonus-currency-option {
+    border: none;
+    white-space: nowrap;
+}
+
+.bonus-currency-option:hover {
+    background: var(--surface-alt);
+}
+
+.bonus-currency-option.is-active {
+    background: rgba(253, 100, 28, 0.08);
+}
+
+.dark .bonus-currency-menu {
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}

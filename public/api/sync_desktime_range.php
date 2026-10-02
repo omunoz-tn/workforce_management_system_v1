@@ -18,38 +18,16 @@ try {
     // If stepDate is provided, we process just that single day (for progress bar implementation)
     if ($stepDate) {
         $result = syncDeskTime($pdo, $env, $stepDate);
-        
-        $hoursUpdated = 0;
-        $errors = [];    // account-level failures: these set the status to 'failure'
-        $rowErrors = []; // per-row insert failures: reported, but do not fail the whole day
-        foreach ($result['accounts'] as $accName => $acc) {
-            if ($acc['status'] === 'success') {
-                $hoursUpdated += $acc['updated_records'];
-                // These were collected by the core and then discarded, so a sync that
-                // silently dropped employees still logged a clean SUCCESS.
-                if (!empty($acc['errors'])) {
-                    $n = count($acc['errors']);
-                    $rowErrors[] = "{$accName}: {$n} fila(s) no guardada(s) [" . substr($acc['errors'][0], 0, 120) . "]";
-                }
-            } else if ($acc['status'] === 'error') {
-                // 'reason' now carries the full cause (cURL error / HTTP code / API message).
-                // Fall back to the raw pieces only if an older shape reaches us.
-                $errDetail = '';
-                if (!empty($acc['reason'])) {
-                    $errDetail = $acc['reason'];
-                } elseif (!empty($acc['curl_error'])) {
-                    $errDetail = "cURL: " . $acc['curl_error'];
-                } elseif (isset($acc['http_code'])) {
-                    $errDetail = "HTTP " . $acc['http_code'];
-                } else {
-                    $errDetail = 'Unknown';
-                }
-                $errors[] = "Hours ({$accName}): " . $errDetail;
-            }
-        }
+
+        // Shared with sync_auto_day.php and the weekly job so the three cannot drift apart
+        // -- see syncSummarizeHourResults() in sync_desktime_core.php.
+        $summary = syncSummarizeHourResults($result);
+        $hoursUpdated = $summary['hours'];
+        $errors = $summary['errors'];
+
         // Status reflects account-level failures only; row losses are surfaced in the message
         // so a partial sync never shows up as a clean SUCCESS.
-        $allMessages = array_merge($errors, $rowErrors);
+        $allMessages = array_merge($errors, $summary['row_errors']);
         $errorMsg = empty($allMessages) ? '' : implode(' | ', $allMessages);
 
         $logSql = "INSERT INTO desktime_sync_log (sync_date, status, hours_updated, projects_updated, error_message, sync_type) VALUES (?, ?, ?, ?, ?, 'manual')";

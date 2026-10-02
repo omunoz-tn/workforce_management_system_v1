@@ -1,0 +1,399 @@
+/* Day-by-day detail (BonusDaysModal.jsx). Shell from BonusModal.css. */
+
+/* Collapsed it is the vertical stack it always was. Expanded it becomes a two-column grid
+   (below), which is what lets the calendar begin at the table's header row instead of at
+   the top of the panel. */
+.bonus-days-modal {
+    max-width: 700px;
+    display: flex;
+    flex-direction: column;
+    /* The list scrolls inside the panel rather than the panel growing past the viewport,
+       so a 23-day month keeps its Close button reachable. */
+    max-height: 86vh;
+    transition: max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Grows to the RIGHT. The overlay centres the panel, so a wider max-width on its own would
+   slide the whole modal 190px LEFT as it opened — the detail the person is reading would
+   jump out from under them. Nudging it back by half the growth pins the left edge exactly
+   where it was, so only the right edge travels.
+       min() caps that nudge at whatever room is actually left beside the panel, so on a
+   1200px screen it shifts as far as it can instead of hanging off the edge; max() keeps it
+   non-negative. Below 1100px the columns stack and this is switched off entirely. */
+.bonus-days-modal.has-calendar {
+    max-width: 1080px;
+    transform: translateX(min(190px, max(0px, (100vw - 1080px) / 2)));
+
+    /* Three rows down the left — above-the-table, the table, the footer — and the calendar
+       parked in the SECOND one. That single placement is the alignment: whatever height the
+       title, intro and totals happen to take, the calendar's top edge lands on the table's
+       header row, so a week in the grid sits level with the same week in the list. */
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.bonus-days-modal.has-calendar > .bonus-days-top { grid-column: 1; grid-row: 1; }
+.bonus-days-modal.has-calendar > .bonus-days-body { grid-column: 1; grid-row: 2; }
+.bonus-days-modal.has-calendar > .bonus-modal-footer { grid-column: 1; grid-row: 3; }
+
+/* Rows 2-3: it starts at the table and runs down past the footer line, so a long month has
+   somewhere to scroll. */
+.bonus-days-modal.has-calendar > .bonus-days-calendar {
+    grid-column: 2;
+    grid-row: 2 / 4;
+}
+
+/* Everything above the table: title, intro, totals. Its own block so the calendar can be
+   told to start where the TABLE starts rather than at the top of the panel — the two grids
+   of days line up, which is the whole point of showing them side by side. */
+.bonus-days-top {
+    flex-shrink: 0;
+}
+
+/* The table, and the chevron that straddles its right edge. min-height:0 is load-bearing:
+   without it the table's own flex:1 scroller cannot shrink and the panel grows past 86vh. */
+.bonus-days-body {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+}
+
+/* Vertically centred on the table, sitting ON its right border — translate(50%) puts half
+   the button either side of the line, which is what makes it read as a handle on the edge
+   rather than a button floating near it. It clears the panel's 2rem right padding, so
+   nothing is clipped while the calendar is closed. */
+.bonus-days-calendar-toggle {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translate(50%, -50%);
+    z-index: 3;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    background: var(--card-bg);
+    color: var(--text-muted);
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(27, 45, 70, 0.12);
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.bonus-days-calendar-toggle:hover:not(:disabled) {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+.bonus-days-calendar-toggle:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.bonus-days-period {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.bonus-days-status {
+    padding: 24px 0;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+}
+
+.bonus-days-totals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 1.1rem;
+}
+
+.bonus-days-total {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 14px;
+    min-width: 130px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--surface-alt);
+}
+
+.bonus-days-total-label {
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
+
+.bonus-days-total-value {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--text-color);
+    font-variant-numeric: tabular-nums;
+}
+
+.bonus-days-total-value.is-worked {
+    color: #16a34a;
+}
+
+.bonus-days-table-wrapper {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+}
+
+.bonus-days-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+}
+
+.bonus-days-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--surface-alt);
+    border-bottom: 1px solid var(--border-color);
+    padding: 9px 12px;
+    text-align: left;
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.bonus-days-table tbody td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-color);
+    white-space: nowrap;
+}
+
+.bonus-days-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* A missed day is the one a reader is looking for, so it gets the tint — the worked ones
+   are the background against which it stands out, not the other way round. */
+.bonus-days-table tbody tr.is-missed td {
+    background: rgba(220, 38, 38, 0.05);
+}
+
+.bonus-days-table .is-numeric {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.bonus-days-table .is-status {
+    text-align: right;
+}
+
+.bonus-days-shift {
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.bonus-days-badge {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 20px;
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.bonus-days-badge.is-worked {
+    background: rgba(22, 163, 74, 0.12);
+    color: #16a34a;
+}
+
+.bonus-days-badge.is-missed {
+    background: rgba(220, 38, 38, 0.12);
+    color: #dc2626;
+}
+
+.bonus-days-empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+/* ── Dark mode ───────────────────────────────────────────────────────────── */
+
+.dark .bonus-days-total-value.is-worked {
+    color: #4ade80;
+}
+
+.dark .bonus-days-table tbody tr.is-missed td {
+    background: rgba(220, 38, 38, 0.12);
+}
+
+.dark .bonus-days-badge.is-worked {
+    background: rgba(74, 222, 128, 0.16);
+    color: #4ade80;
+}
+
+.dark .bonus-days-badge.is-missed {
+    background: rgba(248, 113, 113, 0.16);
+    color: #f87171;
+}
+
+/* ── The calendar column ─────────────────────────────────────────────────── */
+
+/* A column of the panel, not a card of its own: no background, no shadow, no radius. The
+   only thing separating it from the detail beside it is the hairline on its left edge. */
+.bonus-days-calendar {
+    box-sizing: border-box;
+    margin-left: 28px;
+    padding-left: 28px;
+    border-left: 1px solid var(--border-color);
+    overflow-y: auto;
+    animation: bonusCalendarUnfold 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Level with the table's header row: the same 1px border and the same cap height, so the
+   weekday strip reads as the calendar's own column headings against the table's. */
+.bonus-days-calendar-head {
+    margin-bottom: 0.85rem;
+}
+
+/* Fades in slightly behind the panel's own widening, so the grid appears in space the
+   modal has already made rather than being clipped as it arrives. */
+@keyframes bonusCalendarUnfold {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+
+.bonus-days-calendar-head h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    color: var(--text-color);
+}
+
+.bonus-days-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+.bonus-days-calendar-weekday {
+    padding-bottom: 4px;
+    text-align: center;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
+
+.bonus-days-calendar-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    aspect-ratio: 1;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    font-variant-numeric: tabular-nums;
+}
+
+.bonus-days-calendar-cell.is-blank {
+    border-color: transparent;
+    background: none;
+}
+
+.bonus-days-calendar-day {
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.bonus-days-calendar-hours {
+    font-size: 0.58rem;
+    font-weight: 700;
+    opacity: 0.75;
+}
+
+/* The same green/red the Counted column uses, so a day reads the same in both views. */
+.bonus-days-calendar-cell.is-worked,
+.bonus-days-calendar-legend i.is-worked {
+    background: rgba(22, 163, 74, 0.12);
+    border-color: rgba(22, 163, 74, 0.35);
+    color: #15803d;
+}
+
+.bonus-days-calendar-cell.is-missed,
+.bonus-days-calendar-legend i.is-missed {
+    background: rgba(220, 38, 38, 0.1);
+    border-color: rgba(220, 38, 38, 0.3);
+    color: #b91c1c;
+}
+
+.bonus-days-calendar-cell.is-off,
+.bonus-days-calendar-legend i.is-off {
+    background: var(--surface-alt);
+    border-color: var(--border-color);
+    color: var(--text-muted);
+}
+
+.bonus-days-calendar-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-top: 1rem;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+}
+
+.bonus-days-calendar-legend span {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.bonus-days-calendar-legend i {
+    width: 13px;
+    height: 13px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    flex-shrink: 0;
+}
+
+/* Narrow screens: the two columns stack instead of the calendar squeezing the table. The
+   divider follows, becoming the line between them. */
+@media (max-width: 1100px) {
+    .bonus-days-modal.has-calendar {
+        max-width: 700px;
+        display: flex;
+        flex-direction: column;
+        transform: none;
+    }
+
+    .bonus-days-calendar {
+        margin-left: 0;
+        margin-top: 20px;
+        padding-left: 0;
+        padding-top: 20px;
+        border-left: none;
+        border-top: 1px solid var(--border-color);
+    }
+}
