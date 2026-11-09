@@ -305,7 +305,8 @@ body {
 }
 
 .toast-content {
-  background: white;
+  background: var(--card-bg, #fff);
+  color: var(--text-color, #1b2d46);
   border-radius: 12px;
   padding: 16px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
@@ -313,10 +314,16 @@ body {
   position: relative;
 }
 
+/* The theme is a class on <html> (App.jsx toggleTheme); the old [data-theme] selector never
+   matched, so dark mode painted inherited white text on this white card. */
+.dark .toast-content,
 [data-theme='dark'] .toast-content {
-  background: #2d3748;
-  color: white;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  background: #1e293b;
+  color: #f1f5f9;
+  border-top: 1px solid #334155;
+  border-right: 1px solid #334155;
+  border-bottom: 1px solid #334155;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
 }
 
 .sync-toast.success .toast-content {

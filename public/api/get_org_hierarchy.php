@@ -1,6 +1,7 @@
 <?php
 header('Content-Type: application/json');
 require_once 'db_wfm_config.php';
+require_once 'DaylightSaving.php';
 
 try {
     // 1. Fetch all groups
@@ -19,6 +20,14 @@ try {
     $countsStmt = $pdo->query("SELECT team_id, COUNT(*) as count FROM org_team_assignments GROUP BY team_id");
     $teamCounts = $countsStmt->fetchAll(PDO::FETCH_KEY_PAIR);
 
+    // 4b. Members with Daylight Saving on, per team (team card badge)
+    ensureEmployeeDaylightSavingTable($pdo);
+    $dstStmt = $pdo->query("SELECT ota.team_id, COUNT(*) as count
+        FROM org_team_assignments ota
+        JOIN org_employee_daylight_saving eds ON eds.employee_id = ota.employee_id
+        GROUP BY ota.team_id");
+    $teamDstCounts = $dstStmt->fetchAll(PDO::FETCH_KEY_PAIR);
+
     // 5. Structure the data
     $result = [];
     foreach ($groups as $group) {
@@ -32,6 +41,7 @@ try {
                 $teamData = $team;
                 $teamData['type'] = 'team';
                 $teamData['member_count'] = $teamCounts[$team['id']] ?? 0;
+                $teamData['dst_count'] = (int) ($teamDstCounts[$team['id']] ?? 0);
                 $teamData['managers'] = array_values(array_filter($managers, fn($m) => $m['target_type'] === 'team' && $m['target_id'] == $team['id']));
                 $groupData['teams'][] = $teamData;
             }

@@ -1454,3 +1454,63 @@
   color: #dc2626;
   font-weight: 600;
 }
+
+/* ── Assign Members > Daylight Saving ───────────────────────────────────── */
+
+.team-dst-all {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.team-dst-all input,
+.team-dst-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-color);
+  cursor: pointer;
+}
+
+.team-dst-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* The whole row is the label, so a click anywhere on it toggles the checkbox. */
+.team-dst-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--card-bg);
+  cursor: pointer;
+}
+
+.dark .team-dst-row {
+  background: rgba(30, 41, 59, 0.5);
+}
+
+.team-dst-row.is-on {
+  border-color: var(--accent-color);
+  background: rgba(253, 100, 28, 0.08);
+}
+
+.team-dst-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.team-dst-inactive {
+  font-style: italic;
+}

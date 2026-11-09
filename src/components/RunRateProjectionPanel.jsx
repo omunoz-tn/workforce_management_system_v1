@@ -4,7 +4,8 @@ import DailyDetailsModal from './DailyDetailsModal';
 import RunRateProjectionAccuracy from './RunRateProjectionAccuracy';
 import ViewToggle from './ViewToggle';
 import SortDropdown from './SortDropdown';
-import { summarizeProjection, summarizeByTeam, simulateProjection, defaultGoalFromRanges } from '../utils/runRateProjection';
+import RunRateProjectionRecommendations from './RunRateProjectionRecommendations';
+import { summarizeProjection, summarizeByTeam, simulateProjection, defaultGoalFromRanges, buildRecommendations } from '../utils/runRateProjection';
 
 const GOAL_STORAGE_KEY = 'rrProjectionGoal';
 
@@ -86,6 +87,12 @@ const RunRateProjectionPanel = ({ projection, selectedTeams, colorRanges, getBan
         () => summarizeByTeam(rows, teamDates, selectedTeams, goal),
         [rows, teamDates, selectedTeams, goal]
     );
+
+    const recommendations = useMemo(
+        () => buildRecommendations(rows, teamDates, selectedTeams, goal, projection?.weekday_history),
+        [rows, teamDates, selectedTeams, goal, projection]
+    );
+    const historyWeeks = Math.round((projection?.weekday_history_days || 84) / 7);
 
     const teamColumns = useMemo(() => buildTeamColumns(goal), [goal]);
 
@@ -203,7 +210,7 @@ const RunRateProjectionPanel = ({ projection, selectedTeams, colorRanges, getBan
                             ? <>Actual hours through <strong>{shortDate(projection.actual_through)}</strong>, projected </>
                             : <>Projected </>}
                         from <strong>{shortDate(projection.projected_from)}</strong> to <strong>{shortDate(toDate)}</strong>,
-                        using each employee's projected shift and their last 6 weeks of compliance.
+                        using each employee's projected shift and their average hours per weekday over the last 12 weeks, on the days they worked (absences are not counted).
                     </p>
                 </div>
                 <div className="rr-proj-head-actions">
@@ -218,10 +225,7 @@ const RunRateProjectionPanel = ({ projection, selectedTeams, colorRanges, getBan
                 </div>
             </div>
 
-            {noRows ? (
-                <div className="report-empty-state">No teams to project for the current filters.</div>
-            ) : (
-                <>
+            {!noRows && (
                     <div className="rr-proj-cards">
                         <div className="rr-proj-card is-primary" onClick={() => setDetailTeam(null)} title="Click for the day-by-day breakdown">
                             <span className="rr-proj-card-label">Projected Run Rate</span>
@@ -256,7 +260,14 @@ const RunRateProjectionPanel = ({ projection, selectedTeams, colorRanges, getBan
                             </span>
                         </div>
                     </div>
+            )}
 
+            {!noRows && (
+                <RunRateProjectionRecommendations rec={recommendations} goal={goal} historyWeeks={historyWeeks} />
+            )}
+
+                    {/* Rendered with or without rows, in the same place: with no team selected
+                        the filter is the only way back, and moving it would close its menu. */}
                     <div className="section-header-row rr-proj-teams-head">
                         <h4>By team</h4>
                         {/* Same controls, same order, as the actual view's Team Breakdown. */}
@@ -280,7 +291,9 @@ const RunRateProjectionPanel = ({ projection, selectedTeams, colorRanges, getBan
                         </div>
                     </div>
 
-                    {viewMode === 'grid' ? (
+                    {noRows ? (
+                    <div className="report-empty-state">No teams to project for the current filters.</div>
+                    ) : viewMode === 'grid' ? (
                     <div className="team-cards-grid rr-proj-team-grid">
                         {sortedTeams.map(t => (
                             <div
@@ -374,6 +387,7 @@ const RunRateProjectionPanel = ({ projection, selectedTeams, colorRanges, getBan
                     </div>
                     )}
 
+                    {!noRows && (
                     <div className="rr-proj-sim">
                         <button type="button" className="rr-proj-sim-toggle" onClick={() => setShowSimulator(v => !v)}>
                             {showSimulator ? '▾' : '▸'} What-if simulator
@@ -452,8 +466,7 @@ const RunRateProjectionPanel = ({ projection, selectedTeams, colorRanges, getBan
                             </div>
                         )}
                     </div>
-                </>
-            )}
+                    )}
 
             {detailTeam !== undefined && (
                 <DailyDetailsModal

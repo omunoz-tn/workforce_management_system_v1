@@ -155,3 +155,136 @@ export const defaultGoalFromRanges = (ranges) => {
         .sort((a, b) => b - a);
     return floors.length ? floors[0] : 98;
 };
+
+const WEEKDAY_NAMES = { 1: 'Mondays', 2: 'Tuesdays', 3: 'Wednesdays', 4: 'Thursdays', 5: 'Fridays', 6: 'Saturdays', 7: 'Sundays' };
+
+/** How many of each kind the recommendations list, so the card stays readable. */
+const REC_TOP_EMPLOYEES = 5;
+const REC_TOP_TEAMS = 3;
+const REC_TOP_WEEKDAY_TEAMS = 2;
+const REC_REVIEW_NAMES = 6;
+/** A weekday is called out only when it runs at least this many points below the others. */
+const REC_WEEKDAY_MIN_GAP = 3;
+/**
+ * Weekdays with little scheduled time (a weekend shift or two) are left out: a few hours
+ * make a percentage that swings on one person.
+ */
+const REC_WEEKDAY_MIN_SHARE = 0.25;
+
+/**
+ * The weakest weekday in `byWeekday` ({ wd: { actual, scheduled } }) against the rest,
+ * or null when no weekday stands out by REC_WEEKDAY_MIN_GAP points.
+ */
+const weakestWeekday = (byWeekday) => {
+    const entries = Object.entries(byWeekday || {})
+        .map(([wd, v]) => ({ wd: Number(wd), actual: num(v.actual), scheduled: num(v.scheduled) }))
+        .filter(e => e.scheduled > 0);
+    if (entries.length < 2) return null;
+    const busiest = Math.max(...entries.map(e => e.scheduled));
+    const days = entries.filter(e => e.scheduled >= busiest * REC_WEEKDAY_MIN_SHARE);
+    if (days.length < 2) return null;
+
+    let worst = null;
+    days.forEach(e => {
+        const rest = days.filter(o => o.wd !== e.wd);
+        const restScheduled = rest.reduce((s, o) => s + o.scheduled, 0);
+        const restPct = restScheduled > 0 ? (rest.reduce((s, o) => s + o.actual, 0) / restScheduled) * 100 : null;
+        const pctValue = (e.actual / e.scheduled) * 100;
+        if (restPct === null) return;
+        const gap = restPct - pctValue;
+        if (!worst || gap > worst.gap) worst = { wd: e.wd, name: WEEKDAY_NAMES[e.wd], pct: pctValue, restPct, gap };
+    });
+    return worst && worst.gap >= REC_WEEKDAY_MIN_GAP ? worst : null;
+};
+
+/**
+ * What it would take to reach the goal, for the projection's recommendations card.
+ * Same scope rules as summarizeProjection: rows whose team is in `teams` (null = all),
+ * excluded employees left out.
+ *
+ *   status      'on-track' | 'behind' | 'unreachable' (no working days left)
+ *   employees   the largest gaps to the goal, each with the hours per remaining day that
+ *               would close it, and how much of the shortfall closing them all would cover
+ *   teams       teams projected below the goal, largest shortfall first (only when the
+ *               scope holds more than one team)
+ *   weekday     the scope's weakest weekday in the real Run Rate of the last weeks
+ *               (`weekdayHistory`, absences included), and the teams where it shows most
+ *   review      employees with no worked day in the history window, projected at their
+ *               team's rate: they may have left, be on leave, or be system accounts
+ */
+export const buildRecommendations = (rows, teamDates, teams, goalPct, weekdayHistory) => {
+    const summary = summarizeProjection(rows, teamDates, teams, goalPct);
+    const goal = num(goalPct) / 100;
+    const inScope = (rows || []).filter(r => !Number(r.is_excluded) && (!teams || teams.has(r.team_name)));
+
+    const status = summary.shortfall <= 0 ? 'on-track' : (summary.remainingDays > 0 ? 'behind' : 'unreachable');
+
+    // Employees: gap to the goal over the whole period, recoverable only on the days left.
+    const gaps = inScope
+        .map(r => {
+            const scheduled = Math.max(num(r.scheduled_to_date) - num(r.lunch_to_date), 0)
+                + Math.max(num(r.projected_scheduled) - num(r.projected_lunch), 0);
+            const actual = num(r.actual_to_date) + num(r.projected_actual);
+            const gap = goal * scheduled - actual;
+            const days = num(r.projected_days);
+            return {
+                employeeId: r.employee_id,
+                name: r.name,
+                team: r.team_name,
+                projectedPct: scheduled > 0 ? (actual / scheduled) * 100 : null,
+                gap,
+                days,
+                perDay: days > 0 ? gap / days : null,
+            };
+        })
+        .filter(e => e.gap > 0.01 && e.days > 0)
+        .sort((a, b) => b.gap - a.gap);
+    const topEmployees = gaps.slice(0, REC_TOP_EMPLOYEES);
+    const topGap = topEmployees.reduce((s, e) => s + e.gap, 0);
+    const employeesCover = summary.shortfall > 0 ? Math.min(topGap / summary.shortfall, 1) : null;
+
+    // Teams below the goal.
+    const teamNames = [...new Set(inScope.map(r => r.team_name))];
+    const teamsBelow = teamNames.length > 1
+        ? summarizeByTeam(rows, teamDates, teams, goalPct)
+            .filter(t => t.shortfall > 0)
+            .sort((a, b) => b.shortfall - a.shortfall)
+            .slice(0, REC_TOP_TEAMS)
+        : [];
+
+    // Weekday pattern, from the real Run Rate (not the projection, which assumes attendance).
+    const history = weekdayHistory || {};
+    const scopeWeekdays = {};
+    teamNames.forEach(team => {
+        Object.entries(history[team] || {}).forEach(([wd, v]) => {
+            scopeWeekdays[wd] = scopeWeekdays[wd] || { actual: 0, scheduled: 0 };
+            scopeWeekdays[wd].actual += num(v.actual);
+            scopeWeekdays[wd].scheduled += num(v.scheduled);
+        });
+    });
+    const scopeWeakest = weakestWeekday(scopeWeekdays);
+    const teamWeakest = teamNames.length > 1
+        ? teamNames
+            .map(team => ({ team, ...(weakestWeekday(history[team]) || {}) }))
+            .filter(t => t.wd)
+            .sort((a, b) => b.gap - a.gap)
+            .slice(0, REC_TOP_WEEKDAY_TEAMS)
+        : [];
+
+    // Employees with nothing worked in the history window.
+    const review = inScope
+        .filter(r => num(r.history_days) === 0 && num(r.projected_days) > 0)
+        .map(r => ({ employeeId: r.employee_id, name: r.name, team: r.team_name }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+    return {
+        summary,
+        status,
+        employees: topEmployees,
+        employeesCover,
+        teams: teamsBelow,
+        weekday: scopeWeakest || teamWeakest.length ? { scope: scopeWeakest, teams: teamWeakest } : null,
+        review,
+        reviewShown: REC_REVIEW_NAMES,
+    };
+};

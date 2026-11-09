@@ -60,6 +60,11 @@ const IconClock = () => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
 );
+const IconSun = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+    </svg>
+);
 const IconUser = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
@@ -81,7 +86,25 @@ const MAX_LUNCH_MINUTES = 600;
 const ASSIGN_PAGE_TITLES = {
     members: 'Assign Members',
     holidays: 'Holidays',
-    lunch: 'Lunch Time'
+    lunch: 'Lunch Time',
+    dst: 'Daylight Saving'
+};
+
+// "Sun, Mar 14, 2027" for a Y-m-d, read at noon for the same reason as formatHolidayDate.
+const formatChangeDate = (dateStr) =>
+    new Date(dateStr + 'T12:00:00').toLocaleDateString(undefined, {
+        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+    });
+
+// The next US clock change after today, from the periods manage_employee_daylight_saving.php
+// returns: { date, hours } where hours is +1 (November, back to standard time) or -1 (March).
+const nextDaylightSavingChange = (info) => {
+    if (!info) return null;
+    const changes = (info.periods || []).flatMap(p => [
+        { date: p.start, hours: -1 },
+        { date: p.end, hours: 1 }
+    ]).filter(c => c.date > info.today).sort((a, b) => a.date.localeCompare(b.date));
+    return changes[0] || null;
 };
 
 const getHolidayCountry = (code) =>
@@ -135,6 +158,14 @@ const Teams = ({ onUnsavedChanges }) => {
     // Same guard as holidaysLoaded below: saving replaces the override set of every member
     // in the payload, so a draft that never loaded must not be allowed to write.
     const [lunchLoaded, setLunchLoaded] = useState(false);
+    // employee_id -> true for everyone with Daylight Saving on (all employees, not just this
+    // team, for the same reason as the lunch draft). Same load guard as the lunch draft.
+    const [dstDraft, setDstDraft] = useState({});
+    const [dstInfo, setDstInfo] = useState(null);
+    const [dstSearchTerm, setDstSearchTerm] = useState('');
+    const [dstLoading, setDstLoading] = useState(false);
+    const [dstError, setDstError] = useState(null);
+    const [dstLoaded, setDstLoaded] = useState(false);
     const [teamHolidays, setTeamHolidays] = useState([]);
     // holiday_id -> type currently chosen in the modal (always the effective type, never
     // null, so the <select> stays controlled).
@@ -162,6 +193,9 @@ const Teams = ({ onUnsavedChanges }) => {
     // ── Initial Load (only API fetch besides Import) ──────────────────────
 // State for caching team members
   const [teamMembersMap, setTeamMembersMap] = useState({});
+  // employee_id -> { name, last_seen } for every assigned member, including people missing
+  // from today's DeskTime list (allEmployees), so the Daylight Saving page can still show them.
+  const [memberDetails, setMemberDetails] = useState({});
 
   // ── Initial Load (fetch hierarchy, employees, and preload all team members) ────────
   const fetchData = async () => {
@@ -189,18 +223,23 @@ const Teams = ({ onUnsavedChanges }) => {
         (g.teams || []).filter(t => !String(t.id).startsWith('temp_'))
       );
       const membersMap = {};
+      const detailsMap = {};
       await Promise.all(
         teams.map(async (team) => {
           try {
             const res = await fetch(`./api/get_team_members.php?team_id=${team.id}`);
             const data = await res.json();
             membersMap[team.id] = data.success ? data.data : [];
+            (data.success ? data.members || [] : []).forEach(m => {
+              detailsMap[String(m.employee_id)] = { name: m.name, last_seen: m.last_seen };
+            });
           } catch (_) {
             membersMap[team.id] = [];
           }
         })
       );
       setTeamMembersMap(membersMap);
+      setMemberDetails(detailsMap);
     } catch (err) {
       setError('Failed to load organization data');
     } finally {
@@ -454,6 +493,28 @@ const Teams = ({ onUnsavedChanges }) => {
         }
     };
 
+    // Who has Daylight Saving on, unscoped by team like the lunch overrides. `seed` re-applies
+    // the unsaved choices of a pending change when the modal is reopened before Save All.
+    const loadDaylightSaving = async (seed) => {
+        setDstLoading(true);
+        setDstError(null);
+        setDstLoaded(false);
+        try {
+            const res = await fetch('./api/manage_employee_daylight_saving.php');
+            const json = await res.json();
+            if (!json.success) throw new Error(json.error || 'Failed to load Daylight Saving.');
+            const draft = Object.fromEntries((json.employee_ids || []).map(id => [id, true]));
+            setDstDraft({ ...draft, ...(seed || {}) });
+            setDstInfo(json);
+            setDstLoaded(true);
+        } catch (err) {
+            setDstError(err.message || 'Failed to load Daylight Saving.');
+            setDstDraft({});
+        } finally {
+            setDstLoading(false);
+        }
+    };
+
     const handleOpenAssign = async (team) => {
         setSelectedTeam(team);
         setSearchTerm(''); // Clear search when opening
@@ -468,6 +529,8 @@ const Teams = ({ onUnsavedChanges }) => {
         loadTeamHolidays(team, pending?.holiday_types);
         loadEmployeeLunchTimes(pending?.employee_lunch_times);
         setLunchSearchTerm('');
+        loadDaylightSaving(pending?.daylight_saving);
+        setDstSearchTerm('');
 
         if (pending) {
             setSelectedMembers(pending.employee_ids || []);
@@ -533,6 +596,14 @@ const Teams = ({ onUnsavedChanges }) => {
             );
         }
 
+        // On or off for every selected member, so unticking someone turns it off for them.
+        // Members are the only people the page shows, so nobody else is touched.
+        if (dstLoaded) {
+            actionObj.daylight_saving = Object.fromEntries(
+                selectedMembers.map(id => [id, Boolean(dstDraft[id])])
+            );
+        }
+
         // Update pending changes: remove any previous assignment for this team and add new
         setPendingChanges(prev => [
             ...prev.filter(p => !(p.action === 'assign_members' && (p.id === teamId || (p.temp_id && p.temp_id === teamId)))),
@@ -542,7 +613,9 @@ const Teams = ({ onUnsavedChanges }) => {
         // Update member count and lunch time locally for immediate feedback
         updateTeamLocally(selectedTeam.group_id, teamId, { 
             member_count: selectedMembers.length,
-            lunch_time: lunchTime
+            lunch_time: lunchTime,
+            // Only known when the Daylight Saving page loaded; otherwise keep the stored count
+            ...(dstLoaded ? { dst_count: dstOnCount } : {})
         });
         setShowAssignModal(false);
     };
@@ -709,6 +782,36 @@ const Teams = ({ onUnsavedChanges }) => {
     const isLunchCellInvalid = (empId, iso) =>
         invalidLunchCells.some(cell => cell.employeeId === empId && String(cell.iso) === String(iso));
 
+    // Daylight Saving page: every selected member, narrowed by its own search box. Members
+    // with no DeskTime row today are not in allEmployees, so they come from memberDetails,
+    // flagged `inactive` so the row can say when DeskTime last saw them. Without them,
+    // "All members" would silently skip part of the team.
+    const activeById = new Map(allEmployees.map(emp => [String(emp.employee_id), emp]));
+    const dstMembers = selectedMembers
+        .map(id => {
+            const emp = activeById.get(String(id));
+            if (emp) return emp;
+            const info = memberDetails[String(id)];
+            return { employee_id: id, name: info?.name || `Employee ${id}`, last_seen: info?.last_seen || null, inactive: true };
+        })
+        .sort((a, b) => (a.inactive === b.inactive ? 0 : a.inactive ? 1 : -1)
+            || String(a.name).localeCompare(String(b.name)))
+        .filter(emp => matchesSearch(emp, dstSearchTerm));
+    const dstOnCount = selectedMembers.filter(id => dstDraft[id]).length;
+    const dstVisibleOn = dstMembers.filter(emp => dstDraft[emp.employee_id]).length;
+    const dstAllVisibleOn = dstMembers.length > 0 && dstVisibleOn === dstMembers.length;
+    const dstSomeVisibleOn = dstVisibleOn > 0 && !dstAllVisibleOn;
+    const dstNextChange = nextDaylightSavingChange(dstInfo);
+
+    const toggleDst = (empId) => setDstDraft(prev => ({ ...prev, [empId]: !prev[empId] }));
+    // The header checkbox acts on the members the search shows, like Select All on the
+    // member page.
+    const toggleDstAll = () => setDstDraft(prev => {
+        const next = { ...prev };
+        dstMembers.forEach(emp => { next[emp.employee_id] = !dstAllVisibleOn; });
+        return next;
+    });
+
     const setLunchCell = (empId, iso, value) => setEmployeeLunchDraft(prev => {
         const days = { ...(prev[empId] || {}) };
         if (value === '') {
@@ -859,7 +962,7 @@ const Teams = ({ onUnsavedChanges }) => {
                                     key={team.id}
                                     className={`teams-card${team.is_visible ? '' : ' is-hidden'}`}
                                     onClick={() => handleOpenAssign({ ...team, group_id: group.id })}
-                                    title="Assign members, lunch time and holidays"
+                                    title="Assign members, lunch time, Daylight Saving and holidays"
                                 >
                                     <div className="teams-card-head">
                                         <h3>{team.name}</h3>
@@ -872,6 +975,11 @@ const Teams = ({ onUnsavedChanges }) => {
                                         <span className="teams-stat"><IconUsers /> {team.member_count} {Number(team.member_count) === 1 ? 'Member' : 'Members'}</span>
                                         {team.lunch_time > 0 && (
                                             <span className="teams-stat" title="Team Lunch Time"><IconClock /> {team.lunch_time}m lunch</span>
+                                        )}
+                                        {Number(team.dst_count) > 0 && (
+                                            <span className="teams-stat" title="Members with Daylight Saving on">
+                                                <IconSun /> {team.dst_count} on Daylight Saving
+                                            </span>
                                         )}
                                     </div>
                                     {team.managers.length > 0 && (
@@ -1078,6 +1186,28 @@ const Teams = ({ onUnsavedChanges }) => {
                                                     : `Team: ${lunchTime} mins` + (customizedLunchCount > 0
                                                         ? ` · ${customizedLunchCount} employee${customizedLunchCount === 1 ? '' : 's'} with their own`
                                                         : '')}
+                                        </span>
+                                    </div>
+                                    <span className="team-holidays-chevron"><IconChevronRight /></span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    className="team-holidays-row"
+                                    style={assignConfigBoxStyle}
+                                    onClick={() => setAssignPage('dst')}
+                                >
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'left' }}>
+                                        <label style={{ fontWeight: '600', fontSize: '0.95rem', cursor: 'inherit' }}>Daylight Saving</label>
+                                        <span className="text-muted" style={{ fontSize: '0.85rem' }}>
+                                            {dstLoading
+                                                ? 'Loading Daylight Saving...'
+                                                : dstError
+                                                    ? dstError
+                                                    : `${dstOnCount} of ${selectedMembers.length} member${selectedMembers.length === 1 ? '' : 's'} on`
+                                                        + (dstNextChange
+                                                            ? ` · next change ${formatChangeDate(dstNextChange.date)} (${dstNextChange.hours > 0 ? '+1h' : '−1h'})`
+                                                            : '')}
                                         </span>
                                     </div>
                                     <span className="team-holidays-chevron"><IconChevronRight /></span>
@@ -1391,6 +1521,102 @@ const Teams = ({ onUnsavedChanges }) => {
                                     {invalidLunchCells.length > 0 && (
                                         <div className="team-lunch-hint is-invalid">
                                             A lunch must be a whole number of minutes between 0 and {MAX_LUNCH_MINUTES}.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {assignPage === 'dst' && (
+                            <div className="modal-body">
+                                <p className="text-muted" style={{ marginTop: 0, fontSize: '0.85rem' }}>
+                                    For people who keep US hours. When it is on, the schedule set in this system moves
+                                    one hour with the US clock changes: <strong>+1h</strong> from the first Sunday of
+                                    November (8:00&ndash;17:00 becomes 9:00&ndash;18:00) and back on the second Sunday
+                                    of March. It applies to Shift Management schedules, the Schedule Board forecast and
+                                    the Run Rate projection. The shift DeskTime reports is never moved; DeskTime already
+                                    changes it for the teams that need it.
+                                </p>
+
+                                {dstInfo && (
+                                    <div className="team-dst-status" style={assignConfigBoxStyle}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <label style={{ fontWeight: '600', fontSize: '0.95rem' }}>
+                                                {dstInfo.standard_time_today ? 'US standard time now: shifts +1h' : 'US daylight saving now: shifts as written'}
+                                            </label>
+                                            {dstNextChange && (
+                                                <span className="text-muted" style={{ fontSize: '0.85rem' }}>
+                                                    Next change: {formatChangeDate(dstNextChange.date)}
+                                                    {dstNextChange.hours > 0 ? ' (one hour later)' : ' (back to the written schedule)'}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="team-lunch-section">
+                                    <div className="team-lunch-section-head">
+                                        <label className="team-dst-all">
+                                            <input
+                                                type="checkbox"
+                                                checked={dstAllVisibleOn}
+                                                ref={el => { if (el) el.indeterminate = dstSomeVisibleOn; }}
+                                                onChange={toggleDstAll}
+                                                disabled={!dstLoaded || dstMembers.length === 0}
+                                            />
+                                            <span>
+                                                All members{dstSearchTerm ? ' shown' : ''}
+                                                <span className="text-muted"> · {dstOnCount} of {selectedMembers.length} on</span>
+                                            </span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className="team-lunch-search"
+                                            placeholder="Search members..."
+                                            value={dstSearchTerm}
+                                            onChange={e => setDstSearchTerm(e.target.value)}
+                                        />
+                                    </div>
+
+                                    {dstLoading ? (
+                                        <div className="team-holidays-empty">Loading Daylight Saving...</div>
+                                    ) : dstError ? (
+                                        <div className="team-holidays-empty">&#9888;&#65039; {dstError}</div>
+                                    ) : selectedMembers.length === 0 ? (
+                                        <div className="team-holidays-empty">
+                                            No members selected yet. Add them on the Assign Members page first.
+                                        </div>
+                                    ) : dstMembers.length === 0 ? (
+                                        <div className="team-holidays-empty">No members match this search.</div>
+                                    ) : (
+                                        <div className="team-dst-list">
+                                            {dstMembers.map(emp => {
+                                                const on = Boolean(dstDraft[emp.employee_id]);
+                                                return (
+                                                    <label key={emp.employee_id} className={`team-dst-row${on ? ' is-on' : ''}`}>
+                                                        <div className="team-lunch-emp">
+                                                            <span className="team-lunch-emp-name">{emp.name}</span>
+                                                            {emp.inactive ? (
+                                                                <span className="text-muted team-lunch-emp-meta team-dst-inactive">
+                                                                    {emp.last_seen
+                                                                        ? `No DeskTime activity since ${formatChangeDate(emp.last_seen)}`
+                                                                        : 'No DeskTime activity'}
+                                                                </span>
+                                                            ) : emp.group_name && (
+                                                                <span className="text-muted team-lunch-emp-meta">{emp.group_name}</span>
+                                                            )}
+                                                        </div>
+                                                        <span className="team-dst-check">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={on}
+                                                                onChange={() => toggleDst(emp.employee_id)}
+                                                            />
+                                                            Daylight Saving
+                                                        </span>
+                                                    </label>
+                                                );
+                                            })}
                                         </div>
                                     )}
                                 </div>

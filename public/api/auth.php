@@ -6,6 +6,8 @@
 
 header('Content-Type: application/json');
 require_once 'db_wfm_config.php';
+require_once 'session_access.php';
+require_once 'UserPresence.php';
 
 // Configure session lifetime (8 hours as requested)
 $sessionLifetime = 8 * 60 * 60; // 28800 seconds
@@ -74,6 +76,8 @@ try {
                 // Update last login
                 $update = $pdo->prepare("UPDATE platform_users SET last_login = NOW() WHERE id = ?");
                 $update->execute([$user['id']]);
+                // Presence is a nicety: never let it fail a login.
+                try { touchUserPresence($pdo, (int) $user['id']); } catch (Exception $e) {}
 
                 echo json_encode([
                     'success' => true,
@@ -82,6 +86,7 @@ try {
                         'username' => $user['username'],
                         'full_name' => $user['full_name'],
                         'role' => $user['role_name'],
+                        'is_admin' => current_is_admin(),
                         'permissions' => $_SESSION['permissions'],
                         'allowedTeams' => $_SESSION['allowed_teams']
                     ]
@@ -91,6 +96,9 @@ try {
                 echo json_encode(['success' => false, 'message' => 'Invalid credentials or inactive account']);
             }
         } elseif ($action === 'logout') {
+            if (isset($_SESSION['user_id'])) {
+                try { clearUserPresence($pdo, (int) $_SESSION['user_id']); } catch (Exception $e) {}
+            }
             session_destroy();
             echo json_encode(['success' => true, 'message' => 'Logged out successfully']);
         }
@@ -140,6 +148,7 @@ try {
                     'username' => $_SESSION['username'],
                     'full_name' => $_SESSION['full_name'],
                     'role' => $_SESSION['role_name'],
+                    'is_admin' => current_is_admin(),
                     'permissions' => $_SESSION['permissions'],
                     'allowedTeams' => $_SESSION['allowed_teams'] ?? []
                 ]

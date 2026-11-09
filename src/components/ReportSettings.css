@@ -16,14 +16,14 @@
 }
 
 .settings-reports-container::-webkit-scrollbar-track {
-    background: var(--bg-secondary, #f1f5f9);
+    background: var(--surface-alt);
     border-radius: 6px;
 }
 
 .settings-reports-container::-webkit-scrollbar-thumb {
     background: #94a3b8;
     border-radius: 6px;
-    border: 3px solid var(--bg-secondary, #f1f5f9);
+    border: 3px solid var(--surface-alt);
     background-clip: padding-box;
 }
 
@@ -39,7 +39,7 @@
 .settings-header h1 {
     font-size: 2.5rem;
     font-weight: 800;
-    color: var(--text-primary, #1e293b);
+    color: var(--text-color);
     display: flex;
     align-items: center;
     gap: 12px;
@@ -47,12 +47,12 @@
 
 .settings-header p {
     font-size: 1.1rem;
-    color: var(--text-secondary, #64748b);
+    color: var(--text-muted);
     margin-top: 8px;
 }
 
 .settings-section {
-    background: white;
+    background: var(--card-bg);
     border: 1px solid var(--border-color, #e2e8f0);
     border-radius: 24px;
     padding: 2.5rem;
@@ -63,12 +63,12 @@
 .settings-section h2 {
     font-size: 1.5rem;
     font-weight: 700;
-    color: var(--text-primary);
+    color: var(--text-color);
     margin-bottom: 8px;
 }
 
 .section-desc {
-    color: var(--text-secondary);
+    color: var(--text-muted);
     margin-bottom: 2rem;
     font-size: 1rem;
 }
@@ -80,7 +80,7 @@
 }
 
 .report-toggle-card {
-    background: var(--bg-secondary, #f8fafc);
+    background: var(--surface-alt);
     border: 1px solid var(--border-color, #e2e8f0);
     border-radius: 16px;
     padding: 1.25rem;
@@ -94,12 +94,12 @@
 .report-toggle-card:hover {
     transform: translateY(-2px);
     border-color: #4f46e5;
-    background: white;
+    background: var(--card-bg);
     box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.1);
 }
 
 .report-toggle-card.active {
-    background: white;
+    background: var(--card-bg);
     border-color: #4f46e5;
     box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.1);
 }
@@ -112,7 +112,7 @@
 
 .report-icon {
     font-size: 1.5rem;
-    background: white;
+    background: var(--card-bg);
     width: 44px;
     height: 44px;
     display: flex;
@@ -124,7 +124,7 @@
 
 .report-label {
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--text-color);
     font-size: 1rem;
 }
 
@@ -132,7 +132,7 @@
 .toggle-switch {
     width: 44px;
     height: 24px;
-    background: #e2e8f0;
+    background: var(--border-color);
     border-radius: 20px;
     position: relative;
     transition: all 0.3s;
@@ -177,7 +177,7 @@
 }
 
 .advance-config-report-card {
-    background: var(--bg-secondary, #f8fafc);
+    background: var(--surface-alt);
     border: 1px solid var(--border-color, #e2e8f0);
     border-radius: 16px;
     padding: 1.25rem;
@@ -191,14 +191,14 @@
 .advance-config-report-card:hover {
     transform: translateY(-2px);
     border-color: #4f46e5;
-    background: white;
+    background: var(--card-bg);
     box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.1);
 }
 
 .advance-config-report-arrow {
     font-size: 1.4rem;
     font-weight: 700;
-    color: var(--text-secondary, #64748b);
+    color: var(--text-muted);
 }
 
 .advance-config-back-btn {
@@ -223,7 +223,7 @@
 }
 
 .advance-config-empty {
-    color: var(--text-secondary, #64748b);
+    color: var(--text-muted);
     margin-top: 1.5rem;
     font-size: 0.95rem;
 }
@@ -241,7 +241,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--text-secondary, #64748b);
+    color: var(--text-muted);
     margin-bottom: 0.75rem;
 }
 
@@ -255,7 +255,7 @@
     display: grid;
     grid-template-columns: 1fr auto;
     align-items: center;
-    background: var(--bg-secondary, #f8fafc);
+    background: var(--surface-alt);
     border: 1px solid var(--border-color, #e2e8f0);
     border-radius: 12px;
     padding: 0.85rem 1.25rem;
@@ -264,7 +264,7 @@
 
 .advance-config-team-name {
     font-weight: 600;
-    color: var(--text-primary, #1e293b);
+    color: var(--text-color);
 }
 
 /* Single auto-width column so the split toggle gets its full natural width
@@ -309,7 +309,7 @@
 .exclude-lunch-label {
     font-size: 0.85rem;
     font-weight: 600;
-    color: var(--text-primary, #1e293b);
+    color: var(--text-color);
     white-space: nowrap;
 }
 
@@ -440,7 +440,7 @@
     display: flex;
     align-items: center;
     gap: 0.85rem;
-    background: var(--bg-secondary, #f8fafc);
+    background: var(--surface-alt);
     border: 1px solid var(--border-color, #e2e8f0);
     border-radius: 12px;
     padding: 0.65rem 1rem;
@@ -467,7 +467,7 @@
 
 .range-row-label {
     font-weight: 600;
-    color: var(--text-primary, #1e293b);
+    color: var(--text-color);
     flex: 1;
 }
 
@@ -503,7 +503,7 @@
     align-items: flex-end;
     flex-wrap: wrap;
     gap: 1rem;
-    background: var(--bg-secondary, #f8fafc);
+    background: var(--surface-alt);
     border: 1px dashed var(--border-color, #e2e8f0);
     border-radius: 12px;
     padding: 1rem;
@@ -518,7 +518,7 @@
 .range-add-field label {
     font-size: 0.75rem;
     font-weight: 600;
-    color: var(--text-secondary, #64748b);
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.03em;
 }
@@ -528,8 +528,8 @@
     padding: 0.5rem 0.75rem;
     border-radius: 10px;
     border: 1px solid var(--border-color, #e2e8f0);
-    background: white;
-    color: var(--text-primary, #1e293b);
+    background: var(--card-bg);
+    color: var(--text-color);
     font-size: 0.9rem;
 }
 
@@ -546,7 +546,7 @@
     border-radius: 8px;
     border: 1px solid var(--border-color, #e2e8f0);
     cursor: pointer;
-    background: white;
+    background: var(--card-bg);
 }
 
 .range-color-hex {
@@ -554,8 +554,8 @@
     padding: 0.5rem 0.75rem;
     border-radius: 10px;
     border: 1px solid var(--border-color, #e2e8f0);
-    background: white;
-    color: var(--text-primary, #1e293b);
+    background: var(--card-bg);
+    color: var(--text-color);
     font-size: 0.9rem;
     text-transform: uppercase;
 }
@@ -566,7 +566,7 @@
     gap: 6px;
     font-size: 0.9rem;
     font-weight: 600;
-    color: var(--text-primary, #1e293b);
+    color: var(--text-color);
     padding-bottom: 0.6rem;
 }
 
@@ -579,7 +579,7 @@
 .range-cancel-btn {
     background: transparent;
     border: 1px solid var(--border-color, #e2e8f0);
-    color: var(--text-secondary, #64748b);
+    color: var(--text-muted);
     border-radius: 12px;
     padding: 0.75rem 1.25rem;
     font-weight: 600;
@@ -621,8 +621,8 @@
     height: 22px;
     border-radius: 50%;
     border: 1px solid var(--border-color, #e2e8f0);
-    background: var(--bg-secondary, #f8fafc);
-    color: var(--text-secondary, #64748b);
+    background: var(--surface-alt);
+    color: var(--text-muted);
     font-size: 0.8rem;
     font-weight: 700;
     font-style: italic;

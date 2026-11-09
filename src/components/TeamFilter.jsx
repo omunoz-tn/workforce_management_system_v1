@@ -7,13 +7,29 @@ import React, { useState } from 'react';
  *
  * Selection state and persistence stay with the caller — see loadTeamFilter /
  * saveTeamFilter in src/reportPreferences.js.
+ *
+ * The menu will not close with no team selected. An empty selection hides the views that
+ * hold this filter (the Run Rate projection shows only "No teams to project"), so closing
+ * on it left no way back to pick a team.
  */
 const TeamFilter = ({ teams, selectedTeams, onToggle, onSelectAll, onClearAll }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [showMinHint, setShowMinHint] = useState(false);
+
+    const mustPickOne = teams.length > 0 && selectedTeams.size === 0;
+
+    const close = () => {
+        if (mustPickOne) {
+            setShowMinHint(true);
+            return;
+        }
+        setShowMinHint(false);
+        setIsOpen(false);
+    };
 
     return (
         <div className="team-filter-dropdown">
-            <button className={`filter-trigger ${selectedTeams.size < teams.length ? 'has-active' : ''}`} onClick={() => setIsOpen(!isOpen)}>
+            <button className={`filter-trigger ${selectedTeams.size < teams.length ? 'has-active' : ''}`} onClick={() => (isOpen ? close() : setIsOpen(true))}>
                 <span className="filter-icon">🔍</span>
                 <span className="filter-label">
                     {selectedTeams.size === teams.length ? 'All Teams' : `${selectedTeams.size} Selected`}
@@ -23,12 +39,17 @@ const TeamFilter = ({ teams, selectedTeams, onToggle, onSelectAll, onClearAll })
 
             {isOpen && (
                 <>
-                    <div className="dropdown-overlay" onClick={() => setIsOpen(false)} />
+                    <div className="dropdown-overlay" onClick={close} />
                     <div className="dropdown-menu">
                         <div className="dropdown-header">
                             <button onClick={onSelectAll}>Select All</button>
                             <button onClick={onClearAll}>Clear All</button>
                         </div>
+                        {mustPickOne && (
+                            <div className={`dropdown-min-hint ${showMinHint ? 'is-alert' : ''}`}>
+                                Select at least one team.
+                            </div>
+                        )}
                         <div className="team-options">
                             {teams.map(team => (
                                 <label key={team} className="team-option">

@@ -27,6 +27,41 @@ export const getCalendarCells = (anchorDate) => {
     return cells;
 };
 
+/**
+ * Everyone the pickers should list for a team: the employees with Run Rate rows this
+ * month (which includes people DeskTime groups into the team without an assignment), plus
+ * everyone assigned to the team. The month's rows alone missed people with no row in it,
+ * for example someone whose days were all excluded after they left, while the projection
+ * still gave them a shift and there was no way to exclude them.
+ *
+ * Resolves to { employees: [{ employee_id, name }] sorted by name, excludedIds: Set }.
+ * Ids are numbers throughout, so Set lookups match whichever source a row came from.
+ */
+const loadTeamEmployees = async (team) => {
+    const [stats, members, exceptions] = await Promise.all([
+        fetch('./api/get_dashboard_stats.php').then(res => res.json()),
+        fetch(`./api/get_team_members.php?team_id=${team.id}`).then(res => res.json()).catch(() => null),
+        fetch('./api/manage_run_rate_exceptions.php').then(res => res.json()).catch(() => null),
+    ]);
+
+    const byId = new Map();
+    (stats?.mtdEmployeeData || [])
+        .filter(row => row.team_name === team.name)
+        .forEach(row => byId.set(Number(row.employee_id), { employee_id: Number(row.employee_id), name: row.name }));
+    (members?.members || []).forEach(m => {
+        const id = Number(m.employee_id);
+        if (!byId.has(id)) byId.set(id, { employee_id: id, name: m.name });
+    });
+
+    const excludedIds = new Set((exceptions?.excluded_employee_ids || []).map(Number));
+    (stats?.mtdEmployeeData || [])
+        .filter(row => row.team_name === team.name && Number(row.is_excluded))
+        .forEach(row => excludedIds.add(Number(row.employee_id)));
+
+    const employees = [...byId.values()].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    return { employees, excludedIds };
+};
+
 // The single "Exceptions" entry point for a team's Run Rate. Three top-level
 // tabs: "Days Exceptions" (calendar — excludes specific dates, team-wide or
 // for one employee only), "Employees Exceptions" (excludes specific employees
@@ -93,12 +128,10 @@ const RunRateDayExceptionsModal = ({ team, onClose }) => {
         if (dayScope !== 'byEmployee') return;
         let cancelled = false;
         setLoadingDayScopeEmployees(true);
-        fetch('./api/get_dashboard_stats.php')
-            .then(res => res.json())
-            .then(json => {
+        loadTeamEmployees(team)
+            .then(({ employees, excludedIds }) => {
                 if (cancelled) return;
-                const teamRows = (json.mtdEmployeeData || []).filter(row => row.team_name === team.name && !Number(row.is_excluded));
-                setDayScopeEmployees(teamRows.map(row => ({ employee_id: row.employee_id, name: row.name })));
+                setDayScopeEmployees(employees.filter(emp => !excludedIds.has(emp.employee_id)));
             })
             .catch(err => console.error('Failed to load team employees', err))
             .finally(() => { if (!cancelled) setLoadingDayScopeEmployees(false); });
@@ -109,13 +142,11 @@ const RunRateDayExceptionsModal = ({ team, onClose }) => {
         if (topTab !== 'employees' || excEmployeesLoaded) return;
         let cancelled = false;
         setLoadingExcEmployees(true);
-        fetch('./api/get_dashboard_stats.php')
-            .then(res => res.json())
-            .then(json => {
+        loadTeamEmployees(team)
+            .then(({ employees, excludedIds }) => {
                 if (cancelled) return;
-                const teamRows = (json.mtdEmployeeData || []).filter(row => row.team_name === team.name);
-                setExcEmployees(teamRows.map(row => ({ employee_id: row.employee_id, name: row.name })));
-                setExcludedEmployeeIds(new Set(teamRows.filter(row => Number(row.is_excluded)).map(row => row.employee_id)));
+                setExcEmployees(employees);
+                setExcludedEmployeeIds(new Set(employees.filter(emp => excludedIds.has(emp.employee_id)).map(emp => emp.employee_id)));
                 setExcEmployeesLoaded(true);
             })
             .catch(err => console.error('Failed to load run rate exceptions', err))
@@ -149,12 +180,10 @@ const RunRateDayExceptionsModal = ({ team, onClose }) => {
         if (topTab !== 'time' || timeScope !== 'byEmployee' || timeEmployeesLoaded) return;
         let cancelled = false;
         setLoadingTimeEmployees(true);
-        fetch('./api/get_dashboard_stats.php')
-            .then(res => res.json())
-            .then(json => {
+        loadTeamEmployees(team)
+            .then(({ employees }) => {
                 if (cancelled) return;
-                const teamRows = (json.mtdEmployeeData || []).filter(row => row.team_name === team.name);
-                setTimeEmployees(teamRows.map(row => ({ employee_id: row.employee_id, name: row.name })));
+                setTimeEmployees(employees);
                 setTimeEmployeesLoaded(true);
             })
             .catch(err => console.error('Failed to load team employees', err))

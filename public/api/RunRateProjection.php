@@ -12,9 +12,9 @@
  *   - Projected scheduled ($asOf .. to): the shift the Schedule Board projects for each day
  *     (ScheduleProjection.php), billed with the Run Rate's own rules — Time Exception,
  *     Custom window, lunch, Billable %, excluded days — via rrBillProjectedDay().
- *   - Estimated actual: each projected day's scheduled hours times the employee's
- *     compliance rate — how often they show up times how much of the schedule they cover
- *     when they do — learned from the 42 days before $asOf, recent weeks weighing more
+ *   - Estimated actual: the employee's average real hours on that weekday (all their
+ *     Mondays, all their Tuesdays...) over the last 12 weeks, absences left out. When too
+ *     few of that weekday were worked, their scheduled hours times their overall rate
  *     (see complianceRates()).
  *
  * Today counts as projected, not real: its DeskTime total is still accumulating, and
@@ -29,8 +29,17 @@ require_once __DIR__ . '/ScheduleProjection.php';
 require_once __DIR__ . '/EmployeeLunchTimes.php';
 require_once __DIR__ . '/EmployeeRoster.php';
 
-/** Days of history the compliance rate is learned from: 6 of every weekday. */
+/** Days of history an employee's overall rate (their level) is learned from. */
 const RR_PROJECTION_LOOKBACK_DAYS = 42;
+
+/** Days of history the weekday averages are taken from: 12 of every weekday. */
+const RR_PROJECTION_WEEKDAY_LOOKBACK_DAYS = 84;
+
+/**
+ * Worked days of a weekday an employee needs in the window for their own average of that
+ * weekday to be used; with fewer, the day falls back to scheduled hours x overall rate.
+ */
+const RR_PROJECTION_WEEKDAY_MIN_DAYS = 2;
 
 /**
  * A day of history counts half as much every this many days back. The last week weighs
@@ -46,7 +55,6 @@ const RR_PROJECTION_HALF_LIFE_DAYS = 14;
  * carries about 80%.
  */
 const RR_PROJECTION_TEAM_PRIOR_DAYS = 3;
-const RR_PROJECTION_WEEKDAY_PRIOR_DAYS = 2;
 
 /** Bounds on a compliance rate, so one odd week cannot project 3x the hours. */
 const RR_PROJECTION_RATE_MIN = 0.0;
@@ -75,70 +83,80 @@ function rrProjectionClampRate(float $rate): float
 }
 
 /**
- * Compliance rates learned from the Run Rate's own daily rows over the lookback window.
+ * What each employee is expected to work, learned from the Run Rate's own daily rows.
  *
- * The rate is split in two, because the two halves behave differently:
+ *   - Weekday average: the employee's average real hours on each weekday over the last
+ *     RR_PROJECTION_WEEKDAY_LOOKBACK_DAYS (all their Mondays, all their Tuesdays...). A
+ *     projected day gets that average. If the day's scheduled hours differ from what that
+ *     weekday usually had (a half-day holiday, a schedule change), the average is scaled
+ *     by the same proportion. Used when the employee worked at least
+ *     RR_PROJECTION_WEEKDAY_MIN_DAYS of that weekday.
+ *   - Fallback rate: actual / scheduled hours over the last RR_PROJECTION_LOOKBACK_DAYS,
+ *     recency-weighted (RR_PROJECTION_HALF_LIFE_DAYS), blended toward the team, and the
+ *     team toward the organization, when the employee's own evidence is thin. A weekday
+ *     with too few worked days gets scheduled hours x this rate.
  *
- *   rate = attendance x compliance when present
+ * Absences are left out: a scheduled day with no tracked time at all says nothing about
+ * the days to come. A week of vacation or a leave projected the person far below how they
+ * really work once back, so only days with tracked time count. A known future absence is
+ * entered as an excluded employee day, which drops the day from the projection.
  *
- *   - Attendance: the share of scheduled days the employee showed up at all (tracked any
- *     time). Full-day absences are rare and land on whatever day they land on, so this is
- *     one figure per employee, NOT per weekday. Learned per weekday, two absences on the
- *     Monday and Tuesday of an old week projected every future Monday at 85% while the
- *     same person ran 100% on every day they worked.
- *   - Compliance when present: actual / scheduled hours on the days they did work. This
- *     part does follow the weekday — someone who leaves early on Fridays does it on Fridays.
- *
- * Both are recency-weighted (RR_PROJECTION_HALF_LIFE_DAYS) and blended toward the team, and
- * the team toward the organization, when the employee's own evidence is thin. Days with no
- * scheduled hours say nothing about meeting a schedule and are skipped.
+ * Days with no scheduled hours say nothing about meeting a schedule and are skipped.
+ * Someone with no worked day in the level window (on leave the whole time, or new) takes
+ * their team's rate.
  *
  * Returned as closures over the tallies:
- *   rateFor(employeeId, teamName, isoWeekday) -> float
- *   historyDays(employeeId)                   -> int  (days that had scheduled hours)
- *   employeeRate(employeeId, teamName)        -> float
+ *   estimateFor(employeeId, teamName, isoWeekday, scheduledHours) -> float hours
+ *   historyDays(employeeId)             -> int  (days worked in the level window)
+ *   employeeRate(employeeId, teamName)  -> float
+ * plus weekdayHistory: team -> ISO weekday -> [actual, scheduled] hours over the weekday
+ * window, absences included (the real Run Rate by weekday, for the recommendations).
  */
 function complianceRates(PDO $pdo, string $asOf, string $extraWhere, array $extraParams): array
 {
-    $lookbackFrom = date('Y-m-d', strtotime($asOf . ' -' . RR_PROJECTION_LOOKBACK_DAYS . ' days'));
+    $levelFrom = date('Y-m-d', strtotime($asOf . ' -' . RR_PROJECTION_LOOKBACK_DAYS . ' days'));
+    $lookbackDays = max(RR_PROJECTION_LOOKBACK_DAYS, RR_PROJECTION_WEEKDAY_LOOKBACK_DAYS);
+    $lookbackFrom = date('Y-m-d', strtotime($asOf . ' -' . $lookbackDays . ' days'));
     $lookbackTo = date('Y-m-d', strtotime($asOf . ' -1 day'));
 
     $stmt = $pdo->prepare(rrDailyRowsSql($extraWhere));
     $stmt->execute(['from' => $lookbackFrom, 'to' => $lookbackTo] + $extraParams);
 
-    // Attendance tally: [weighted days present, weighted days scheduled, days scheduled].
-    // Presence tally:   [weighted actual hours, weighted scheduled hours, weighted days].
-    $attend = ['emp' => [], 'team' => [], 'all' => [0.0, 0.0, 0]];
-    $presence = ['emp' => [], 'wd' => [], 'team' => [], 'all' => [0.0, 0.0, 0.0]];
+    // Level tally: [weighted actual hours, weighted scheduled hours, weighted days, days].
+    $tally = ['emp' => [], 'team' => [], 'all' => [0.0, 0.0, 0.0, 0]];
+    // Per employee and ISO weekday, worked days only: [actual hours, scheduled hours, days].
+    $weekdayTally = [];
+    // The real Run Rate per team and weekday, absences included: [actual, scheduled].
+    $weekdayHistory = [];
     $seenDay = [];  // an employee on two teams yields two rows per day; count the day once
     $asOfTs = strtotime($asOf);
 
-    $addAttend = function (?array $t, float $w, bool $present): array {
-        $t = $t ?? [0.0, 0.0, 0];
-        return [$t[0] + ($present ? $w : 0.0), $t[1] + $w, $t[2] + 1];
-    };
-    $addPresence = function (?array $t, float $w, float $actual, float $adj): array {
-        $t = $t ?? [0.0, 0.0, 0.0];
-        return [$t[0] + $w * $actual, $t[1] + $w * $adj, $t[2] + $w];
+    $add = function (?array $t, float $w, float $actual, float $adj): array {
+        $t = $t ?? [0.0, 0.0, 0.0, 0];
+        return [$t[0] + $w * $actual, $t[1] + $w * $adj, $t[2] + $w, $t[3] + 1];
     };
 
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         $adj = max(0.0, (float) $row['daily_scheduled'] - (float) $row['lunch_deduction_hours']);
-        if ($adj <= 0) {
+        $actual = (float) $row['daily_actual'];
+        if ($adj > 0) {
+            $histWd = projectionIsoWeekday($row['log_date']);
+            $histTeam = (string) $row['team_name'];
+            $weekdayHistory[$histTeam][$histWd][0] = ($weekdayHistory[$histTeam][$histWd][0] ?? 0.0) + $actual;
+            $weekdayHistory[$histTeam][$histWd][1] = ($weekdayHistory[$histTeam][$histWd][1] ?? 0.0) + $adj;
+        }
+        if ($adj <= 0 || $actual <= 0) {
             continue;
         }
         $id = (int) $row['employee_id'];
-        $actual = (float) $row['daily_actual'];
-        $present = $actual > 0;
+        $inLevel = $row['log_date'] >= $levelFrom;
         $ageDays = max(1, (int) round(($asOfTs - strtotime($row['log_date'])) / 86400));
         $w = pow(0.5, $ageDays / RR_PROJECTION_HALF_LIFE_DAYS);
         $teamName = (string) $row['team_name'];
 
-        $attend['team'][$teamName] = $addAttend($attend['team'][$teamName] ?? null, $w, $present);
-        $attend['all'] = $addAttend($attend['all'], $w, $present);
-        if ($present) {
-            $presence['team'][$teamName] = $addPresence($presence['team'][$teamName] ?? null, $w, $actual, $adj);
-            $presence['all'] = $addPresence($presence['all'], $w, $actual, $adj);
+        if ($inLevel) {
+            $tally['team'][$teamName] = $add($tally['team'][$teamName] ?? null, $w, $actual, $adj);
+            $tally['all'] = $add($tally['all'], $w, $actual, $adj);
         }
 
         $dayKey = $id . '|' . $row['log_date'];
@@ -147,12 +165,12 @@ function complianceRates(PDO $pdo, string $asOf, string $extraWhere, array $extr
         }
         $seenDay[$dayKey] = true;
 
-        $attend['emp'][$id] = $addAttend($attend['emp'][$id] ?? null, $w, $present);
-        if ($present) {
-            $wd = projectionIsoWeekday($row['log_date']);
-            $presence['emp'][$id] = $addPresence($presence['emp'][$id] ?? null, $w, $actual, $adj);
-            $presence['wd'][$id][$wd] = $addPresence($presence['wd'][$id][$wd] ?? null, $w, $actual, $adj);
+        if ($inLevel) {
+            $tally['emp'][$id] = $add($tally['emp'][$id] ?? null, $w, $actual, $adj);
         }
+        $wd = projectionIsoWeekday($row['log_date']);
+        $t = $weekdayTally[$id][$wd] ?? [0.0, 0.0, 0];
+        $weekdayTally[$id][$wd] = [$t[0] + $actual, $t[1] + $adj, $t[2] + 1];
     }
 
     // (evidence * own + weight * prior) / (evidence + weight), or the prior alone.
@@ -162,50 +180,39 @@ function complianceRates(PDO $pdo, string $asOf, string $extraWhere, array $extr
         }
         return ($evidence * $own + $priorWeight * $prior) / ($evidence + $priorWeight);
     };
-    $attendRatio = function (?array $t): ?float {
-        return $t && $t[1] > 0 ? $t[0] / $t[1] : null;
-    };
-    $presenceRatio = function (?array $t): ?float {
+    $ratio = function (?array $t): ?float {
         return $t && $t[1] > 0 ? rrProjectionClampRate($t[0] / $t[1]) : null;
     };
 
     // With no history at all there is nothing to learn from; assume the schedule is met
     // and let the confidence figure say how little that is worth.
-    $globalAttend = $attendRatio($attend['all']) ?? 1.0;
-    $globalPresence = $presenceRatio($presence['all']) ?? 1.0;
+    $globalRate = $ratio($tally['all']) ?? 1.0;
 
-    $teamAttend = function (string $team) use ($attend, $attendRatio, $blend, $globalAttend): float {
-        $t = $attend['team'][$team] ?? null;
-        return $blend($attendRatio($t), $t[1] ?? 0.0, $globalAttend, RR_PROJECTION_TEAM_PRIOR_DAYS);
+    $teamRate = function (string $team) use ($tally, $ratio, $blend, $globalRate): float {
+        $t = $tally['team'][$team] ?? null;
+        return $blend($ratio($t), $t[2] ?? 0.0, $globalRate, RR_PROJECTION_TEAM_PRIOR_DAYS);
     };
-    $teamPresence = function (string $team) use ($presence, $presenceRatio, $blend, $globalPresence): float {
-        $t = $presence['team'][$team] ?? null;
-        return $blend($presenceRatio($t), $t[2] ?? 0.0, $globalPresence, RR_PROJECTION_TEAM_PRIOR_DAYS);
-    };
-    $employeeAttend = function (int $id, string $team) use ($attend, $attendRatio, $blend, $teamAttend): float {
-        $t = $attend['emp'][$id] ?? null;
-        return $blend($attendRatio($t), $t[1] ?? 0.0, $teamAttend($team), RR_PROJECTION_TEAM_PRIOR_DAYS);
-    };
-    $employeePresence = function (int $id, string $team) use ($presence, $presenceRatio, $blend, $teamPresence): float {
-        $t = $presence['emp'][$id] ?? null;
-        return $blend($presenceRatio($t), $t[2] ?? 0.0, $teamPresence($team), RR_PROJECTION_TEAM_PRIOR_DAYS);
+    $employeeRate = function (int $id, string $team) use ($tally, $ratio, $blend, $teamRate): float {
+        $t = $tally['emp'][$id] ?? null;
+        return rrProjectionClampRate($blend($ratio($t), $t[2] ?? 0.0, $teamRate($team), RR_PROJECTION_TEAM_PRIOR_DAYS));
     };
 
-    $employeeRate = function (int $id, string $team) use ($employeeAttend, $employeePresence): float {
-        return rrProjectionClampRate($employeePresence($id, $team) * $employeeAttend($id, $team));
+    // The weekday's average hours, scaled when the day's schedule differs from that
+    // weekday's usual one: (actual / days) x (scheduled / (weekday scheduled / days)).
+    $estimateFor = function (int $id, string $team, int $wd, float $scheduled) use ($weekdayTally, $employeeRate): float {
+        $t = $weekdayTally[$id][$wd] ?? null;
+        if ($t && $t[2] >= RR_PROJECTION_WEEKDAY_MIN_DAYS && $t[1] > 0) {
+            $avgActual = $t[0] / $t[2];
+            $avgScheduled = $t[1] / $t[2];
+            return $avgActual * ($scheduled / $avgScheduled);
+        }
+        return $scheduled * $employeeRate($id, $team);
+    };
+    $historyDays = function (int $id) use ($tally): int {
+        return (int) ($tally['emp'][$id][3] ?? 0);
     };
 
-    $rateFor = function (int $id, string $team, int $wd) use ($presence, $presenceRatio, $blend, $employeeAttend, $employeePresence): float {
-        $t = $presence['wd'][$id][$wd] ?? null;
-        $weekdayPresence = $blend($presenceRatio($t), $t[2] ?? 0.0, $employeePresence($id, $team), RR_PROJECTION_WEEKDAY_PRIOR_DAYS);
-        return rrProjectionClampRate($weekdayPresence * $employeeAttend($id, $team));
-    };
-
-    $historyDays = function (int $id) use ($attend): int {
-        return (int) ($attend['emp'][$id][2] ?? 0);
-    };
-
-    return compact('rateFor', 'historyDays', 'employeeRate');
+    return compact('estimateFor', 'historyDays', 'employeeRate', 'weekdayHistory');
 }
 
 /**
@@ -277,6 +284,7 @@ function computeRunRateProjection(PDO $pdo, string $from, string $to, array $opt
 
     $teamDates = [];
     $daily = [];
+    $weekdayHistoryOut = [];
 
     // ── From $asOf on: projected ───────────────────────────────────────────────
     if ($projFrom <= $to) {
@@ -341,6 +349,14 @@ function computeRunRateProjection(PDO $pdo, string $from, string $to, array $opt
         // RBAC applies to the history too, so a restricted user's team rates are not
         // learned from teams they cannot see.
         $rates = complianceRates($pdo, $asOf, $extraWhere, []);
+        foreach ($rates['weekdayHistory'] as $histTeam => $byWd) {
+            foreach ($byWd as $histWd => [$histActual, $histScheduled]) {
+                $weekdayHistoryOut[$histTeam][$histWd] = [
+                    'actual' => round($histActual, 2),
+                    'scheduled' => round($histScheduled, 2),
+                ];
+            }
+        }
         $projDates = rrProjectionDates($projFrom, $to);
 
         foreach ($roster as $r) {
@@ -387,8 +403,8 @@ function computeRunRateProjection(PDO $pdo, string $from, string $to, array $opt
                 if ($bill['scheduled'] <= 0 && $bill['lunch'] <= 0) {
                     continue;
                 }
-                $rate = $rates['rateFor']($id, $team, $wd);
-                $estimated = $adjusted * $rate;
+                $estimated = $adjusted > 0 ? $rates['estimateFor']($id, $team, $wd, $adjusted) : 0.0;
+                $rate = $adjusted > 0 ? $estimated / $adjusted : 0.0;
 
                 $row['projected_scheduled'] += $bill['scheduled'];
                 $row['projected_lunch'] += $bill['lunch'];
@@ -459,6 +475,10 @@ function computeRunRateProjection(PDO $pdo, string $from, string $to, array $opt
         'projected_from' => $projFrom <= $to ? $projFrom : null,
         'data' => array_values($rows),
         'team_dates' => (object) $teamDatesOut,
+        // Real Run Rate by team and ISO weekday (1 = Monday) over the last
+        // RR_PROJECTION_WEEKDAY_LOOKBACK_DAYS, absences included.
+        'weekday_history' => (object) $weekdayHistoryOut,
+        'weekday_history_days' => RR_PROJECTION_WEEKDAY_LOOKBACK_DAYS,
     ];
     if (!empty($opts['daily'])) {
         $result['daily'] = $daily;

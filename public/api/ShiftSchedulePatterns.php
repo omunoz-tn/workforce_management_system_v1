@@ -112,13 +112,25 @@ function fetchShiftPatternsForRange(PDO $pdo, string $from, string $to): array
  */
 function resolveShiftSignature(array $versions, string $dateStr): ?string
 {
+    $resolved = resolveShiftVersion($versions, $dateStr);
+    return $resolved === null ? null : $resolved['signature'];
+}
+
+/**
+ * Same as resolveShiftSignature(), plus the winning version's effective_start, which is the
+ * date its times were written for (Daylight Saving measures from it).
+ *
+ * @return array{signature:string,effective_start:string}|null
+ */
+function resolveShiftVersion(array $versions, string $dateStr): ?array
+{
     foreach ($versions as $version) {
         if ($dateStr < $version['effective_start'] || $dateStr > $version['effective_end']) {
             continue;
         }
         $weekday = (int) (new DateTime($dateStr))->format('N');
         $signature = $version['pattern'][$weekday] ?? $version['pattern'][(string) $weekday] ?? null;
-        return $signature ?: 'OFF';
+        return ['signature' => $signature ?: 'OFF', 'effective_start' => $version['effective_start']];
     }
     return null;
 }

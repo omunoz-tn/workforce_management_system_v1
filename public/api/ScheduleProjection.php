@@ -23,9 +23,14 @@
  * it. It defaults to today, which is what the board uses. The Run Rate backtest passes a
  * past date so a month can be projected the way it would have been on its first day,
  * without seeing any of the data it is being compared against.
+ *
+ * For employees with Daylight Saving on, every tier's shift is moved by the hour the US
+ * clocks changed between the date that shift comes from and the day being projected
+ * (DaylightSaving.php). Each tier records that source date next to its shift.
  */
 
 require_once __DIR__ . '/ShiftSchedulePatterns.php';
+require_once __DIR__ . '/DaylightSaving.php';
 
 /**
  * A DeskTime shift the rest of the platform treats as real: both ends set, end after start.
@@ -60,7 +65,11 @@ function loadScheduleProjection(PDO $pdo, array $employeeIds, string $from, stri
     $ctx = [
         'asOf' => $asOf,
         'weekdayPattern' => [],
+        // employee => ISO weekday => the latest date that weekday's shift was seen.
+        'weekdayPatternSource' => [],
         'tier2' => [],
+        // employee_id => true, for those with Daylight Saving on.
+        'daylightSaving' => [],
         'overrides' => [],
         'overrideSignature' => [],
         'shiftPatterns' => [],
@@ -94,14 +103,17 @@ function loadScheduleProjection(PDO $pdo, array $employeeIds, string $from, stri
 
     $idList = implode(',', $employeeIds);
 
+    $ctx['daylightSaving'] = fetchDaylightSavingEmployees($pdo, $employeeIds);
+
     // Tier 2: each employee's all-time most used valid shift, from history before $asOf.
     // Ties go to the shift used most recently, the same rule weekdayModeShiftSql() uses.
     $stmt = $pdo->prepare("
-        SELECT employee_id, work_starts, work_ends
+        SELECT employee_id, work_starts, work_ends, last_date
         FROM (
             SELECT employee_id,
                    work_starts,
                    work_ends,
+                   MAX(log_date) AS last_date,
                    ROW_NUMBER() OVER (
                        PARTITION BY employee_id
                        ORDER BY COUNT(*) DESC, MAX(log_date) DESC
@@ -118,7 +130,11 @@ function loadScheduleProjection(PDO $pdo, array $employeeIds, string $from, stri
     ");
     $stmt->execute(['asOf' => $asOf]);
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $ctx['tier2'][(int) $row['employee_id']] = ['start' => $row['work_starts'], 'end' => $row['work_ends']];
+        $ctx['tier2'][(int) $row['employee_id']] = [
+            'start' => $row['work_starts'],
+            'end' => $row['work_ends'],
+            'source' => $row['last_date'],
+        ];
     }
 
     // Tier 1: the typical shift (or OFF) for EACH weekday over the 42 days before $asOf —
@@ -206,6 +222,7 @@ function loadScheduleProjection(PDO $pdo, array $employeeIds, string $from, stri
             }
 
             $ctx['weekdayPattern'][$id][$weekday] = $bestSignature; // 'OFF' or 'start|end'
+            $ctx['weekdayPatternSource'][$id][$weekday] = $tally[$bestSignature]['lastDate'];
         }
     }
 
@@ -352,9 +369,15 @@ function projectShift(array $ctx, int $employeeId, ?int $teamId, string $dateStr
     $off = function (bool $manual) {
         return ['start' => '00:00:00', 'end' => '00:00:00', 'manualOverride' => $manual];
     };
-    $fromSignature = function (string $signature, bool $manual) use ($off) {
+    // `$source` is the date the shift was written for or seen on; with Daylight Saving on,
+    // the shift moves by the hour the US clocks changed between it and $dateStr.
+    $dst = isset($ctx['daylightSaving'][$employeeId]);
+    $fromSignature = function (string $signature, bool $manual, ?string $source = null) use ($off, $dst, $dateStr) {
         if ($signature === 'OFF') {
             return $off($manual);
+        }
+        if ($dst && $source !== null) {
+            $signature = shiftSignatureBySeconds($signature, daylightSavingShiftSeconds($dateStr, $source));
         }
         [$start, $end] = explode('|', $signature);
         return ['start' => $start, 'end' => $end, 'manualOverride' => $manual];
@@ -369,27 +392,27 @@ function projectShift(array $ctx, int $employeeId, ?int $teamId, string $dateStr
     $weekday = projectionIsoWeekday($dateStr);
 
     // Tier 0a: a Shift Management version covering this date.
-    $shiftSignature = resolveShiftSignature($ctx['shiftPatterns'][$employeeId] ?? [], $dateStr);
-    if ($shiftSignature !== null) {
-        return $fromSignature($shiftSignature, true);
+    $version = resolveShiftVersion($ctx['shiftPatterns'][$employeeId] ?? [], $dateStr);
+    if ($version !== null) {
+        return $fromSignature($version['signature'], true, $version['effective_start']);
     }
 
     // Tier 0b: the forecast override, while the date's week is within its chosen range.
     $override = $ctx['overrides'][$employeeId] ?? null;
     if ($override && shiftWeekMondayOf($dateStr) <= $override['target_end_week_start']) {
-        return $fromSignature($ctx['overrideSignature'][$employeeId][$weekday] ?? 'OFF', true);
+        return $fromSignature($ctx['overrideSignature'][$employeeId][$weekday] ?? 'OFF', true, $override['source_week_start']);
     }
 
     // Tier 1: the weekday pattern.
     $signature = $ctx['weekdayPattern'][$employeeId][$weekday] ?? null;
     if ($signature !== null) {
-        return $fromSignature($signature, false);
+        return $fromSignature($signature, false, $ctx['weekdayPatternSource'][$employeeId][$weekday] ?? null);
     }
 
     // Tier 2: the all-time most used shift.
     $tier2 = $ctx['tier2'][$employeeId] ?? null;
     if ($tier2) {
-        return ['start' => $tier2['start'], 'end' => $tier2['end'], 'manualOverride' => false];
+        return $fromSignature($tier2['start'] . '|' . $tier2['end'], false, $tier2['source'] ?? null);
     }
 
     return null;

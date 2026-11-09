@@ -109,11 +109,11 @@ const StatReportView = ({ reportId, fromDate, toDate, onBack }) => {
             const allTeams = [...new Set([...data.teamStats.map(t => t.group_name), ...projectionTeams])];
             const saved = loadTeamFilter();
 
-            if (saved !== null) {
-                setSelectedTeams(new Set(saved.filter(t => allTeams.includes(t))));
-            } else {
-                setSelectedTeams(new Set(allTeams));
-            }
+            const kept = saved === null ? [] : saved.filter(t => allTeams.includes(t));
+            // An empty selection hides the filter itself in the projection view, so fall
+            // back to every team rather than restore one (saved before the filter required
+            // a team, or every saved team gone from this range).
+            setSelectedTeams(new Set(kept.length > 0 ? kept : allTeams));
         }
     }, [data, projectionTeams]);
 

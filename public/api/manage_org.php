@@ -3,10 +3,14 @@ header('Content-Type: application/json');
 require_once 'db_wfm_config.php';
 require_once 'TeamHolidayTypes.php';
 require_once 'EmployeeLunchTimes.php';
+require_once 'DaylightSaving.php';
 
 $data = json_decode(file_get_contents('php://input'), true);
 
 try {
+    // Before the transaction: CREATE TABLE commits implicitly in MySQL, so running it from
+    // inside saveDaylightSavingEmployees() would commit half of the batch.
+    ensureEmployeeDaylightSavingTable($pdo);
     $pdo->beginTransaction();
 
     $isBatch = isset($data['batch']) && $data['batch'] === true;
@@ -145,10 +149,21 @@ try {
                 $storedLunchOverrides = saveEmployeeLunchTimes($pdo, $employeeLunchTimes);
             }
 
+            // Daylight Saving (Assign Members > Daylight Saving): employee_id => bool for
+            // every member the page showed. Same absent-key rule; anyone not named keeps
+            // their setting.
+            $daylightSavingTouched = array_key_exists('daylight_saving', $actionObj);
+            $daylightSavingOn = 0;
+            if ($daylightSavingTouched) {
+                $daylightSaving = is_array($actionObj['daylight_saving']) ? $actionObj['daylight_saving'] : [];
+                $daylightSavingOn = saveDaylightSavingEmployees($pdo, $daylightSaving);
+            }
+
             log_audit($pdo, 'team', $id, 'assignment', "Batch update: " . count($employeeIds) . " employees assigned"
                 . ($lunchTime !== null ? ", Lunch Time set to $lunchTime mins" : "")
                 . ($holidayTypesTouched ? ", $storedOverrides holiday type override(s)" : "")
-                . ($lunchTimesTouched ? ", $storedLunchOverrides employee lunch override(s)" : ""));
+                . ($lunchTimesTouched ? ", $storedLunchOverrides employee lunch override(s)" : "")
+                . ($daylightSavingTouched ? ", Daylight Saving on for $daylightSavingOn employee(s)" : ""));
         }
 
         // Handle Managers (if provided in update/create)

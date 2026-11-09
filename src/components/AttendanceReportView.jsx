@@ -92,9 +92,9 @@ const AttendanceReportView = ({ fromDate, toDate, onBack }) => {
             return new Set([...teamOverride].filter(team => availableTeams.includes(team)));
         }
         const saved = loadTeamFilter();
-        return saved !== null
-            ? new Set(saved.filter(team => availableTeams.includes(team)))
-            : new Set(availableTeams);
+        const kept = saved === null ? [] : saved.filter(team => availableTeams.includes(team));
+        // Never restore an empty selection; see StatReportView.
+        return new Set(kept.length > 0 ? kept : availableTeams);
     }, [teamOverride, availableTeams]);
 
     const handleToggleTeam = (team) => {

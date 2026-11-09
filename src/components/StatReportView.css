@@ -227,6 +227,18 @@
     color: var(--accent-color);
 }
 
+.dropdown-min-hint {
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    color: var(--text-secondary, #718096);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.dropdown-min-hint.is-alert {
+    color: #e53e3e;
+    font-weight: 600;
+}
+
 .team-options {
     max-height: 300px;
     overflow-y: auto;

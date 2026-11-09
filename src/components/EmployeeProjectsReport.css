@@ -371,13 +371,13 @@
     cursor: pointer;
 }
 
-.pagination-controls {
+.project-report-view .pagination-controls {
     display: flex;
     align-items: center;
     gap: 1.5rem;
 }
 
-.pagination-controls button {
+.project-report-view .pagination-controls button {
     padding: 0.4rem 1.2rem;
     border: 1px solid #e2e8f0;
     background: white;
@@ -387,12 +387,12 @@
     font-size: 0.9rem;
 }
 
-.pagination-controls button:hover:not(:disabled) {
+.project-report-view .pagination-controls button:hover:not(:disabled) {
     background: #f7fafc;
     border-color: #cbd5e0;
 }
 
-.pagination-controls button:disabled {
+.project-report-view .pagination-controls button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }

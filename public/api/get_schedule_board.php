@@ -254,9 +254,17 @@ try {
             continue;
         }
         foreach ($pastDates as $dateStr) {
-            $signature = resolveShiftSignature($versions, $dateStr);
-            if ($signature === null) {
+            $version = resolveShiftVersion($versions, $dateStr);
+            if ($version === null) {
                 continue;
+            }
+            $signature = $version['signature'];
+            // Daylight Saving moves the version the same way the reports' SQL does.
+            if (isset($projection['daylightSaving'][(int) $id])) {
+                $signature = shiftSignatureBySeconds(
+                    $signature,
+                    daylightSavingShiftSeconds($dateStr, $version['effective_start'])
+                );
             }
             if ($signature === 'OFF') {
                 $emp['schedules'][$dateStr] = [

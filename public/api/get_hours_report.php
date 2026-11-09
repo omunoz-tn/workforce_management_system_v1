@@ -26,12 +26,15 @@ try {
     // Auto-Sync Logic (Smart Refresh) for current day
     $today = date('Y-m-d');
     if ($toDate >= $today) {
-        $syncCheckQuery = "SELECT MAX(updated_at) as last_sync FROM desktime_employee_data WHERE log_date = CURDATE()";
+        $syncCheckQuery = "SELECT TIMESTAMPDIFF(SECOND, MAX(updated_at), NOW()) as sync_age FROM desktime_employee_data WHERE log_date = CURDATE()";
         $stmt = $pdo->query($syncCheckQuery);
         $syncInfo = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        $lastSync = $syncInfo['last_sync'] ? strtotime($syncInfo['last_sync']) : 0;
-        if ((time() - $lastSync) > 600) { // 10 minutes
+        // Age measured on the DB clock: updated_at is written with CURRENT_TIMESTAMP, and the
+        // DB and PHP time zones differ (by an hour since the Nov 1 DST change), which made
+        // every request look stale and run a 30s+ DeskTime sync.
+        $syncAge = $syncInfo['sync_age'] === null ? PHP_INT_MAX : (int) $syncInfo['sync_age'];
+        if ($syncAge > 600) { // 10 minutes
             $syncResult = syncDeskTime($pdo, $env);
             
             // Log the automatic background refresh

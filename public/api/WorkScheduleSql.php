@@ -26,7 +26,19 @@
  * what shift someone was on.
  *
  * Every function returns a SQL expression string; nothing here touches the database.
+ *
+ * A Shift Management version is moved by an hour for employees with Daylight Saving on
+ * (see DaylightSaving.php); DeskTime's own window never is.
  */
+
+require_once __DIR__ . '/DaylightSaving.php';
+
+// The pattern join below reads org_employee_daylight_saving, so the table has to exist
+// before any report runs it. Every caller requires this file at the top level, right after
+// db_wfm_config.php, so $pdo is already there; it runs once per request.
+if (isset($GLOBALS['pdo']) && $GLOBALS['pdo'] instanceof PDO) {
+    ensureEmployeeDaylightSavingTable($GLOBALS['pdo']);
+}
 
 /**
  * Resolves one row per (employee, date) with the shift Scheduling > Shift Management has
@@ -41,16 +53,23 @@
  * matching resolveShiftSignature() in ShiftSchedulePatterns.php. Without the ranking every
  * overlapping version would duplicate the employee's row and double each SUM().
  *
+ * Also exposes `smp.dst_seconds`: what Daylight Saving adds to the version's times on that
+ * date, 0 for everyone without the option. The version is read as written for its
+ * Effective Start, so a summer version shown on a winter day moves +1h (DaylightSaving.php).
+ *
  * Binds the same :from / :to the surrounding query already uses.
  */
 function shiftPatternJoinSql(): string
 {
     return "LEFT JOIN (
-                SELECT employee_id, log_date, signature
+                SELECT employee_id, log_date, signature, dst_seconds
                 FROM (
                     SELECT dd.employee_id,
                            dd.log_date,
                            JSON_UNQUOTE(JSON_EXTRACT(p.pattern, CONCAT('$.\"', WEEKDAY(dd.log_date) + 1, '\"'))) AS signature,
+                           CASE WHEN eds.employee_id IS NULL THEN 0
+                                ELSE (" . usStandardTimeOffsetSql('dd.log_date') . " - " . usStandardTimeOffsetSql('p.effective_start') . ") * 3600
+                           END AS dst_seconds,
                            ROW_NUMBER() OVER (
                                PARTITION BY dd.employee_id, dd.log_date
                                ORDER BY p.effective_start DESC, p.id DESC
@@ -63,6 +82,7 @@ function shiftPatternJoinSql(): string
                     INNER JOIN org_shift_schedule_patterns p
                             ON p.employee_id = dd.employee_id
                            AND dd.log_date BETWEEN p.effective_start AND p.effective_end
+                    LEFT JOIN org_employee_daylight_saving eds ON eds.employee_id = dd.employee_id
                 ) ranked
                 WHERE rn = 1
             ) smp ON smp.employee_id = d.employee_id AND smp.log_date = d.log_date";
@@ -86,7 +106,7 @@ function shiftEffectiveStartSql(string $fallback = 'NULL'): string
     return "CASE
                 WHEN smp.signature = 'OFF' THEN NULL
                 WHEN smp.signature IS NOT NULL
-                THEN CAST(SUBSTRING_INDEX(smp.signature, '|', 1) AS TIME)
+                THEN " . shiftPatternTimeSql("SUBSTRING_INDEX(smp.signature, '|', 1)") . "
                 WHEN d.work_starts != '00:00:00'
                      AND d.work_ends NOT IN ('00:00:00', '23:59:59')
                      AND d.work_ends > d.work_starts
@@ -95,13 +115,24 @@ function shiftEffectiveStartSql(string $fallback = 'NULL'): string
             END";
 }
 
+/**
+ * A time out of a Shift Management signature, moved by the row's Daylight Saving seconds
+ * and kept inside the day, as shiftTimeBySeconds() does in PHP.
+ */
+function shiftPatternTimeSql(string $timeExpr): string
+{
+    return "SEC_TO_TIME(LEAST(86399, GREATEST(0,
+                TIME_TO_SEC(CAST($timeExpr AS TIME)) + COALESCE(smp.dst_seconds, 0)
+            )))";
+}
+
 /** The matching end of that shift. Same three sources, same NULL rules. */
 function shiftEffectiveEndSql(string $fallback = 'NULL'): string
 {
     return "CASE
                 WHEN smp.signature = 'OFF' THEN NULL
                 WHEN smp.signature IS NOT NULL
-                THEN CAST(SUBSTRING_INDEX(smp.signature, '|', -1) AS TIME)
+                THEN " . shiftPatternTimeSql("SUBSTRING_INDEX(smp.signature, '|', -1)") . "
                 WHEN d.work_starts != '00:00:00'
                      AND d.work_ends NOT IN ('00:00:00', '23:59:59')
                      AND d.work_ends > d.work_starts

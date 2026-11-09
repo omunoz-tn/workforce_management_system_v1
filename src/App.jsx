@@ -5,6 +5,7 @@ import appLogo from './assets/logo.png'
 import focusLogo from './assets/focus_logo.svg'
 import './App.css'
 import AllEmployees from './components/AllEmployees'
+import OnlineUsersIndicator from './components/OnlineUsersIndicator';
 import Dashboard from './components/Dashboard'
 import EmployeeRoster from './components/EmployeeRoster'
 import Reports from './components/Reports'
@@ -130,6 +131,21 @@ function App() {
       .catch(() => setBackendStatus('Backend Offline'))
       .finally(() => setIsAuthChecking(false));
   }, [])
+
+  // Presence heartbeat: keeps this user in the admins' "online now" list while a tab is
+  // open (user_presence.php). A tab coming back to the foreground pings at once.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const ping = () => fetch('./api/user_presence.php', { method: 'POST' }).catch(() => {});
+    ping();
+    const timer = setInterval(ping, 60 * 1000);
+    const onVisible = () => { if (document.visibilityState === 'visible') ping(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [isAuthenticated]);
 
   const handleLogout = async () => {
     try {
@@ -452,14 +468,11 @@ function App() {
               )}
             </svg>
           </button>
-          {!isSidebarExpanded && <div className="backend-indicator" title={backendStatus} style={{ 
-            background: backendStatus === 'Connected' ? '#10b981' : '#f59e0b',
-            top: '8px', right: '8px'
-          }}></div>}
-          {isSidebarExpanded && <div className="backend-indicator" title={backendStatus} style={{ 
-            background: backendStatus === 'Connected' ? '#10b981' : '#f59e0b',
-            position: 'static', marginLeft: '10px'
-          }}></div>}
+          <OnlineUsersIndicator
+            backendStatus={backendStatus}
+            isAdmin={Boolean(user?.is_admin)}
+            style={isSidebarExpanded ? { position: 'static', marginLeft: '10px' } : { top: '8px', right: '8px' }}
+          />
         </div>
 
         {/* MENU LIST */}

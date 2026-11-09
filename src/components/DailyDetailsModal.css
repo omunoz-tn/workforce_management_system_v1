@@ -80,7 +80,8 @@
     background: var(--card-bg);
 }
 
-.pag-btn {
+/* Scoped to the controls so a page-wide `.pagination-controls button` rule cannot repaint them. */
+.pagination-controls .pag-btn {
     padding: 6px 16px;
     background: var(--surface-alt);
     border: 1px solid var(--card-border);
@@ -92,13 +93,13 @@
     color: var(--text-color);
 }
 
-.pag-btn:hover:not(:disabled) {
+.pagination-controls .pag-btn:hover:not(:disabled) {
     background: var(--accent-color);
     color: white;
     border-color: var(--accent-color);
 }
 
-.pag-btn:disabled {
+.pagination-controls .pag-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
