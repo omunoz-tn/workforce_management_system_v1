@@ -86,3 +86,25 @@ function team_filter_employee_sql($employeeColumn = 'employee_id') {
     $condition = team_condition_employee_sql($employeeColumn);
     return $condition === '' ? '' : ' AND ' . $condition . ' ';
 }
+
+/**
+ * Stops the request unless the session is logged in and may open at least one of the given
+ * menu items (platform_permissions ids, e.g. 'bonus'). Admins always pass. Use it on
+ * endpoints whose data is not split by team: access to the screen is the whole rule.
+ */
+function require_menu_access(array $menuIds) {
+    if (empty($_SESSION['user_id'])) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'error' => 'Not authenticated']);
+        exit;
+    }
+    if (current_is_admin()) {
+        return;
+    }
+    $granted = is_array($_SESSION['permissions'] ?? null) ? $_SESSION['permissions'] : [];
+    if (!array_intersect($menuIds, $granted)) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'You do not have access to this screen.']);
+        exit;
+    }
+}

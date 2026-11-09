@@ -41,6 +41,9 @@ require_once 'BonusApproval.php';
 require_once 'EmployeeRoster.php';
 
 session_start();
+// The bonus list is not split by team: anyone who can open HR > Bonus sees and edits the
+// whole month (a team-scoped view used to hide rows, including those with no team linked).
+require_menu_access(['bonus']);
 ensureBonusTables($pdo);
 ensureOrgEmployeesTable($pdo);
 
@@ -111,15 +114,9 @@ if ($method === 'GET') {
         $bonusType = bonusRequestType($_GET);
         [$from, $to] = bonusPeriodRange($year, $month);
 
-        // Rows a team-scoped role may not see are dropped here rather than filtered in the
-        // client. A manually added row with no team_id has no team to check against, so it
-        // stays visible only to roles that see every team.
-        $teamCondition = team_condition_sql('b.team_id');
-        $scopeFilter = $teamCondition === '' ? '' : " AND $teamCondition ";
-
         // The rows and every figure derived from them: see bonusMonthRows() in BonusSql.php,
         // which the approval endpoint reads too so the two cannot disagree about the month.
-        $data = bonusMonthRows($pdo, $bonusType, $year, $month, $scopeFilter);
+        $data = bonusMonthRows($pdo, $bonusType, $year, $month);
         $workdays = bonusWorkdays($pdo, $from, $to);
 
         echo json_encode([
@@ -317,11 +314,7 @@ if ($method === 'POST') {
             bonusAssertPeriodEditable($pdo, $bonusType, $year, $month);
             [$sourceYear, $sourceMonth] = bonusPreviousPeriod($year, $month);
 
-            // Same team scoping the list itself gets: a role that cannot see a team must
-            // not be able to copy its rows forward either.
-            $teamCondition = team_condition_sql('b.team_id');
-            $scopeFilter = $teamCondition === '' ? '' : " AND $teamCondition ";
-
+            // The whole previous month, like the list itself (no team scoping).
             $stmt = $pdo->prepare(
                 "SELECT b.employee_id, b.employee_name, b.team_id, b.team_name, b.company_id,
                         b.bonus_amount, b.currency
@@ -329,7 +322,6 @@ if ($method === 'POST') {
                  WHERE b.bonus_type = :bonus_type
                    AND b.period_year = :year
                    AND b.period_month = :month
-                   $scopeFilter
                  ORDER BY b.employee_name"
             );
             $stmt->execute([

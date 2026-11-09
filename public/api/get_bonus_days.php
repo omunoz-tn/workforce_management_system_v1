@@ -22,6 +22,7 @@ require_once 'session_access.php';
 require_once 'BonusSql.php';
 
 session_start();
+require_menu_access(['bonus']);
 
 try {
     if (!isset($_GET['employee_id']) || !is_numeric($_GET['employee_id'])) {
@@ -37,28 +38,6 @@ try {
         http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Invalid period.']);
         exit;
-    }
-
-    // A team-scoped role must not be able to read a day-by-day of somebody outside its
-    // teams just by knowing their id.
-    if (is_team_restricted()) {
-        $teams = current_allowed_teams();
-        $allowed = false;
-        if (!empty($teams)) {
-            $check = $pdo->prepare(
-                'SELECT 1 FROM org_team_assignments
-                 WHERE employee_id = :employee_id
-                   AND team_id IN (' . implode(',', array_map('intval', $teams)) . ')
-                 LIMIT 1'
-            );
-            $check->execute(['employee_id' => $employeeId]);
-            $allowed = $check->fetchColumn() !== false;
-        }
-        if (!$allowed) {
-            http_response_code(403);
-            echo json_encode(['success' => false, 'error' => 'That employee is outside your team access.']);
-            exit;
-        }
     }
 
     [$from, $to] = bonusPeriodRange($year, $month);

@@ -19,6 +19,7 @@ require_once 'session_access.php';
 require_once 'BonusAudit.php';
 
 session_start();
+require_menu_access(['hr-history', 'bonus']);
 
 try {
     ensureBonusAuditTable($pdo);
@@ -41,16 +42,6 @@ try {
     if (isset($_GET['search']) && trim((string) $_GET['search']) !== '') {
         $where[] = '(employee_name LIKE :search OR user_name LIKE :search OR field LIKE :search)';
         $params['search'] = '%' . trim((string) $_GET['search']) . '%';
-    }
-
-    // A team-scoped role sees only entries about employees on its teams. Entries with no
-    // employee at all — a settings change — are platform-wide, so they stay admin-only.
-    if (is_team_restricted()) {
-        $teams = current_allowed_teams();
-        $where[] = empty($teams)
-            ? '1=0'
-            : 'employee_id IN (SELECT employee_id FROM org_team_assignments WHERE team_id IN ('
-                . implode(',', array_map('intval', $teams)) . '))';
     }
 
     $whereSql = empty($where) ? '' : 'WHERE ' . implode(' AND ', $where);
