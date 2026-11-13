@@ -80,6 +80,7 @@ export const MENU_SECTIONS = [
       { id: 'settings-reports', label: 'Reports', permLabel: 'Report Settings' },
       { id: 'settings-scheduling', label: 'Scheduling', permLabel: 'Scheduling Settings' },
       { id: 'settings-hr', label: 'HR', permLabel: 'HR Settings' },
+      { id: 'settings-desktime-api', label: 'Desktime API', permLabel: 'Desktime API (keys)' },
       { id: 'org', label: 'Organization' },
       { id: 'login-mgmt', label: 'User', permLabel: 'User (Users & Roles)' },
       { id: 'shift-types', label: 'Shift Types' },

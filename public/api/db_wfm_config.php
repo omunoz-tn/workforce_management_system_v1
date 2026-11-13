@@ -55,4 +55,8 @@ try {
     echo json_encode(['error' => 'Database connection failed: ' . $e->getMessage()]);
     exit;
 }
+
+// 3. DeskTime API keys: the ones saved in Configuration > Desktime API replace the .env's.
+require_once __DIR__ . '/DesktimeApiKeys.php';
+desktimeApplyConfiguredApiKeys($pdo, $env);
 ?>

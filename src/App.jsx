@@ -22,6 +22,7 @@ import SaveProjects from './components/SaveProjects'
 import ReportSettings from './components/ReportSettings'
 import ScheduleSettings from './components/ScheduleSettings'
 import HRSettings from './components/HRSettings'
+import DesktimeApiSettings from './components/DesktimeApiSettings'
 import ScheduleBoard from './components/ScheduleBoard'
 import ShiftManagement from './components/ShiftManagement'
 import Login from './components/Login'
@@ -479,19 +480,30 @@ function App() {
         <div className="menu-list" style={{ marginTop: '20px', flex: 1 }}>
           {filteredMenuItems.map((item) => {
             const isItemActive = currentView === item.id || item.submenu.some(sub => sub.id === currentView);
-            const isSubmenuOpen = activeMenu === item.id || isItemActive;
+            // Submenus open only on click (not on hover, not because the current view is in
+            // them); one open at a time.
+            const isSubmenuOpen = activeMenu === item.id;
 
             return (
               <div
                 key={item.id}
-                className={`menu-item ${isItemActive ? 'active' : ''}`}
-                onMouseEnter={() => setActiveMenu(item.id)}
-                onMouseLeave={() => setActiveMenu(null)}
+                className={`menu-item ${isItemActive ? 'active' : ''}${isSubmenuOpen ? ' is-open' : ''}`}
               >
                 <div
                   className="menu-item-header"
-                  onClick={() => item.submenu.length === 0 && handleNavClick(item.id)}
-                  style={{ cursor: item.submenu.length === 0 ? 'pointer' : 'default' }}
+                  onClick={() => {
+                    if (item.submenu.length === 0) {
+                      handleNavClick(item.id);
+                    } else if (!isSidebarExpanded) {
+                      // Collapsed sidebar cannot show a submenu: expand it and open this one.
+                      setIsSidebarExpanded(true);
+                      setActiveMenu(item.id);
+                    } else {
+                      setActiveMenu(prev => (prev === item.id ? null : item.id));
+                    }
+                  }}
+                  aria-expanded={item.submenu.length > 0 ? isSubmenuOpen : undefined}
+                  style={{ cursor: 'pointer' }}
                 >
                   <span className="menu-icon">{item.icon}</span>
                   <span className="sidebar-label">{item.label}</span>
@@ -637,6 +649,8 @@ function App() {
           <ScheduleSettings />
         ) : currentView === 'settings-hr' ? (
           <HRSettings />
+        ) : currentView === 'settings-desktime-api' ? (
+          <DesktimeApiSettings />
         ) : currentView === 'login-mgmt' ? (
           <LoginManagement />
         ) : currentView === 'change-password' ? (

@@ -182,10 +182,8 @@ function autoSyncRunDay(PDO $pdo, array $env, $date)
 
     // 2. Sync Project Data (Employee Project Report)
     // Using optimized single-day logic
-    $accounts = [
-        'TN' => $env['DESKTIME_API_KEY_TN'] ?? null,
-        'BAY' => $env['DESKTIME_API_KEY_BAY'] ?? null
-    ];
+    // Every configured account (Configuration > Desktime API, else .env).
+    $accounts = desktimeAccounts($env);
 
     foreach ($accounts as $accName => $apiKey) {
         if (!$apiKey) continue;

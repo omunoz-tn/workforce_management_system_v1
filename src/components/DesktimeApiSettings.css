@@ -1,0 +1,146 @@
+/* Configuration > Desktime API. Screen shell comes from ScheduleBoard.css and
+   ScheduleForecastSettings.css, like the other Configuration screens. */
+
+.dtapi-source {
+    display: inline-block;
+    margin-bottom: 12px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    background: rgba(245, 158, 11, 0.12);
+    color: #b45309;
+}
+
+.dtapi-source.is-config {
+    background: rgba(16, 185, 129, 0.12);
+    color: #047857;
+}
+
+.dark .dtapi-source { color: #fbbf24; }
+.dark .dtapi-source.is-config { color: #34d399; }
+
+.dtapi-textarea {
+    display: block;
+    width: 100%;
+    max-width: 760px;
+    box-sizing: border-box;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-color);
+    color: var(--text-color);
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 0.88rem;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    white-space: pre;
+    overflow-x: auto;
+}
+
+.dtapi-textarea:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(253, 100, 28, 0.1);
+}
+
+.dtapi-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.dtapi-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.dtapi-btn:hover:not(:disabled) {
+    border-color: var(--accent-color);
+}
+
+.dtapi-btn.is-primary {
+    border-color: var(--accent-color);
+    background: var(--accent-color);
+    color: #fff;
+}
+
+.dtapi-btn.is-primary:hover:not(:disabled) {
+    background: #e05315;
+}
+
+.dtapi-btn.is-link {
+    border-color: transparent;
+    background: transparent;
+    color: var(--accent-color);
+}
+
+.dtapi-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.dtapi-dirty {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-style: italic;
+}
+
+.dtapi-banner {
+    max-width: 760px;
+    margin-top: 12px;
+    padding: 0.6rem 0.9rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+}
+
+.dtapi-banner.is-error {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+}
+
+.dtapi-banner.is-info {
+    background: rgba(16, 185, 129, 0.1);
+    color: #047857;
+}
+
+.dark .dtapi-banner.is-error { color: #f87171; }
+.dark .dtapi-banner.is-info { color: #34d399; }
+
+.dtapi-results {
+    list-style: none;
+    max-width: 760px;
+    margin: 12px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.dtapi-results li {
+    display: flex;
+    gap: 10px;
+    padding: 0.5rem 0.9rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+}
+
+.dtapi-results li.is-ok { background: rgba(16, 185, 129, 0.1); color: #047857; }
+.dtapi-results li.is-bad { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
+.dark .dtapi-results li.is-ok { color: #34d399; }
+.dark .dtapi-results li.is-bad { color: #f87171; }
+
+.forecast-settings-section code {
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 0.85em;
+}

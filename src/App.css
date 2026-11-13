@@ -169,7 +169,6 @@ body {
 }
 
 /* Show submenu when active */
-.menu-item:hover .submenu,
 .menu-item .submenu[style*="block"] {
   display: block;
 }
@@ -234,6 +233,12 @@ body {
 
 .submenu-arrow {
   margin-left: auto;
+  transform: rotate(-90deg);
+  transition: transform 0.2s ease;
+}
+
+.menu-item.is-open .submenu-arrow {
+  transform: rotate(0deg);
 }
 
 .theme-toggle {

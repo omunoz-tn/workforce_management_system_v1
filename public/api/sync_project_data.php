@@ -15,10 +15,8 @@ try {
     $fromDate = isset($_GET['from']) ? $_GET['from'] : date('Y-m-d');
     $toDate = isset($_GET['to']) ? $_GET['to'] : $fromDate;
 
-    $accounts = [
-        'TN' => $env['DESKTIME_API_KEY_TN'] ?? null,
-        'BAY' => $env['DESKTIME_API_KEY_BAY'] ?? null
-    ];
+    // Every configured account (Configuration > Desktime API, else .env).
+    $accounts = desktimeAccounts($env);
 
     $totalProcessed = 0;
     $syncLog = [];

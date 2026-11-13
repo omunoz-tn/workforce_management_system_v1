@@ -4,6 +4,7 @@
  * Core function for synchronizing local database with live data from DeskTime API.
  */
 require_once __DIR__ . '/EmployeeRoster.php';
+require_once __DIR__ . '/DesktimeApiKeys.php';
 
 /**
  * Folds a syncDeskTime() result into the three numbers every caller logs: how many rows
@@ -69,10 +70,8 @@ function syncDeskTime($pdo, $env, $date = null)
         'skipped_records' => 0
     ];
 
-    $accounts = [
-        'TN' => $env['DESKTIME_API_KEY_TN'] ?? null,
-        'BAY' => $env['DESKTIME_API_KEY_BAY'] ?? null
-    ];
+    // Every configured account (Configuration > Desktime API, else .env).
+    $accounts = desktimeAccounts($env);
 
     $isFirstAccount = true;
     foreach ($accounts as $accountName => $apiKey) {
